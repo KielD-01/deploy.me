@@ -97,7 +97,8 @@ doesn't wait for `make migrate`.
   `ProbeServer` runs on `redis-probes`, the scheduler dispatches due probes each minute,
   and `ServerProbed` updates open pages over Reverb. A scheduled probe retries once on a
   dropped connection; after a failure the server is probed again within a minute.
-  Scheduled probes start at second `deployme.probe.second` (30) of the minute, clear of the
+  Scheduled probes start at second `deployme.probe.second` (30) of the minute plus five
+  seconds per server id modulo six (30-55, so they don't all land together), clear of the
   cron jobs and Laravel schedulers that start on it (a burst of PHP boots on every fifth
   minute read as 100% CPU), and `next_probe_at` is rounded down to the minute so that wait
   doesn't stretch the interval.

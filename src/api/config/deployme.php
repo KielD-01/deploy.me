@@ -86,8 +86,11 @@ return [
     'probe' => [
         'default_interval' => 300,
         // The second of the minute scheduled probes start at, clear of the cron jobs
-        // that start on the minute.
+        // that start on the minute. Each server's probe starts up to `spread` steps of
+        // `spread_step` seconds later (its id modulo `spread`), so they don't all land at once.
         'second' => 30,
+        'spread' => 6,
+        'spread_step' => 5,
         // A deploy-path filesystem this full marks the server as degraded.
         'disk_warning_pct' => 90,
     ],

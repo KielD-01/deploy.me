@@ -55,3 +55,11 @@ it('gives folder syncs a worker of their own, so a long sync never holds up a de
     expect($served)->toContain($queueOf($sync), $queueOf($deploy))
         ->and($queueOf($sync))->not->toBe($queueOf($deploy));
 });
+
+it('runs four workers for the probes and health checks every minute brings', function () {
+    $conf = (string) file_get_contents(supervisorQueuesConf());
+
+    preg_match('/\[program:probes\].*?numprocs=(\d+)/s', $conf, $match);
+
+    expect((int) ($match[1] ?? 0))->toBe(4);
+});

@@ -199,7 +199,36 @@ it('starts scheduled probes in the middle of the minute, clear of the cron jobs 
 
     app(DispatchDueProbes::class)();
 
-    Queue::assertPushed(ProbeServer::class, fn ($job) => $job->delay->equalTo(Carbon::parse('2026-10-15 17:10:30')));
+    Queue::assertPushed(ProbeServer::class, fn ($job) => $job->delay->greaterThanOrEqualTo(Carbon::parse('2026-10-15 17:10:30')) && $job->delay->lessThan(Carbon::parse('2026-10-15 17:10:56')));
+});
+
+it('spreads the scheduled probes over seconds 30 to 55 by server id', function () {
+    Queue::fake();
+    $this->travelTo(Carbon::parse('2026-10-15 17:10:02'));
+    $servers = Server::factory()->count(8)->create(['next_probe_at' => now()->subMinute()]);
+
+    app(DispatchDueProbes::class)();
+
+    $seconds = $servers->mapWithKeys(fn ($server) => [$server->id => 30 + ($server->id % 6) * 5]);
+
+    foreach ($servers as $server) {
+        Queue::assertPushed(ProbeServer::class, fn ($job) => $job->serverId === $server->id
+            && $job->delay->equalTo(Carbon::parse('2026-10-15 17:10:00')->addSeconds($seconds[$server->id])));
+    }
+
+    // Eight servers, six steps: every step is used, none is the minute's boundary.
+    expect($seconds->unique()->sort()->values()->all())->toBe([30, 35, 40, 45, 50, 55]);
+});
+
+it('keeps a spread probe inside its minute whatever the configuration says', function () {
+    config(['deployme.probe.second' => 58]);
+
+    expect(DispatchDueProbes::second(5))->toBe(59)
+        ->and(DispatchDueProbes::second(0))->toBe(58);
+
+    config(['deployme.probe.second' => 0, 'deployme.probe.spread' => 1]);
+
+    expect(DispatchDueProbes::second(7))->toBe(1);
 });
 
 it('counts the next probe from the minute that starts it, so the interval doesn’t stretch', function () {
