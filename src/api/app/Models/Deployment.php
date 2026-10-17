@@ -133,15 +133,16 @@ class Deployment extends Model
     }
 
     /**
-     * Log lines after a sequence number, oldest first.
+     * Log lines after a sequence number, oldest first; only one step's, given its key.
      *
      * @return Collection<int, object{seq: int, step_key: ?string, stream: string, line: string, logged_at: string}>
      */
-    public function logLines(int $afterSeq = 0, int $limit = 2000): Collection
+    public function logLines(int $afterSeq = 0, int $limit = 2000, ?string $step = null): Collection
     {
         return DB::table('deployment_logs')
             ->where('deployment_id', $this->id)
             ->where('seq', '>', $afterSeq)
+            ->when($step !== null, fn ($query) => $query->where('step_key', $step))
             ->orderBy('seq')
             ->limit($limit)
             ->get(['seq', 'step_key', 'stream', 'line', 'logged_at']);

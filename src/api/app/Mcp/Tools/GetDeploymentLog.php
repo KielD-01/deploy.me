@@ -41,11 +41,8 @@ class GetDeploymentLog extends Tool
         $step = $this->string($arguments, 'step');
         $limit = $this->int($arguments, 'limit', 200, max: self::MAX);
 
-        // Read past the limit when filtering, so a step's lines aren't cut short by other steps'.
-        $lines = $run->logLines($this->int($arguments, 'after', 0, min: 0), $step !== null ? self::MAX * 5 : $limit)
-            ->when($step !== null, fn ($lines) => $lines->where('step_key', $step))
-            ->take($limit)
-            ->values();
+        // The step is picked in the query: other steps' lines before it can't hide it.
+        $lines = $run->logLines($this->int($arguments, 'after', 0, min: 0), $limit, $step)->values();
 
         return [
             'run' => $run->id,

@@ -147,6 +147,26 @@ it('explains a run with its steps and the end of its log', function () {
         ->and(mcpCall(new McpServer, 'list_deployments', ['status' => 'broken'])['error'])->toBeTrue();
 });
 
+it('finds a step’s log lines however many lines other steps wrote before them', function () {
+    $target = mcpTarget();
+    $run = Deployment::factory()->create(['target_id' => $target->id, 'kind' => DeploymentKind::Deploy, 'status' => DeploymentStatus::Failed, 'log_lines' => 6002]);
+
+    // A chatty upload, then the health check.
+    $rows = array_map(fn (int $seq) => ['deployment_id' => $run->id, 'seq' => $seq, 'step_key' => 'upload', 'stream' => 'out', 'line' => "file {$seq}", 'logged_at' => now()], range(1, 6000));
+    foreach (array_chunk($rows, 1000) as $chunk) {
+        DB::table('deployment_logs')->insert($chunk);
+    }
+    DB::table('deployment_logs')->insert([
+        ['deployment_id' => $run->id, 'seq' => 6001, 'step_key' => 'health', 'stream' => 'out', 'line' => 'curl: 502', 'logged_at' => now()],
+        ['deployment_id' => $run->id, 'seq' => 6002, 'step_key' => 'health', 'stream' => 'out', 'line' => 'gave up', 'logged_at' => now()],
+    ]);
+
+    $health = mcpCall(new McpServer, 'get_deployment_log', ['run' => (string) $run->id, 'step' => 'health'])['data'];
+
+    expect(array_column($health['lines'], 'line'))->toBe(['curl: 502', 'gave up'])
+        ->and($health['next_after'])->toBe(6002);
+});
+
 it('deploys a project to its only server, as the person who uses deploy.me', function () {
     $user = User::factory()->create();
     mcpTarget();
