@@ -26,6 +26,9 @@ final class BackupDatabase implements Step
 {
     public const KEEP = 5;
 
+    // A database name the dump's file can be named after.
+    public const NAME = '/^[A-Za-z0-9_][A-Za-z0-9_-]*$/';
+
     // deploy-db-backup.sh: pg_dump was refused by row-level security.
     private const ROW_SECURITY = 41;
 
@@ -53,6 +56,13 @@ final class BackupDatabase implements Step
         /** @var array{container: string, database: string, username: string, password: string, source: string} $database */
         $database = self::database($context->project);
         $keep = self::keep($context->project);
+
+        // The dump is named after the database, and the dumps it keeps are
+        // found by that name: nothing in it may reach another folder or match
+        // another project's files.
+        if (preg_match(self::NAME, $database['database']) !== 1) {
+            throw new StepFailed("DB_DATABASE in the project’s env file, “{$database['database']}”, isn’t a database name deploy.me backs up: letters, digits, _ and - only, not starting with -. Nothing was migrated.", 2);
+        }
 
         $context->log->note("Dumping {$database['database']} in the {$database['container']} container as {$database['username']} ({$database['source']}).");
 

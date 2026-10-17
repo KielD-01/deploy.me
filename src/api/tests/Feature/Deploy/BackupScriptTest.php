@@ -106,3 +106,21 @@ it('refuses to guess between two containers on the stack’s network', function 
     expect($run->exitCode())->toBe(43)
         ->and($run->output())->toContain('More than one container answers to postgres: a-1 b-1');
 });
+
+it('dumps nothing for a database name that would reach outside its folder or match other dumps', function (string $name) {
+    mkdir("{$this->tmp}/backups");
+    file_put_contents("{$this->tmp}/backups/other-20260901-120000.dump", 'old');
+
+    $run = backupScript($this->tmp, ['DATABASE' => $name, 'KEEP' => '1']);
+
+    expect($run->exitCode())->toBe(2, $run->output().$run->errorOutput())
+        ->and($run->output())->toContain("isn't a database name a dump can be named after")
+        ->and(file_exists("{$this->tmp}/docker.log"))->toBeFalse()
+        ->and(glob("{$this->tmp}/backups/*"))->toBe(["{$this->tmp}/backups/other-20260901-120000.dump"]);
+})->with([
+    'empty' => [''],
+    'a path' => ['../../etc/demo'],
+    'hidden' => ['.demo'],
+    'a glob' => ['*'],
+    'an option' => ['-demo'],
+]);

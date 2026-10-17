@@ -297,6 +297,24 @@ it('backs up as the role the project names, and keeps as many dumps as it says',
         ->and($deployment->steps()->where('key', 'backup')->value('detail'))->toEndWith('· 5 kept');
 });
 
+it('refuses a database name a dump can’t be named after, before anything reaches the server', function (string $name) {
+    $target = dockerTarget();
+    $target->project->envFiles()->create(['path' => '.env', 'role' => 'app', ...ProjectEnvFile::contentAttributes(
+        "DB_CONNECTION=pgsql\nDB_HOST=postgres\nDB_DATABASE={$name}\nDB_USERNAME=demo\nDB_PASSWORD=s3cret-pass\n"
+    )]);
+
+    $deployment = dockerRun($target, ['backup' => true]);
+
+    expect($deployment->status)->toBe(DeploymentStatus::Failed)
+        ->and($deployment->outcome)->toStartWith("DB_DATABASE in the project’s env file, “{$name}”, isn’t a database name deploy.me backs up")
+        ->and(dockerSteps($deployment))->toMatchArray(['backup' => 'failed', 'migrate' => 'skipped', 'activate' => 'skipped'])
+        ->and(collect($this->ssh->calls)->map(fn (array $call) => $call['script']->name))->not->toContain('deploy-db-backup');
+})->with([
+    'a path' => ['../../../tmp/x'],
+    'hidden' => ['.demo'],
+    'a glob' => ['demo*'],
+]);
+
 it('says what to change when row-level security refuses the dump', function () {
     $target = backupTarget();
     fakeDeployScripts($this->ssh, ['deploy-db-backup' => new SshResult(41,

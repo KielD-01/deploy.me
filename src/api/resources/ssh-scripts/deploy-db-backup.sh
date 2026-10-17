@@ -6,6 +6,15 @@
 set -eo pipefail
 umask 077
 
+# The dump is "$DIR/$DATABASE-<stamp>.dump" and the old ones are found by
+# "$DATABASE-*.dump": a name with a slash, a dot in front or a glob character
+# would write elsewhere or remove another project's dumps.
+case "$DATABASE" in
+  ''|*/*|.*|-*|*[!A-Za-z0-9_-]*)
+    echo "✗ \"$DATABASE\" isn't a database name a dump can be named after"
+    exit 2 ;;
+esac
+
 # CONTAINER comes from the project's DB_HOST, which names a NETWORK ALIAS, and
 # `docker exec` only takes a name. On this server the shared database answers to
 # `postgres` on proxy-network while its container is infra-postgres-1, so look
