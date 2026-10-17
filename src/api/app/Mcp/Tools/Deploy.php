@@ -15,6 +15,9 @@ use App\Models\User;
 
 class Deploy extends Tool
 {
+    // Who the run says started it: an agent over MCP, or the Console theme's shell.
+    public string $trigger = 'mcp';
+
     public function name(): string
     {
         return 'deploy';
@@ -64,7 +67,7 @@ class Deploy extends Tool
         }
 
         try {
-            $run = app(StartDeployment::class)($target, DeploymentKind::Deploy, User::query()->first(), $options, 'mcp');
+            $run = app(StartDeployment::class)($target, DeploymentKind::Deploy, User::query()->first(), $options, $this->trigger);
         } catch (DeploymentBusy $e) {
             throw new ToolFailed($e->getMessage());
         }

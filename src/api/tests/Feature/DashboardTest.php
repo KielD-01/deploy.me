@@ -4,10 +4,13 @@ use App\Enums\ServerStatus;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\User;
+use App\Support\Ui;
 
+// The Classic theme's dashboard; the Console theme's is the session (tests/Feature/Console).
 beforeEach(function () {
     $this->withoutVite();
-    $this->actingAs(User::factory()->create());
+    Ui::reset();
+    $this->actingAs(User::factory()->create(['ui' => ['theme' => 'classic']]));
 });
 
 it('invites you to add a server when there is none', function () {

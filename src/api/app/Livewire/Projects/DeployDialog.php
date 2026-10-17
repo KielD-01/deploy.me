@@ -5,23 +5,18 @@ namespace App\Livewire\Projects;
 use App\Actions\Deployments\StartDeployment;
 use App\Deploy\Compose;
 use App\Deploy\Delivery\DeliveryResolver;
-use App\Deploy\Delivery\GitHubMirror;
 use App\Deploy\Delivery\Resolution;
 use App\Deploy\DeploymentBusy;
 use App\Deploy\Pipeline\Steps\BackupDatabase;
 use App\Enums\CiState;
 use App\Enums\DeploymentKind;
-use App\Enums\ProjectSource;
 use App\Models\Credential;
 use App\Models\Deployment;
 use App\Models\Project;
 use App\Models\Target;
-use App\Platform\Git\GitRunner;
-use App\Platform\Git\LocalRepository;
 use App\Platform\GitHub\CiStatus;
 use App\Platform\GitHub\GitHubClient;
-use App\Platform\GitHub\GitHubException;
-use App\Platform\Local\ProjectRoots;
+use App\Support\BranchCommits;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -189,38 +184,14 @@ class DeployDialog extends Component
     }
 
     /**
-     * The branch's recent commits, newest first, and whether each adds a
-     * migration. From the repository on the Mac, the GitHub mirror, or (no
-     * mirror yet) the branch head from the API.
+     * The branch's recent commits, newest first, and whether each adds a migration.
      *
      * @return list<array{sha: string, subject: string, date: ?Carbon, migration: bool}>
      */
     #[Computed]
     public function commits(): array
     {
-        $project = $this->project;
-        $repository = $this->repository($project);
-
-        if ($repository !== null) {
-            return $this->fromGit($repository, $project->branch);
-        }
-
-        if ($project->source === ProjectSource::Github && ($credential = $project->credential ?? Credential::forOwner((string) $project->github_owner)) !== null) {
-            try {
-                $head = GitHubClient::for($credential)->commits((string) $project->github_owner, (string) $project->github_repo, $project->branch)['head'];
-            } catch (GitHubException) {
-                return [];
-            }
-
-            return $head !== null ? [[
-                'sha' => $head['sha'],
-                'subject' => $head['subject'],
-                'date' => $head['date'] !== null ? Carbon::parse($head['date']) : null,
-                'migration' => false,
-            ]] : [];
-        }
-
-        return [];
+        return BranchCommits::recent($this->project, self::COMMITS);
     }
 
     /**
@@ -282,45 +253,6 @@ class DeployDialog extends Component
     private function targetIds(): array
     {
         return $this->project->targets()->active()->orderBy('id')->pluck('id')->all();
-    }
-
-    private function repository(Project $project): ?string
-    {
-        if ($project->source === ProjectSource::Local) {
-            $path = app(ProjectRoots::class)->resolve((string) $project->local_path);
-
-            return $path !== null && LocalRepository::isRepository($path) ? $path : null;
-        }
-
-        $mirror = app(GitHubMirror::class)->path($project);
-
-        return is_dir($mirror) ? $mirror : null;
-    }
-
-    /**
-     * @return list<array{sha: string, subject: string, date: ?Carbon, migration: bool}>
-     */
-    private function fromGit(string $repository, string $branch): array
-    {
-        $log = app(GitRunner::class)->run($repository, [
-            'log', '-n', (string) self::COMMITS, '--format=%x1e%H%x1f%s%x1f%cI', '--name-status', '--end-of-options', $branch,
-        ], timeout: 30);
-
-        if (! $log->successful()) {
-            return [];
-        }
-
-        $commits = [];
-
-        foreach (array_filter(explode("\x1e", $log->output()), fn (string $record) => trim($record) !== '') as $record) {
-            $lines = explode("\n", trim($record));
-            [$sha, $subject, $date] = array_pad(explode("\x1f", (string) array_shift($lines), 3), 3, '');
-            $migration = collect($lines)->contains(fn (string $line) => preg_match('#^A\t(.*/)?database/migrations/[^/]+\.php$#', $line) === 1);
-
-            $commits[] = ['sha' => $sha, 'subject' => $subject, 'date' => $date !== '' ? Carbon::parse($date) : null, 'migration' => $migration];
-        }
-
-        return $commits;
     }
 
     public function render(): View

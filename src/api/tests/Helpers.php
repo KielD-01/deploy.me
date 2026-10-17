@@ -345,3 +345,12 @@ function lsOutput(string $path, array $folders, bool $writable = false): SshResu
         ."__DEPLOYME_ENTRIES__\n{$entries}\n__DEPLOYME_WRITABLE__\n{$writableNames}"
     );
 }
+
+/**
+ * The signed-in person on the Classic theme, for a test about a page's classic
+ * view (the Console theme has its own dashboard, the session).
+ */
+function asClassic(): void
+{
+    auth()->user()?->forceFill(['ui' => ['theme' => 'classic']])->save();
+}

@@ -205,6 +205,8 @@ it('shows runs, health checks and what’s behind on the dashboard', function ()
     $target->update(['health' => TargetHealth::Unhealthy, 'health_checked_at' => now(), 'health_detail' => 'https://demo.test/up gives HTTP 502', 'unhealthy_since' => now()->subMinutes(4)]);
     Deployment::factory()->create(['target_id' => $target->id, 'kind' => DeploymentKind::Deploy, 'status' => DeploymentStatus::Failed, 'outcome' => 'Migrate failed with exit code 1.']);
 
+    asClassic();
+
     $this->get('/')
         ->assertOk()
         ->assertSee(['Deployments today', 'Running now', 'Health checks passing', 'Needs attention', 'Recent deployments'])

@@ -1,5 +1,9 @@
+@php
+    $ui ??= \App\Support\Ui::preferences(auth()->user());
+    $palette = \App\Support\Ui::palette('classic');
+@endphp
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-ui="classic" data-density="{{ $ui['density'] }}" @if ($ui['mode'] !== 'system') data-theme="{{ $palette[$ui['mode']] }}" @endif>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,10 +11,11 @@
     <meta name="reverb-key" content="{{ config('broadcasting.connections.reverb.key') }}">
     <title>{{ isset($title) ? $title.' · deploy.me' : 'deploy.me' }}</title>
     <script>
-        // Apply a stored theme before first paint; no stored choice follows the OS.
+        // With the mode on "system" (Settings → Appearance), the header's toggle can still pick
+        // one for this browser; a saved light or dark is applied above, before first paint.
         try {
             const theme = localStorage.getItem('deployme-theme');
-            if (theme) document.documentElement.dataset.theme = theme;
+            if (theme && @js($ui['mode'] === 'system')) document.documentElement.dataset.theme = theme;
         } catch {}
     </script>
     <script>

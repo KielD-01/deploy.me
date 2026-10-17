@@ -19,7 +19,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * value nobody knows and password sign-in refuses it. An authenticator code
  * can guard the password; a passkey needs none.
  */
-#[Fillable(['name', 'email', 'password', 'password_set_at'])]
+#[Fillable(['name', 'email', 'password', 'password_set_at', 'ui'])]
 #[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable implements PasskeyUser
 {
@@ -38,6 +38,7 @@ class User extends Authenticatable implements PasskeyUser
             'password' => 'hashed',
             'password_set_at' => 'datetime',
             'two_factor_confirmed_at' => 'datetime',
+            'ui' => 'array',
         ];
     }
 

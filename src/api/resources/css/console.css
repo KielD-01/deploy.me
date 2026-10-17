@@ -1,0 +1,285 @@
+/*
+ * The Console theme (resources/views/themes/console): the app as a tmux
+ * session. Everything here is scoped to html[data-ui='console'], so the
+ * Classic theme never sees it. The tmux chrome (panes, borders, the status
+ * bar), the terminal's text tones, and how the base pages look when they show
+ * inside a pane: monospace, square, flat.
+ */
+
+@layer components {
+    html[data-ui='console'],
+    html[data-ui='console'] body {
+        height: 100%;
+    }
+
+    html[data-ui='console'] body {
+        font-family: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12.5px;
+        line-height: 1.6;
+        font-variant-ligatures: none;
+        background: var(--color-base-200);
+    }
+
+    html[data-ui='console'][data-density='comfortable'] body {
+        font-size: 13.5px;
+    }
+
+    /* The session: a full-height column, panes above, the status bar below. */
+    .tmux {
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+        min-height: 0;
+        background: var(--color-base-300);
+    }
+
+    .tmux-body {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+    }
+
+    .tmux-split {
+        display: flex;
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 0;
+        gap: 1px;
+    }
+
+    .tmux-split[data-dir='col'] {
+        flex-direction: column;
+    }
+
+    .tmux-pane {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        background: var(--color-base-200);
+    }
+
+    .tmux-pane.is-active {
+        box-shadow: inset 0 0 0 1px var(--color-primary);
+    }
+
+    .tmux-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 2px 10px;
+        font-size: 11px;
+        line-height: 18px;
+        white-space: nowrap;
+        color: var(--dm-muted);
+        border-bottom: 1px solid var(--dm-line);
+        user-select: none;
+    }
+
+    .tmux-title b {
+        color: var(--color-base-content);
+        font-weight: 600;
+    }
+
+    .tmux-pane.is-active .tmux-title,
+    .tmux-pane.is-active .tmux-title b {
+        color: var(--color-primary);
+    }
+
+    .tmux-title button {
+        color: var(--dm-muted);
+        padding: 0 4px;
+    }
+
+    .tmux-title button:hover {
+        color: var(--color-base-content);
+    }
+
+    .tmux-content {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+    }
+
+    /* Drag a border to resize. */
+    .tmux-handle {
+        flex: none;
+        background: var(--color-base-300);
+        z-index: 2;
+    }
+
+    .tmux-split[data-dir='row'] > .tmux-handle {
+        width: 3px;
+        margin: 0 -1px;
+        cursor: col-resize;
+    }
+
+    .tmux-split[data-dir='col'] > .tmux-handle {
+        height: 3px;
+        margin: -1px 0;
+        cursor: row-resize;
+    }
+
+    .tmux-handle:hover {
+        background: var(--color-primary);
+    }
+
+    /* Zoomed: one pane fills the session. */
+    .tmux.is-zoomed .tmux-pane:not(.is-zoomed),
+    .tmux.is-zoomed .tmux-handle {
+        display: none;
+    }
+
+    .tmux.is-zoomed .tmux-split:not(:has(.is-zoomed)) {
+        display: none;
+    }
+
+    .tmux-status {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        font-size: 12px;
+        line-height: 22px;
+        background: var(--color-base-100);
+        border-top: 1px solid var(--dm-line);
+        color: var(--dm-muted);
+        white-space: nowrap;
+    }
+
+    .tmux-status > * {
+        padding: 0 10px;
+    }
+
+    .tmux-status .is-session {
+        background: var(--color-primary);
+        color: var(--color-primary-content);
+        font-weight: 700;
+    }
+
+    .tmux-status a {
+        color: var(--dm-muted);
+    }
+
+    .tmux-status a:hover {
+        color: var(--color-base-content);
+    }
+
+    .tmux-status a.is-current {
+        background: color-mix(in oklab, var(--color-primary) 18%, transparent);
+        color: var(--color-primary);
+        font-weight: 700;
+    }
+
+    .tmux-status a.is-alert {
+        color: var(--color-error);
+    }
+
+    .tmux-status .is-clock {
+        background: color-mix(in oklab, var(--color-primary) 18%, transparent);
+        color: var(--color-base-content);
+    }
+
+    /* Terminal text: a pane's monospace output and its tones. */
+    .term {
+        margin: 0;
+        padding: 8px 12px;
+        font-size: inherit;
+        line-height: 1.65;
+        white-space: pre;
+        color: var(--color-base-content);
+    }
+
+    .term-wrap {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .t-ok { color: var(--color-success); }
+    .t-run { color: var(--color-primary); }
+    .t-warn { color: var(--color-warning); }
+    .t-err { color: var(--color-error); }
+    .t-mute { color: var(--dm-muted); }
+    .t-faint { color: var(--dm-subtle); opacity: 0.8; }
+    .t-v { color: var(--color-secondary); }
+    .t-a { color: var(--color-accent); }
+    .t-b { color: var(--color-base-content); font-weight: 700; }
+
+    .t-tag {
+        padding: 0 5px;
+        border-radius: 2px;
+        background: color-mix(in oklab, currentColor 16%, transparent);
+    }
+
+    .term-pick {
+        background: color-mix(in oklab, var(--color-primary) 16%, transparent);
+    }
+
+    .term-input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--color-base-content);
+        font: inherit;
+        caret-color: var(--color-primary);
+    }
+
+    /* An overlay over the session: the window tree (⌃b w) and the keys (⌃b ?). */
+    .tmux-overlay {
+        position: fixed;
+        inset: 0 0 23px;
+        z-index: 40;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 6vh 16px 16px;
+        background: color-mix(in oklab, var(--color-base-200) 70%, transparent);
+    }
+
+    .tmux-overlay > div {
+        width: 100%;
+        max-width: 760px;
+        max-height: 100%;
+        overflow: auto;
+        background: var(--color-base-200);
+        border: 1px solid var(--color-primary);
+    }
+
+    /* The base pages inside a pane: flat, square, monospace. */
+    html[data-ui='console'] .card,
+    html[data-ui='console'] .alert,
+    html[data-ui='console'] .modal-box,
+    html[data-ui='console'] .dropdown-content,
+    html[data-ui='console'] .rounded-box {
+        border-radius: 2px;
+    }
+
+    html[data-ui='console'] .card {
+        background: var(--color-base-200);
+        border-color: var(--dm-line-strong);
+    }
+
+    html[data-ui='console'] .tmux-content > main,
+    html[data-ui='console'] .tmux-page {
+        padding: 16px 18px 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    html[data-ui='console'] .tmux-content h1 {
+        font-size: 15px;
+    }
+
+    html[data-ui='console'] .tmux-content .text-\[22px\] {
+        font-size: 16px;
+    }
+
+    html[data-ui='console'] .badge {
+        border-radius: 2px;
+    }
+}

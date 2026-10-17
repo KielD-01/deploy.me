@@ -13,6 +13,9 @@ use App\Models\User;
 
 class Rollback extends Tool
 {
+    // Who the run says started it: an agent over MCP, or the Console theme's shell.
+    public string $trigger = 'mcp';
+
     public function name(): string
     {
         return 'rollback';
@@ -63,7 +66,7 @@ class Rollback extends Tool
         }
 
         try {
-            $run = app(StartDeployment::class)($target, DeploymentKind::Rollback, User::query()->first(), ['release_id' => $release->id], 'mcp');
+            $run = app(StartDeployment::class)($target, DeploymentKind::Rollback, User::query()->first(), ['release_id' => $release->id], $this->trigger);
         } catch (DeploymentBusy $e) {
             throw new ToolFailed($e->getMessage());
         }

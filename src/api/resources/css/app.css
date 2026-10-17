@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
+@import './console.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -81,6 +82,74 @@
     --noise: 0;
 }
 
+/* The Console theme's palettes: the same colours, a terminal's darker ground
+ * and square corners (resources/css/console.css styles the rest). */
+@plugin 'daisyui/theme' {
+    name: 'console';
+    color-scheme: dark;
+    --color-base-100: #11151b;
+    --color-base-200: #07090c;
+    --color-base-300: #232933;
+    --color-base-content: #d7dde7;
+    --color-primary: #6c93f5;
+    --color-primary-content: #07090c;
+    --color-secondary: #a78bf0;
+    --color-secondary-content: #07090c;
+    --color-accent: #4bbfb2;
+    --color-accent-content: #07090c;
+    --color-neutral: #d7dde7;
+    --color-neutral-content: #07090c;
+    --color-info: #6c93f5;
+    --color-info-content: #07090c;
+    --color-success: #3fbf92;
+    --color-success-content: #07090c;
+    --color-warning: #e0a040;
+    --color-warning-content: #07090c;
+    --color-error: #f0736c;
+    --color-error-content: #07090c;
+    --radius-selector: 0.125rem;
+    --radius-field: 0.125rem;
+    --radius-box: 0.125rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+}
+
+@plugin 'daisyui/theme' {
+    name: 'console-light';
+    color-scheme: light;
+    --color-base-100: #ffffff;
+    --color-base-200: #fbfbfc;
+    --color-base-300: #dfe3e9;
+    --color-base-content: #1f2430;
+    --color-primary: #2a5bd7;
+    --color-primary-content: #ffffff;
+    --color-secondary: #6d4ac7;
+    --color-secondary-content: #ffffff;
+    --color-accent: #0f766e;
+    --color-accent-content: #ffffff;
+    --color-neutral: #1f2430;
+    --color-neutral-content: #ffffff;
+    --color-info: #2a5bd7;
+    --color-info-content: #ffffff;
+    --color-success: #127d5a;
+    --color-success-content: #ffffff;
+    --color-warning: #a25f05;
+    --color-warning-content: #ffffff;
+    --color-error: #c0332f;
+    --color-error-content: #ffffff;
+    --radius-selector: 0.125rem;
+    --radius-field: 0.125rem;
+    --radius-box: 0.125rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+}
+
 /* Tokens daisyUI has no slot for: sunk surfaces, the two hairline strengths,
  * and the two quieter text inks. They follow the theme like daisyUI's own. */
 @theme inline {
@@ -112,6 +181,22 @@
         --dm-muted: #9aa3b2;
         --dm-subtle: #828b9a;
     }
+}
+
+[data-theme='console'] {
+    --dm-sunk: #161a21;
+    --dm-line: #232933;
+    --dm-line-strong: #323a46;
+    --dm-muted: #8a94a6;
+    --dm-subtle: #6b7486;
+}
+
+[data-theme='console-light'] {
+    --dm-sunk: #eef0f4;
+    --dm-line: #dfe3e9;
+    --dm-line-strong: #c9ced7;
+    --dm-muted: #5b6472;
+    --dm-subtle: #656f7e;
 }
 
 [data-theme='deployme-dark'] {

@@ -65,7 +65,7 @@
                                 @endphp
                                 {{ $runAt->isToday() ? $runAt->format('H:i') : ($runAt->isYesterday() ? 'Yesterday' : $runAt->format('D j M')) }}
                             </td>
-                            <td class="text-[13px] text-muted">{{ match ($run->trigger) { 'manual' => 'You', 'ci' => 'CI went green', 'retry' => $run->retry_of_id ? 'Retry of #'.$run->retry_of_id : 'Retry', 'mcp' => 'AI agent (MCP)', default => ucfirst($run->trigger) } }}</td>
+                            <td class="text-[13px] text-muted">{{ match ($run->trigger) { 'manual' => 'You', 'ci' => 'CI went green', 'retry' => $run->retry_of_id ? 'Retry of #'.$run->retry_of_id : 'Retry', 'mcp' => 'AI agent (MCP)', 'console' => 'You (console)', default => ucfirst($run->trigger) } }}</td>
                         </tr>
                     @empty
                         <tr><td colspan="8" class="text-[13px] text-muted py-6">No runs match.</td></tr>

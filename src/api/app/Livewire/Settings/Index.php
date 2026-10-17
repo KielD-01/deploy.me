@@ -13,6 +13,7 @@ use App\Platform\Ssh\SshConfigReader;
 use App\Support\Alert;
 use App\Support\Audit;
 use App\Support\Settings;
+use App\Support\Ui;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -30,7 +31,7 @@ class Index extends Component
 {
     use ConfirmsIdentity;
 
-    public const TABS = ['github' => 'GitHub', 'ssh' => 'SSH', 'schedules' => 'Schedules', 'alerts' => 'Alerts', 'account' => 'Account'];
+    public const TABS = ['github' => 'GitHub', 'ssh' => 'SSH', 'schedules' => 'Schedules', 'alerts' => 'Alerts', 'appearance' => 'Appearance', 'account' => 'Account'];
 
     #[Url]
     public string $tab = 'github';
@@ -364,6 +365,28 @@ class Index extends Component
         $this->notice = $wasOn ? 'Authenticator codes are off.' : null;
     }
 
+    /**
+     * Theme, mode or density. The page loads again, since a theme brings its own layout.
+     */
+    public function appearance(string $key, string $value): void
+    {
+        $this->reset('notice', 'problem');
+
+        if (! in_array($key, ['theme', 'mode', 'density'], true)) {
+            return;
+        }
+
+        try {
+            Ui::save(auth()->user(), [$key => $value]);
+        } catch (\InvalidArgumentException) {
+            $this->problem = 'That isn’t one of the choices.';
+
+            return;
+        }
+
+        $this->redirectRoute('settings', ['tab' => 'appearance']);
+    }
+
     public function render(SshConfigReader $sshConfig, SshConfigCompiler $compiler): View
     {
         $user = auth()->user();
@@ -375,6 +398,7 @@ class Index extends Component
             'tabs' => self::TABS,
             'choices' => Settings::CHOICES,
             'passkeys' => $user->passkeys()->latest()->get(),
+            'appearance' => Ui::preferences($user),
             'credentials' => Credential::query()->withCount('projects')->orderBy('login')->get(),
             'ssh' => [
                 'servers' => $aliases->reject->looksLikeGitHost()->count(),

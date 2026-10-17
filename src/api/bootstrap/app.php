@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\ApplyUiTheme;
 use App\Support\ViewerTimezone;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -20,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // The browser names its timezone in this cookie, in the clear (ViewerTimezone).
         $middleware->encryptCookies(except: [ViewerTimezone::COOKIE]);
+
+        // Every page, and every Livewire update, in the person's theme (App\Support\Ui).
+        $middleware->web(append: [ApplyUiTheme::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -184,6 +184,56 @@
         </form>
     @endif
 
+    @if ($tab === 'appearance')
+        <section class="card bg-base-100 border border-line max-w-5xl">
+            <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
+                <h2 class="text-[15px] leading-[22px] font-semibold">Theme</h2>
+                <span class="text-[13px] text-muted">Layout, typography and colour together. Your data and actions stay the same.</span>
+            </header>
+            <div class="p-4 grid sm:grid-cols-2 lg:grid-cols-4 gap-3" role="radiogroup" aria-label="Theme">
+                @foreach (\App\Support\Ui::THEMES as $key => $theme)
+                    <button type="button" role="radio" aria-checked="{{ $appearance['theme'] === $key ? 'true' : 'false' }}"
+                            wire:click="appearance('theme', @js($key))" data-theme-choice="{{ $key }}"
+                            @class(['text-left flex flex-col gap-1.5 p-3 rounded-box border', 'border-primary bg-primary/5' => $appearance['theme'] === $key, 'border-line hover:border-line-strong' => $appearance['theme'] !== $key])>
+                        <span class="flex items-center gap-2 font-semibold">{{ $theme['label'] }}
+                            @if ($appearance['theme'] === $key)<span class="badge badge-soft badge-primary badge-sm ml-auto">Current</span>@endif
+                        </span>
+                        <span class="text-[13px] text-muted">{{ $theme['description'] }}</span>
+                        <span class="text-xs text-subtle font-mono">{{ $theme['type'] }}</span>
+                    </button>
+                @endforeach
+                @foreach (\App\Support\Ui::COMING as $theme)
+                    <div class="flex flex-col gap-1.5 p-3 rounded-box border border-dashed border-line opacity-70">
+                        <span class="flex items-center gap-2 font-semibold">{{ $theme['label'] }}<span class="badge badge-ghost badge-sm ml-auto">Coming</span></span>
+                        <span class="text-[13px] text-muted">{{ $theme['description'] }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+
+        <section class="card bg-base-100 border border-line max-w-5xl">
+            <div class="p-4 flex flex-wrap gap-8">
+                <div class="flex flex-col gap-2">
+                    <span class="text-[13px] font-medium">Mode</span>
+                    <div class="join">
+                        @foreach (\App\Support\Ui::MODES as $mode)
+                            <button type="button" wire:click="appearance('mode', @js($mode))" aria-pressed="{{ $appearance['mode'] === $mode ? 'true' : 'false' }}" @class(['btn btn-sm join-item', 'btn-primary' => $appearance['mode'] === $mode])>{{ ucfirst($mode) }}</button>
+                        @endforeach
+                    </div>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <span class="text-[13px] font-medium">Density</span>
+                    <div class="join">
+                        @foreach (\App\Support\Ui::DENSITIES as $density)
+                            <button type="button" wire:click="appearance('density', @js($density))" aria-pressed="{{ $appearance['density'] === $density ? 'true' : 'false' }}" @class(['btn btn-sm join-item', 'btn-primary' => $appearance['density'] === $density])>{{ ucfirst($density) }}</button>
+                        @endforeach
+                    </div>
+                </div>
+                <p class="text-xs text-muted self-end">Saved to your account, so it follows you to every browser.</p>
+            </div>
+        </section>
+    @endif
+
     @if ($tab === 'account')
         <section class="card bg-base-100 border border-line max-w-3xl">
             <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">

@@ -153,6 +153,7 @@ it('shows targets on the server page, the dashboard and the projects list', func
     Deployment::factory()->create(['target_id' => $target->id, 'status' => DeploymentStatus::Succeeded]);
 
     $this->get(route('servers.show', $this->server))->assertOk()->assertSee('/opt/srv/demo')->assertSee('Prepare #');
+    asClassic();
     $this->get('/')->assertOk()->assertSee('1 project');
     $this->get('/projects')->assertOk()->assertSee('Build box')->assertSee('Prepare #');
 });
