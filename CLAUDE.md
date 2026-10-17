@@ -24,7 +24,10 @@ and health checks on queue workers run by supervisor.
 - `src/api/` — the Laravel app. Livewire 4 class components in `app/Livewire`, layout
   `resources/views/layouts/app.blade.php`, daisyUI 5 theme in `resources/css/app.css`
   (tokens from a sibling project's design system), icons via `<x-icon name="…" />`.
-- `docs/` — the user guide (`usage.md`) and the MCP guide (`mcp.md`).
+- `docs/` — the user guide (`usage.md`), the MCP guide (`mcp.md`) and the screenshot gallery
+  (`gallery.md`, images in `docs/assets/gallery`). The screenshots come from
+  `Database\Seeders\DemoSeeder` (example servers and projects, a week of runs through the real
+  pipeline with a fake ssh client) on an empty database, never the live one.
 - `bin/install` (and `bin/install.ps1` for Windows → WSL2) runs the guided install;
   `bin/configure` writes `.env` (COMPOSE_FILE, stack mode, DEPLOYME_UID/GID, TZ, project
   roots) and `compose.host.yml` (root and ssh-agent mounts); `bin/trust-ca` trusts the edge's

@@ -47,6 +47,23 @@
 | 🩺 **Здоров'я, алерти, аудит** | Історія health checks, алерти в Telegram, журнал аудиту, куди можна лише дописувати |
 | 🤖 **MCP для ШІ** | 13 інструментів для Claude, Cursor і VS Code. За замовчуванням лише читання, `--allow-deploys` дозволяє деплой і відкат |
 
+## 📸 Знімки екрана
+
+Дві теми того самого застосунку: **Console** (deploy.me як сесія tmux) і **Classic**. Більше в
+**[галереї](docs/gallery.md)**: деплой із шелу, автоматичний відкат, діалог деплою, env-файли,
+синхронізація папок, журнал аудиту…
+
+<table>
+<tr>
+<td width="50%"><a href="docs/gallery.md"><img src="docs/assets/gallery/console-session.webp" alt="The Console theme: a shell, the latest run, htop and git in tmux panes"></a></td>
+<td width="50%"><a href="docs/gallery.md"><img src="docs/assets/gallery/console-run.webp" alt="A deploy, step by step, in the Console theme"></a></td>
+</tr>
+<tr>
+<td width="50%"><a href="docs/gallery.md"><img src="docs/assets/gallery/classic-dashboard.webp" alt="The Classic dashboard"></a></td>
+<td width="50%"><a href="docs/gallery.md"><img src="docs/assets/gallery/classic-server.webp" alt="A server: resources, the last day and the busiest processes"></a></td>
+</tr>
+</table>
+
 ## 🚀 Швидкий старт
 
 Потрібен лише Docker. deploy.me однаково працює на macOS, Linux і Windows і приносить власні

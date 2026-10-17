@@ -23,6 +23,7 @@
   <a href="#-quick-start">Quick start</a> ·
   <a href="docs/install.md">Install</a> ·
   <a href="docs/usage.md">User guide</a> ·
+  <a href="docs/gallery.md">Gallery</a> ·
   <a href="docs/mcp.md">MCP for AI agents</a> ·
   <a href="#️-architecture">Architecture</a> ·
   <a href="#️-security-model">Security</a>
@@ -146,6 +147,23 @@ roll back and cancel, and the client asks you before each one.
 
 Also included: 🔁 one-way **folder mappings** (Mac ↔ server, rsync, previews, capped
 deletes), 🔑 **passkey or password sign-in** (with optional authenticator codes), and 💾 nightly **backups** of deploy.me itself.
+
+## 📸 Screenshots
+
+Two themes over the same app: **Console** (deploy.me as a tmux session) and **Classic**. More in
+the **[gallery](docs/gallery.md)**: deploying from the shell, an automatic rollback, the deploy
+dialog, env files, folder sync, the audit log…
+
+<table>
+<tr>
+<td width="50%"><a href="docs/gallery.md"><img src="docs/assets/gallery/console-session.webp" alt="The Console theme: a shell, the latest run, htop and git in tmux panes"></a></td>
+<td width="50%"><a href="docs/gallery.md"><img src="docs/assets/gallery/console-run.webp" alt="A deploy, step by step, in the Console theme"></a></td>
+</tr>
+<tr>
+<td width="50%"><a href="docs/gallery.md"><img src="docs/assets/gallery/classic-dashboard.webp" alt="The Classic dashboard"></a></td>
+<td width="50%"><a href="docs/gallery.md"><img src="docs/assets/gallery/classic-server.webp" alt="A server: resources, the last day and the busiest processes"></a></td>
+</tr>
+</table>
 
 ## 🚀 Quick start
 
