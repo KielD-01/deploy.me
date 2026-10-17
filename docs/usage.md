@@ -38,7 +38,7 @@ chapter stands on its own, so skip to the one you need.
 **Then:**
 
 ```bash
-git clone https://github.com/MR-Studio-KZ-UA/deploy.me.git
+git clone https://github.com/KielD-01/deploy.me.git
 cd deploy.me
 make init
 ```

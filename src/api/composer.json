@@ -1,6 +1,6 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "mr-studio/deployme",
+    "name": "kield-01/deployme",
     "type": "project",
     "description": "A local, Dockerized admin app that deploys your projects to your own servers over SSH.",
     "keywords": [

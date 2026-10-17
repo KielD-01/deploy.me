@@ -156,7 +156,7 @@ deletes), 🔑 **passkey-only sign-in**, and 💾 nightly **backups** of deploy.
 > everything it expects.
 
 ```bash
-git clone https://github.com/MR-Studio-KZ-UA/deploy.me.git && cd deploy.me
+git clone https://github.com/KielD-01/deploy.me.git && cd deploy.me
 make init     # database, image, containers, assets, keys, migrations, doctor
 make enroll   # prints a one-time link: open it and register your passkey
 ```

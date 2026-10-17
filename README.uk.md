@@ -55,7 +55,7 @@
 > [посібнику](docs/usage.md#1--install).
 
 ```bash
-git clone https://github.com/MR-Studio-KZ-UA/deploy.me.git && cd deploy.me
+git clone https://github.com/KielD-01/deploy.me.git && cd deploy.me
 make init     # база, образ, контейнери, асети, ключі, міграції, doctor
 make enroll   # одноразове посилання: відкрийте його і зареєструйте passkey
 ```
