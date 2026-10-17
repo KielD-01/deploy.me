@@ -20,7 +20,8 @@ deployme_os() {
 deployme_env() {
     local key=$1 file=${2:-$DEPLOYME_ROOT/.env}
     [ -f "$file" ] || return 0
-    grep -E "^${key}=" "$file" | tail -n 1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
+    # A missing key is an empty value, not a failure (callers run under pipefail).
+    { grep -E "^${key}=" "$file" || true; } | tail -n 1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'
 }
 
 # shared (an existing infra stack) or standalone (compose.standalone.yml). A
