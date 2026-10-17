@@ -32,6 +32,35 @@ deployme_stack() {
     echo "${stack:-shared}"
 }
 
+# dev (the code is mounted from src/api and edited live) or prod (the code is
+# baked into the image: compose.prod.yml). A checkout that never chose is dev.
+deployme_mode() {
+    local mode
+    mode=$(deployme_env DEPLOYME_MODE)
+    echo "${mode:-dev}"
+}
+
+# Sets the app's APP_ENV, APP_DEBUG and LOG_LEVEL in src/api/.env (or the given
+# file) for a mode, leaving every other line as it is. Written in place, so the
+# file keeps its mode and inode (prod mounts it into the containers on its own).
+deployme_app_env_for_mode() {
+    local mode=$1 file=${2:-$DEPLOYME_ROOT/src/api/.env} tmp
+    [ -f "$file" ] || return 0
+    local app_env=local app_debug=true log_level=debug
+    if [ "$mode" = prod ]; then app_env=production; app_debug=false; log_level=warning; fi
+    tmp=$(mktemp)
+    awk -v env="$app_env" -v debug="$app_debug" -v level="$log_level" '
+        BEGIN { want["APP_ENV"] = env; want["APP_DEBUG"] = debug; want["LOG_LEVEL"] = level }
+        {
+            key = $0; sub(/=.*/, "", key)
+            if ((key in want) && index($0, "=") > 0) { print key "=" want[key]; seen[key] = 1; next }
+            print
+        }
+        END { for (key in want) if (!(key in seen)) print key "=" want[key] }
+    ' "$file" > "$tmp" && cat "$tmp" > "$file"
+    rm -f "$tmp"
+}
+
 # The containers behind the names the app uses.
 deployme_pg_container() { [ "$(deployme_stack)" = standalone ] && echo deployme-postgres || echo postgres; }
 deployme_edge_container() { [ "$(deployme_stack)" = standalone ] && echo deployme-caddy || echo caddy; }

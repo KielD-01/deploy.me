@@ -4,8 +4,10 @@
 #
 #   bin/db-create.sh
 #
-# Generates DB_PASSWORD into src/api/.env when it's empty. On the shared stack
-# it delegates to ~/Personal/infra/scripts/pg-create-db.sh; on its own Postgres
+# Generates DB_PASSWORD into src/api/.env when it's empty (and, in production
+# mode, APP_KEY and the Reverb credentials, which the containers can't write
+# there). On the shared stack it delegates to
+# ~/Personal/infra/scripts/pg-create-db.sh; on its own Postgres
 # it starts that container and creates the role itself. Either way it adds a
 # connection limit (a shared server has ~97 usable connections) and the
 # deployme_test database for the test suite.
@@ -14,7 +16,28 @@ set -euo pipefail
 cd "$DEPLOYME_ROOT"
 
 ENV_FILE=src/api/.env
-[ -f "$ENV_FILE" ] || cp src/api/.env.example "$ENV_FILE"
+if [ ! -f "$ENV_FILE" ]; then
+    cp src/api/.env.example "$ENV_FILE"
+    # .env.example is development's (local, debug on); production mode starts
+    # from production's.
+    [ "$(deployme_mode)" = prod ] && deployme_app_env_for_mode prod "$ENV_FILE"
+fi
+
+# In production mode the containers mount .env read-only, so `make setup` can't
+# write the keys it generates there: they're made here instead, only when blank.
+if [ "$(deployme_mode)" = prod ]; then
+    if [ -z "$(deployme_env APP_KEY "$ENV_FILE")" ]; then
+        key="base64:$(openssl rand -base64 32)"
+        sed -i.bak "s#^APP_KEY=.*#APP_KEY=${key}#" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
+        deployme_ok "Generated APP_KEY in $ENV_FILE: back it up (make backup)"
+    fi
+    if [ -z "$(deployme_env REVERB_APP_KEY "$ENV_FILE")" ]; then
+        sed -i.bak -e "s/^REVERB_APP_ID=.*/REVERB_APP_ID=$((100000 + $(od -An -N2 -tu2 /dev/urandom | tr -d ' ') % 900000))/" \
+            -e "s/^REVERB_APP_KEY=.*/REVERB_APP_KEY=$(openssl rand -hex 10)/" \
+            -e "s/^REVERB_APP_SECRET=.*/REVERB_APP_SECRET=$(openssl rand -hex 20)/" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
+        deployme_ok "Generated the Reverb credentials in $ENV_FILE"
+    fi
+fi
 
 pass=$(deployme_env DB_PASSWORD "$ENV_FILE")
 if [ -z "$pass" ]; then

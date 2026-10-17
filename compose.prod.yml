@@ -1,0 +1,57 @@
+# deploy.me — production mode, on top of docker-compose.local.yml.
+# `bin/configure --mode prod` adds this file to COMPOSE_FILE (before
+# compose.host.yml, whose project-root and ssh-agent mounts still apply);
+# `bin/configure --mode dev` takes it out again.
+#
+# The code, its --no-dev dependencies and the built assets are in the image
+# (the Dockerfile's `app` target), so instead of ./src/api the containers mount
+# only the app's .env (read-only) and storage/ (logs, deploy logs, the GitHub
+# mirrors, the sandbox's keys). A code change needs `make build && make up`.
+#
+# Compose merges volume lists by target path, so an overlay can't drop the
+# base file's ./src/api:/app: `!override` (Compose 2.24.4 or later) replaces
+# each list instead, which is why the ~/.ssh mounts are repeated here.
+
+x-prod-build: &prod-build
+  target: app
+
+x-env-file: &env-file
+  type: bind
+  source: ./src/api/.env
+  target: /app/.env
+  read_only: true
+  # A missing .env is an error (make db-create writes it), not a new folder.
+  bind:
+    create_host_path: false
+
+services:
+  deployme-web:
+    image: deployme-php:prod
+    build: *prod-build
+    environment:
+      DEPLOYME_MODE: prod
+    volumes: !override
+      - *env-file
+      - ./src/api/storage:/app/storage
+      - ${HOME}/.ssh:/root/.ssh:ro
+      - ${HOME}/.ssh:${HOME}/.ssh:ro
+
+  deployme-worker:
+    image: deployme-php:prod
+    build: *prod-build
+    environment:
+      DEPLOYME_MODE: prod
+    volumes: !override
+      - *env-file
+      - ./src/api/storage:/app/storage
+      - ${HOME}/.ssh:/root/.ssh:ro
+      - ${HOME}/.ssh:${HOME}/.ssh:ro
+
+  deployme-reverb:
+    image: deployme-php:prod
+    build: *prod-build
+    environment:
+      DEPLOYME_MODE: prod
+    volumes: !override
+      - *env-file
+      - ./src/api/storage:/app/storage

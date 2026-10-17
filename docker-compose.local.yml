@@ -8,7 +8,9 @@
 #   standalone   deploy.me's own, from compose.standalone.yml
 #
 # This machine's mounts (project roots, the ssh-agent socket) are in the
-# generated compose.host.yml. Nothing here is published on the host.
+# generated compose.host.yml. Production mode (bin/configure --mode prod) adds
+# compose.prod.yml: the code baked into the image instead of mounted from
+# ./src/api. Nothing here is published on the host.
 #
 #   bin/install    # or: make init — configure, database, image, assets, setup
 #   make up | down | logs s=deployme-worker
@@ -42,6 +44,8 @@ x-php: &php
     DEPLOYME_HOST_HOME: ${HOME:?HOME is not set}
     DEPLOYME_HOST_USER: ${USER:?USER is not set}
     DEPLOYME_PROJECT_ROOTS: ${DEPLOYME_PROJECT_ROOTS:-}
+    # Development: the code is mounted below. compose.prod.yml says prod.
+    DEPLOYME_MODE: dev
   tmpfs:
     - /run/deployme:mode=0700,size=16m,uid=${DEPLOYME_UID:-0},gid=${DEPLOYME_GID:-0}
   security_opt:

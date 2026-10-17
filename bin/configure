@@ -4,18 +4,23 @@
 # has). Safe to run again: it keeps the database password it generated and
 # rewrites the rest. macOS, Linux and Windows (inside WSL2).
 #
-#   bin/configure                         detect everything, ask nothing
+#   bin/configure                         detect everything (asks only for the mode, once)
+#   bin/configure --mode prod             production: the code baked into the image
+#   bin/configure --mode dev              development: the code mounted and edited live
 #   bin/configure --stack standalone      deploy.me's own Postgres, Valkey and edge
 #   bin/configure --stack shared          the shared stack on proxy-network
 #   bin/configure --roots ~/code:~/work   the folders projects are imported from
 #   bin/configure --uid 0                 run the containers as root anyway
 #   bin/configure --build-from-source     compile the PHP base here, never pull it
 #   bin/configure --pull-base             back to the ready-made base from Docker Hub
+#
+# After switching modes: make build && make up (docs/install.md).
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 cd "$DEPLOYME_ROOT"
 
 stack=""
+mode=""
 roots=""
 uid=""
 gid=""
@@ -25,13 +30,15 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --stack) stack=${2:?--stack needs shared or standalone}; shift 2 ;;
         --stack=*) stack=${1#*=}; shift ;;
+        --mode) mode=${2:?--mode needs dev or prod}; shift 2 ;;
+        --mode=*) mode=${1#*=}; shift ;;
         --roots) roots=${2:?--roots needs a list}; shift 2 ;;
         --roots=*) roots=${1#*=}; shift ;;
         --uid) uid=${2:?}; gid=${uid}; shift 2 ;;
         --uid=*) uid=${1#*=}; gid=$uid; shift ;;
         --build-from-source) php_base=deployme-php-base:local; shift ;;
         --pull-base) php_base=""; shift ;;
-        -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) deployme_die "Unknown option $1 (see bin/configure --help)" ;;
     esac
 done
@@ -52,6 +59,25 @@ if [ -z "$stack" ]; then
     fi
 fi
 case "$stack" in shared|standalone) ;; *) deployme_die "--stack is shared or standalone, not $stack" ;; esac
+
+# Development (the default) mounts src/api into the containers, so code edits
+# show up live; production bakes the code into the image (compose.prod.yml). The
+# mode it had is kept; the first run asks when someone is there to answer.
+previous_mode=$(deployme_env DEPLOYME_MODE)
+if [ -z "$mode" ]; then
+    mode=$previous_mode
+fi
+if [ -z "$mode" ] && [ -t 0 ]; then
+    echo "  Development mode reads the code from src/api live (for working on deploy.me);"
+    echo "  production mode bakes it into the image (faster; a code change needs make build)."
+    read -r -p "  Mode? [dev/prod] (dev) " mode
+fi
+mode=${mode:-dev}
+case "$mode" in
+    development) mode=dev ;;
+    production) mode=prod ;;
+esac
+case "$mode" in dev|prod) ;; *) deployme_die "--mode is dev or prod, not $mode" ;; esac
 
 # Root where Docker maps file ownership for us (Docker Desktop, OrbStack on a
 # Mac); the host user's ids where bind mounts keep the real owner.
@@ -120,12 +146,15 @@ if [ "$stack" = standalone ] && [ -z "$password" ]; then
 fi
 
 if [ "$stack" = standalone ]; then
-    files=docker-compose.local.yml:compose.standalone.yml:compose.host.yml
+    files=docker-compose.local.yml:compose.standalone.yml
     network=deployme-edge
 else
-    files=docker-compose.local.yml:compose.host.yml
+    files=docker-compose.local.yml
     network=proxy-network
 fi
+# compose.host.yml last: its mounts add to the ones compose.prod.yml sets.
+[ "$mode" = prod ] && files=$files:compose.prod.yml
+files=$files:compose.host.yml
 
 cat > .env <<ENV
 # Written by bin/configure for this machine ($os). Run it again to change
@@ -133,6 +162,7 @@ cat > .env <<ENV
 COMPOSE_FILE=$files
 COMPOSE_PATH_SEPARATOR=:
 DEPLOYME_STACK=$stack
+DEPLOYME_MODE=$mode
 DEPLOYME_OS=$os
 DEPLOYME_NETWORK=$network
 DEPLOYME_UID=$uid
@@ -161,8 +191,20 @@ chmod 600 .env
     done
 } > compose.host.yml
 
+# The app's own settings follow the mode. Back to dev only on a switch from prod,
+# so a dev machine's own LOG_LEVEL (say) survives running this again.
+if [ "$mode" = prod ] || [ "$previous_mode" = prod ]; then
+    deployme_app_env_for_mode "$mode" src/api/.env
+fi
+
 deployme_say "Configured deploy.me for $os"
 deployme_ok "stack: $stack$([ "$stack" = standalone ] && echo ' (its own Postgres, Valkey and edge)' || echo ' (the shared stack on proxy-network)')"
+if [ "$mode" = prod ]; then
+    deployme_ok "mode: production (the code is baked into the image: make build && make up after a change)"
+else
+    deployme_ok "mode: development (the code is mounted from src/api)"
+fi
+[ -n "$previous_mode" ] && [ "$previous_mode" != "$mode" ] && deployme_warn "The mode changed from $previous_mode to $mode: run make build && make up"
 deployme_ok "containers run as $([ "$uid" = 0 ] && echo root || echo "uid $uid:$gid")"
 deployme_ok "timezone: $tz"
 deployme_ok "PHP base image: ${php_base:-romanovich0195/deployme-php:1 (pulled from Docker Hub)}"
