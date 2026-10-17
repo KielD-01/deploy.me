@@ -6,7 +6,9 @@ use App\Models\Deployment;
 use App\Models\Setting;
 use App\Support\Alert;
 use App\Support\Settings;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 // A stub registered first wins, so each test says what Telegram answers
 // rather than sharing one answer here.
@@ -96,4 +98,22 @@ it('asks for a passkey before alerts go to another chat, or stop', function () {
         ->assertHasNoErrors();
 
     expect(Settings::string('telegram_chat_id'))->toBe('9999');
+});
+
+it('never writes the bot token to the log when Telegram cannot be reached', function () {
+    Http::fake(['api.telegram.org/*' => fn () => throw new ConnectionException(
+        'cURL error 28: Operation timed out for https://api.telegram.org/bot123456:test-token/sendMessage'
+    )]);
+    Settings::setString('telegram_bot_token', '123456:test-token');
+    Settings::setString('telegram_chat_id', '4242');
+
+    Log::spy();
+
+    expect(Alert::send('hello'))->toBeFalse();
+
+    Log::shouldHaveReceived('warning')->once()->withArgs(function (string $message, array $context = []) {
+        return $message === 'Could not send an alert'
+            && $context['exception'] === ConnectionException::class
+            && ! str_contains(json_encode([$message, $context]), 'test-token');
+    });
 });

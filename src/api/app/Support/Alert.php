@@ -84,7 +84,12 @@ final class Alert
 
             return $response->successful();
         } catch (Throwable $e) {
-            Log::warning('Could not send an alert', ['error' => $e->getMessage()]);
+            // Guzzle ends a connection error's message with "for <url>", and the
+            // token is in that URL: redact it from whatever is logged.
+            Log::warning('Could not send an alert', [
+                'exception' => $e::class,
+                'error' => str_replace([$token, rawurlencode($token)], '[token]', $e->getMessage()),
+            ]);
 
             return false;
         }
