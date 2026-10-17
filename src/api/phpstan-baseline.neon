@@ -1,6 +1,12 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Parameter \#1 \$project of static method App\\Actions\\Deployments\\StartDeployment\:\:options\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Deployments/StartDeployment.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ssh_alias\.$#'
 			identifier: property.notFound
 			count: 1
@@ -253,6 +259,12 @@ parameters:
 			path: app/Deploy/Conversion/RepositoryComparison.php
 
 		-
+			message: '#^Parameter \#1 \$credential of static method App\\Platform\\GitHub\\GitHubClient\:\:for\(\) expects App\\Models\\Credential, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Delivery/CommitOnBranch.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$login\.$#'
 			identifier: property.notFound
 			count: 1
@@ -305,6 +317,12 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: app/Deploy/DeployContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/DeploymentRefused.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$currentRelease\.$#'
@@ -445,6 +463,18 @@ parameters:
 			path: app/Deploy/Pipeline/Steps/CheckFolder.php
 
 		-
+			message: '#^Property App\\Deploy\\DeployContext\:\:\$previous \(App\\Models\\Release\|null\) does not accept Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/CheckFolder.php
+
+		-
+			message: '#^Property App\\Deploy\\DeployContext\:\:\$release \(App\\Models\\Release\|null\) does not accept Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/CheckFolder.php
+
+		-
 			message: '#^Method App\\Deploy\\Pipeline\\Steps\\CheckStack\:\:run\(\) never returns null so it can be removed from the return type\.$#'
 			identifier: return.unusedType
 			count: 1
@@ -483,6 +513,18 @@ parameters:
 		-
 			message: '#^Method App\\Deploy\\Pipeline\\Steps\\InspectExisting\:\:run\(\) never returns null so it can be removed from the return type\.$#'
 			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/InspectExisting.php
+
+		-
+			message: '#^Property App\\Deploy\\DeployContext\:\:\$previous \(App\\Models\\Release\|null\) does not accept Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/InspectExisting.php
+
+		-
+			message: '#^Property App\\Deploy\\DeployContext\:\:\$release \(App\\Models\\Release\|null\) does not accept Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: assign.propertyType
 			count: 1
 			path: app/Deploy/Pipeline/Steps/InspectExisting.php
 
@@ -555,6 +597,18 @@ parameters:
 		-
 			message: '#^Method App\\Deploy\\Pipeline\\Steps\\PickRelease\:\:run\(\) never returns null so it can be removed from the return type\.$#'
 			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PickRelease.php
+
+		-
+			message: '#^Property App\\Deploy\\DeployContext\:\:\$previous \(App\\Models\\Release\|null\) does not accept Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PickRelease.php
+
+		-
+			message: '#^Property App\\Deploy\\DeployContext\:\:\$release \(App\\Models\\Release\|null\) does not accept Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: assign.propertyType
 			count: 1
 			path: app/Deploy/Pipeline/Steps/PickRelease.php
 
@@ -651,6 +705,18 @@ parameters:
 		-
 			message: '#^Method App\\Deploy\\Pipeline\\Steps\\ResolveRelease\:\:run\(\) never returns null so it can be removed from the return type\.$#'
 			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/ResolveRelease.php
+
+		-
+			message: '#^Property App\\Deploy\\DeployContext\:\:\$previous \(App\\Models\\Release\|null\) does not accept Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/ResolveRelease.php
+
+		-
+			message: '#^Property App\\Deploy\\DeployContext\:\:\$release \(App\\Models\\Release\|null\) does not accept Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: assign.propertyType
 			count: 1
 			path: app/Deploy/Pipeline/Steps/ResolveRelease.php
 
@@ -799,6 +865,12 @@ parameters:
 			path: app/Deploy/Pipeline/Steps/UndoConversion.php
 
 		-
+			message: '#^Property App\\Deploy\\DeployContext\:\:\$undoing \(App\\Models\\Release\|null\) does not accept Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/UndoConversion.php
+
+		-
 			message: '#^Method App\\Deploy\\Pipeline\\Steps\\UploadRelease\:\:run\(\) never returns null so it can be removed from the return type\.$#'
 			identifier: return.unusedType
 			count: 1
@@ -815,6 +887,18 @@ parameters:
 			identifier: nullsafe.neverNull
 			count: 1
 			path: app/Deploy/Pipeline/WaitingForCi.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Jobs/RefreshDrift.php
+
+		-
+			message: '#^Parameter \#1 \$project of static method App\\Support\\Drift\:\:measure\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Jobs/RefreshDrift.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
@@ -859,12 +943,6 @@ parameters:
 			path: app/Livewire/Console/Tail.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/Dashboard.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
 			identifier: property.notFound
 			count: 2
@@ -873,12 +951,6 @@ parameters:
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
 			identifier: property.notFound
-			count: 1
-			path: app/Livewire/Dashboard.php
-
-		-
-			message: '#^Parameter \#1 \$project of static method App\\Support\\Drift\:\:for\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
-			identifier: argument.type
 			count: 1
 			path: app/Livewire/Dashboard.php
 
@@ -961,9 +1033,9 @@ parameters:
 			path: app/Livewire/Deployments/Show.php
 
 		-
-			message: '#^Parameter \#1 \$target of callable App\\Actions\\Deployments\\StartDeployment expects App\\Models\\Target, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			message: '#^Parameter \#2 \$target of method App\\Livewire\\Deployments\\Show\:\:startRun\(\) expects App\\Models\\Target, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
 			identifier: argument.type
-			count: 2
+			count: 4
 			path: app/Livewire/Deployments/Show.php
 
 		-
@@ -987,7 +1059,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property App\\Livewire\\Projects\\DeployDialog\:\:\$project\.$#'
 			identifier: property.notFound
-			count: 10
+			count: 8
 			path: app/Livewire/Projects/DeployDialog.php
 
 		-
@@ -1035,7 +1107,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property App\\Livewire\\Projects\\Hooks\:\:\$project\.$#'
 			identifier: property.notFound
-			count: 11
+			count: 12
 			path: app/Livewire/Projects/Hooks.php
 
 		-
@@ -1063,7 +1135,7 @@ parameters:
 			path: app/Livewire/Projects/Releases.php
 
 		-
-			message: '#^Parameter \#1 \$target of method App\\Livewire\\Projects\\Releases\:\:startRun\(\) expects App\\Models\\Target, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			message: '#^Parameter \#2 \$target of method App\\Livewire\\Projects\\Releases\:\:startRun\(\) expects App\\Models\\Target, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
 			identifier: argument.type
 			count: 2
 			path: app/Livewire/Projects/Releases.php
@@ -1123,12 +1195,6 @@ parameters:
 			path: app/Livewire/Servers/Folders.php
 
 		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$captured_at\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Livewire/Servers/Show.php
-
-		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stacks\.$#'
 			identifier: property.notFound
 			count: 1
@@ -1144,12 +1210,6 @@ parameters:
 			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:active\(\)\.$#'
 			identifier: method.notFound
 			count: 3
-			path: app/Livewire/Servers/Show.php
-
-		-
-			message: '#^Call to an undefined method Illuminate\\Support\\HigherOrderCollectionProxy\<string, Illuminate\\Database\\Eloquent\\Model, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\>\:\:memoryUsedPercent\(\)\.$#'
-			identifier: method.notFound
-			count: 1
 			path: app/Livewire/Servers/Show.php
 
 		-
@@ -1241,12 +1301,6 @@ parameters:
 			identifier: method.notFound
 			count: 1
 			path: app/Mcp/Find.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Mcp/Tools/Deploy.php
 
 		-
 			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<string, mixed\>, Closure\(App\\Models\\DeploymentStep\)\: array\<string, mixed\> given\.$#'
@@ -1345,6 +1399,30 @@ parameters:
 			path: app/Models/Deployment.php
 
 		-
+			message: '#^Anonymous function should return Illuminate\\Support\\Collection\<int, object\{at\: Illuminate\\Support\\Carbon, cpu\: float\|null, mem\: float\|null\}&stdClass\> but returns Illuminate\\Support\\Collection\<int, object\{at\: Illuminate\\Support\\Carbon, cpu\: float\|null, mem\: float\|null\}&stdClass\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/ServerSnapshot.php
+
+		-
+			message: '#^Method App\\Models\\ServerSnapshot\:\:history\(\) should return Illuminate\\Support\\Collection\<int, Illuminate\\Support\\Collection\<int, object\{at\: Illuminate\\Support\\Carbon, cpu\: float\|null, mem\: float\|null\}\>\> but returns Illuminate\\Support\\Collection\<\(int\|string\), Illuminate\\Support\\Collection\<int, object\{at\: Illuminate\\Support\\Carbon, cpu\: float\|null, mem\: float\|null\}&stdClass\>\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/ServerSnapshot.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<\(int\|string\),Illuminate\\Support\\Collection\<int, stdClass\>\>\:\:map\(\) expects callable\(Illuminate\\Support\\Collection\<int, stdClass\>, int\|string\)\: Illuminate\\Support\\Collection\<int, object\{at\: Illuminate\\Support\\Carbon, cpu\: float\|null, mem\: float\|null\}&stdClass\>, Closure\(Illuminate\\Support\\Collection\)\: Illuminate\\Support\\Collection\<int, object\{at\: Illuminate\\Support\\Carbon, cpu\: float\|null, mem\: float\|null\}&stdClass\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/ServerSnapshot.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Target.php
+
+		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$default_deploy_path\.$#'
 			identifier: property.notFound
 			count: 1
@@ -1363,6 +1441,12 @@ parameters:
 			path: app/Models/Target.php
 
 		-
+			message: '#^Parameter \#1 \$project of static method App\\Support\\Drift\:\:fromCi\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/Target.php
+
+		-
 			message: '#^Offset ''type'' on array\{path\: string, type\: string\} on left side of \?\? always exists and is not nullable\.$#'
 			identifier: nullCoalesce.offset
 			count: 1
@@ -1373,6 +1457,18 @@ parameters:
 			identifier: method.notFound
 			count: 1
 			path: app/Platform/GitHub/GitHubException.php
+
+		-
+			message: '#^Cannot call method stop\(\) on null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Platform/Ssh/ProcessSshClient.php
+
+		-
+			message: '#^Variable \$result might not be defined\.$#'
+			identifier: variable.undefined
+			count: 3
+			path: app/Platform/Ssh/ProcessSshClient.php
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ssh_alias\.$#'
