@@ -77,13 +77,22 @@ final class Server
      */
     public function handle(mixed $message): ?array
     {
+        // An id is a string, a number or null; any other isn't echoed back.
+        $validId = fn (mixed $id) => $id === null || is_string($id) || is_int($id) || is_float($id);
+
         if (! is_array($message) || ($message['jsonrpc'] ?? null) !== '2.0' || ! is_string($message['method'] ?? null)) {
-            return self::error(is_array($message) ? ($message['id'] ?? null) : null, -32600, 'Invalid request: expected a JSON-RPC 2.0 message with a method.');
+            $id = is_array($message) ? ($message['id'] ?? null) : null;
+
+            return self::error($validId($id) ? $id : null, -32600, 'Invalid request: expected a JSON-RPC 2.0 message with a method.');
         }
 
         // notifications/initialized, notifications/cancelled…: nothing runs, nothing goes back.
         if (! array_key_exists('id', $message)) {
             return null;
+        }
+
+        if (! $validId($message['id'])) {
+            return self::error(null, -32600, 'Invalid request: an id is a string or a number.');
         }
 
         $id = $message['id'];

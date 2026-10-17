@@ -262,3 +262,11 @@ it('lists its tools on the command line', function () {
         ->expectsOutputToContain('rollback')
         ->assertSuccessful();
 });
+
+it('refuses a request whose id is neither a string nor a number', function (mixed $id) {
+    $answer = (new McpServer)->handle(['jsonrpc' => '2.0', 'id' => $id, 'method' => 'ping']);
+
+    // JSON-RPC 2.0: such an id isn't echoed back, the answer's id is null.
+    expect($answer['error']['code'] ?? null)->toBe(-32600)
+        ->and($answer['id'])->toBeNull();
+})->with([[['x' => 1]], [[1, 2]], [true]]);
