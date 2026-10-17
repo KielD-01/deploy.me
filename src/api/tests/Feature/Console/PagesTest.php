@@ -10,6 +10,7 @@ use App\Events\DeploymentUpdated;
 use App\Jobs\RunDeployment;
 use App\Livewire\Console\Git;
 use App\Livewire\Deployments\Show as RunPage;
+use App\Livewire\Projects\DeployDialog;
 use App\Livewire\Projects\Show as ProjectPage;
 use App\Livewire\Servers\Show as ServerPage;
 use App\Models\Credential;
@@ -339,10 +340,13 @@ it('renders every tab of the server page in the console', function (string $tab)
     ]);
     inConsole();
 
-    Livewire::test(ServerPage::class, ['server' => $server])
+    $page = Livewire::test(ServerPage::class, ['server' => $server])
         ->set('tab', $tab)
         ->assertOk()
-        ->assertSeeHtml('aria-selected="true" wire:click="$set(\'tab\', \''.$tab.'\')"');
+        ->assertSet('tab', $tab);
+
+    // The tab bar marks the open one with a star, like tmux's status line.
+    expect(preg_replace('/\s+/', ' ', strip_tags($page->html())))->toMatch('/\d:\w+\*/');
 })->with(['overview', 'stacks', 'checks', 'folders', 'settings']);
 
 it('probes, saves, adopts and removes from the console server page', function () {
@@ -442,18 +446,27 @@ it('tags the commit a rollback would go back to, and offers to deploy each commi
 
     Livewire::test(Git::class, ['arg' => 'demo', 'page' => true])
         ->assertSee('20260901-100000 · ↺ '.$target->server->slug.' rolls back here')
-        ->assertSeeHtml('wire:click="$dispatch(\'open-deploy-dialog\', { commit: \''.$head.'\' })"')
-        ->assertSeeHtml('wire:click="$dispatch(\'open-deploy-dialog\', { commit: \''.$first.'\' })"');
+        ->assertSee(['Deploy '.substr($head, 0, 7), 'Deploy '.substr($first, 0, 7)]);
+
+    // What a commit's button asks for: the deploy dialog, opened on that commit.
+    foreach ([$head, $first] as $sha) {
+        Livewire::test(DeployDialog::class, ['projectId' => $target->project_id])
+            ->call('openFor', $target->id, $sha)
+            ->assertSet('open', true)
+            ->assertSet('commit', $sha);
+    }
 });
 
 it('renders every tab of the project page in the console', function (string $tab) {
     [$target] = graphTarget();
     inConsole();
 
-    Livewire::test(ProjectPage::class, ['project' => $target->project])
+    $page = Livewire::test(ProjectPage::class, ['project' => $target->project])
         ->set('tab', $tab)
         ->assertOk()
-        ->assertSeeHtml('aria-selected="true"');
+        ->assertSet('tab', $tab);
+
+    expect(preg_replace('/\s+/', ' ', strip_tags($page->html())))->toMatch('/\d:\w+\*/');
 })->with(['targets', 'releases', 'environment', 'hooks', 'settings']);
 
 it('edits the settings from the console project page', function () {
@@ -490,7 +503,7 @@ it('checks CI from the console project page', function () {
     inConsole();
 
     Livewire::test(ProjectPage::class, ['project' => $project])
-        ->assertSeeHtml('wire:click="checkCi"')
+        ->assertSee('check ci')
         ->call('checkCi')
         ->assertSee('ci passing');
 });

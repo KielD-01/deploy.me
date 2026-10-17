@@ -4,6 +4,7 @@ use App\Enums\DeploymentKind;
 use App\Livewire\Console\Git;
 use App\Livewire\Console\Htop;
 use App\Livewire\Console\Session;
+use App\Livewire\Console\Shell;
 use App\Livewire\Console\Status;
 use App\Livewire\Console\Tail;
 use App\Models\Deployment;
@@ -74,19 +75,23 @@ it('keeps a status pane', function () {
 });
 
 it('draws the frame first: the shell at once, the panes with data right after', function () {
+    $this->withoutVite();
+
     $page = $this->get(route('dashboard'))->assertOk();
 
-    $page->assertSeeHtml('class="term-input"')->assertSee(['$ tail', '$ htop', '$ git']);
-    expect(substr_count($page->getContent(), 'aria-busy="true"'))->toBe(3);
+    // The shell is there; each of the other three panes shows its command and a loading line.
+    $page->assertSeeLivewire(Shell::class)->assertSee(['$ tail', '$ htop', '$ git']);
+    expect(preg_match_all('/\$ (?:tail|htop|git)\s+loading/', strip_tags($page->getContent())))->toBe(3);
 });
 
 it('loads the commits on a project page after the page', function () {
+    $this->withoutVite();
     $project = Project::factory()->create(['slug' => 'warehouse']);
 
     $this->get(route('projects.show', $project))
         ->assertOk()
         ->assertSee('$ git warehouse')
-        ->assertSeeHtml('aria-busy="true"');
+        ->assertSee('loading');
 });
 
 it('puts each commit of the branch on a line of its own', function () {
