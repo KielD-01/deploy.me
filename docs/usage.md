@@ -157,7 +157,7 @@ Click **Deploy** on the project page. The dialog shows:
 The run page streams a live, redacted log, step by step. A Docker deploy goes like this:
 
 ```mermaid
-flowchart LR
+flowchart TB
     A[🔒 Preflight<br/>lock, disk, stack] --> B[📤 Upload<br/>or pull images]
     B --> C[🧪 compose config<br/>check]
     C --> D[💾 pg_dump]

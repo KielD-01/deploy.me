@@ -185,9 +185,11 @@ claude mcp add deployme -- docker exec -i deployme-web php artisan deployme:mcp
 claude mcp add deployme-ops -- docker exec -i deployme-web php artisan deployme:mcp --allow-deploys
 ```
 
-> *"What's deployed where, and is anything unhealthy?"*
-> *"Why did run #42 fail? Show me the step that broke."*
-> *"Is there a green build on main that isn't live yet? Deploy it to staging and watch it."*
+> 💬 *"What's deployed where, and is anything unhealthy?"*
+>
+> 💬 *"Why did run #42 fail? Show me the step that broke."*
+>
+> 💬 *"Is there a green build on main that isn't live yet? Deploy it to staging and watch it."*
 
 Setup for Claude Desktop, Cursor and VS Code, the full tool list and the safety model are in
 **[docs/mcp.md](docs/mcp.md)**.
@@ -195,7 +197,7 @@ Setup for Claude Desktop, Cursor and VS Code, the full tool list and the safety 
 ## 🗺️ How a deploy flows
 
 ```mermaid
-flowchart LR
+flowchart TB
     A([🧑 You · 🤖 agent · 🟢 CI]) --> B[🎯 Resolve strategy<br/>GHCR · archive · rsync · git]
     B --> C[🔒 Preflight<br/>lock · disk · stack]
     C --> D[📤 Upload release<br/>or pull pinned images]
