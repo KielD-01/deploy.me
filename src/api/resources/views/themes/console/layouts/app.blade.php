@@ -71,6 +71,7 @@
             <a href="{{ route($route) }}" wire:navigate title="F{{ $index + 1 }} · ⌃b {{ $index }}" @class(['is-current' => $current === $index])>{{ $index }}:{{ $label }}{{ $current === $index ? '*' : '' }}</a>
         @endforeach
         <span class="ml-auto flex gap-3">
+            @if ($update = \App\Support\Updates::available())<a href="{{ route('settings', ['tab' => 'updates']) }}" wire:navigate class="t-warn" title="deploy.me {{ $update['version'] }} is out: bin/update">↑ {{ $update['version'] }}</a>@endif
             @if ($failing > 0)<span class="t-err">● {{ $failing }} failing</span>@endif
             @if ($running > 0)<span class="t-run">● {{ $running }} running</span>@endif
             <span x-data="liveStatus" :class="live ? 't-ok' : 't-mute'" title="Realtime updates">● <span x-text="live ? 'live' : 'offline'">live</span></span>

@@ -152,6 +152,80 @@
         </section>
     @endif
 
+    @if ($tab === 'updates')
+        <form wire:submit="saveUpdates" class="card bg-base-100 border border-line max-w-4xl">
+            <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
+                <h2 class="text-[15px] leading-[22px] font-semibold">Updates</h2>
+                <span class="text-[13px] text-muted">deploy.me {{ $updates['current'] }}</span>
+                @if ($updates['available'])
+                    <span class="badge badge-soft badge-info ml-auto">{{ $updates['available']['version'] }} is out</span>
+                @elseif ($updates['latest'])
+                    <span class="badge badge-soft badge-success ml-auto">Up to date</span>
+                @endif
+            </header>
+            <div class="p-4 flex flex-col gap-4">
+                @if ($updates['available'])
+                    <div class="flex flex-col gap-2 rounded-box border border-line p-3">
+                        <div class="flex items-center gap-2">
+                            <b class="text-[13px]">{{ $updates['available']['name'] ?: 'deploy.me '.$updates['available']['version'] }}</b>
+                            <span class="text-xs text-muted">a {{ $updates['available']['kind'] }} release</span>
+                            <a href="{{ $updates['available']['url'] }}" target="_blank" rel="noopener noreferrer" class="link text-xs ml-auto">Release notes on GitHub ↗</a>
+                        </div>
+                        @if ($updates['available']['notes'] !== '')
+                            <pre class="text-xs text-muted whitespace-pre-wrap max-h-48 overflow-auto font-mono">{{ $updates['available']['notes'] }}</pre>
+                        @endif
+                        <p class="text-[13px]">To update, run this on the machine deploy.me runs on. It backs up the database and the key, rebuilds, restarts, runs the doctor and goes back by itself if that fails:</p>
+                        <code class="font-mono text-[13px] bg-base-200 rounded px-2 py-1 w-fit select-all">bin/update</code>
+                    </div>
+                @endif
+
+                <div class="grid grid-cols-2 gap-4">
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-[13px] font-medium">Look for a new release</span>
+                        <select wire:model="updateCheck" class="select select-sm">
+                            @foreach ($choices['update_check'] as $value => $text)
+                                <option value="{{ $value }}">{{ $text }}</option>
+                            @endforeach
+                        </select>
+                        <span class="text-xs text-muted">One anonymous request to github.com/{{ $updates['repository'] }}; nothing about this machine is sent.@if ($updates['latest']) Last looked {{ \Illuminate\Support\Carbon::parse($updates['latest']['checked_at'])->diffForHumans() }}.@endif</span>
+                        @if ($updates['latest'] && $updates['latest']['error'])
+                            <span class="text-warning text-xs">{{ $updates['latest']['error'] }} The last answer is kept.</span>
+                        @endif
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-[13px] font-medium">Update by itself, at night</span>
+                        <select wire:model="autoUpdate" class="select select-sm">
+                            @foreach ($updates['modes'] as $value => $text)
+                                <option value="{{ $value }}">{{ $text }}</option>
+                            @endforeach
+                        </select>
+                        <span class="text-xs text-muted">Off by default. Runs bin/update around 04:10, and never while a deploy or a folder sync is running. Patch releases (1.0.<b>x</b>) rarely bring more than fixes; a minor one can bring migrations. Turning it on asks for your passkey.</span>
+                    </label>
+                </div>
+
+                @if ($autoUpdate !== 'off' && ! $updates['agent'])
+                    <div role="status" class="alert alert-soft alert-warning text-[13px]">
+                        <x-icon name="alert" />
+                        <span>The nightly job isn’t installed on this machine yet. Run <code class="font-mono">bin/update auto {{ $autoUpdate }}</code> once; it installs the job and sets this choice.</span>
+                    </div>
+                @endif
+
+                @if ($updates['lastRun'])
+                    <div class="text-xs text-muted flex flex-wrap gap-x-3 gap-y-1">
+                        <span>Last update run: <b @class(['text-success' => $updates['lastRun']['result'] === 'ok', 'text-warning' => $updates['lastRun']['result'] !== 'ok'])>{{ str_replace('_', ' ', $updates['lastRun']['result']) }}</b>
+                            {{ $updates['lastRun']['from'] }} → {{ $updates['lastRun']['to'] }}, {{ \Illuminate\Support\Carbon::parse($updates['lastRun']['at'])->diffForHumans() }}</span>
+                        @if ($updates['lastRun']['message'] !== '')<span>{{ $updates['lastRun']['message'] }}</span>@endif
+                        @if ($updates['lastRun']['backup'])<span>Backup: <span class="font-mono">{{ $updates['lastRun']['backup'] }}</span></span>@endif
+                    </div>
+                @endif
+            </div>
+            <footer class="flex items-center gap-2 px-4 py-3 border-t border-line">
+                <button type="button" class="btn btn-sm" wire:click="checkForUpdate" wire:loading.attr="disabled" wire:target="checkForUpdate">Check now</button>
+                <button type="submit" class="btn btn-primary btn-sm ml-auto"><x-icon name="check" :size="14" /> Save</button>
+            </footer>
+        </form>
+    @endif
+
     @if ($tab === 'alerts')
         <form wire:submit="saveAlerts" class="card bg-base-100 border border-line max-w-4xl">
             <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">

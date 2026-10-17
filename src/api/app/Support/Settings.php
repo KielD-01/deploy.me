@@ -26,6 +26,8 @@ final class Settings
         'health_retention_days' => 7,
         // Days the audit log keeps.
         'audit_retention_days' => 365,
+        // Days between looks at GitHub for a newer release; 0 switches them off.
+        'update_check' => 1,
     ];
 
     public const CHOICES = [
@@ -36,6 +38,7 @@ final class Settings
         'snapshot_retention_days' => [7 => '7 days', 30 => '30 days', 90 => '90 days'],
         'health_retention_days' => [7 => '7 days', 30 => '30 days', 90 => '90 days'],
         'audit_retention_days' => [30 => '30 days', 90 => '90 days', 365 => 'a year', 1095 => 'three years'],
+        'update_check' => [1 => 'Every day', 0 => 'Off'],
     ];
 
     /**
@@ -45,6 +48,10 @@ final class Settings
     public const STRINGS = [
         'telegram_bot_token' => '',
         'telegram_chat_id' => '',
+        // The newest release GitHub announced (JSON, see Updates::check()).
+        'update_latest' => '',
+        // What the host's nightly bin/update may apply: off, patch (x.y.Z only) or all.
+        'auto_update' => 'off',
     ];
 
     // Stored encrypted, like every other credential here.

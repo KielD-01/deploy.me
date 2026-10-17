@@ -14,6 +14,7 @@ use App\Models\Server;
 use App\Models\Target;
 use App\Support\BranchCommits;
 use App\Support\Ui;
+use App\Support\Updates;
 use Illuminate\Support\Carbon;
 
 /**
@@ -190,9 +191,15 @@ final class Shell
         $running = $targets->filter(fn (Target $target) => $target->latestDeployment?->isActive())->count();
         $failing = $targets->where('health', TargetHealth::Unhealthy)->count();
 
-        return (new Output)
+        $output = (new Output)
             ->table(['', 'TARGET', 'LIVE', 'HEALTH', 'LAST RUN'], $rows)
             ->line([' '.$targets->count().' targets · '.$running.' running · '.$failing.' failing', 't-mute']);
+
+        if ($update = Updates::available()) {
+            $output->line([' ↑ deploy.me '.$update['version'].' is out (running '.Updates::current().') · run bin/update on this machine', 't-warn']);
+        }
+
+        return $output;
     }
 
     /**

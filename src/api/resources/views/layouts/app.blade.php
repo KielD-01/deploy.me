@@ -84,6 +84,9 @@
                 <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-line w-56 p-1 mt-2 z-20">
                     <li class="menu-title truncate">{{ auth()->user()?->email }}</li>
                     <li><a href="{{ route('settings') }}" wire:navigate><x-icon name="sliders" /> Settings</a></li>
+                    @if ($update = \App\Support\Updates::available())
+                        <li><a href="{{ route('settings', ['tab' => 'updates']) }}" wire:navigate><x-icon name="upload" /> deploy.me {{ $update['version'] }} is out</a></li>
+                    @endif
                     <li><button type="submit" form="logout-form"><x-icon name="logout" /> Sign out</button></li>
                 </ul>
             </div>

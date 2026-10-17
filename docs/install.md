@@ -247,7 +247,9 @@ they're blank, because the containers mount that file read-only.
 ## Updating, stopping, uninstalling
 
 ```bash
-git pull && make build up    # update: rebuild the image (in prod mode, with the new code); the web container migrates on start
+bin/update                   # update to the newest release: backup, rebuild, restart, doctor, back out if it fails (make update)
+bin/update auto patch        # optional: do the patch releases by itself at night (off by default; docs/usage.md chapter 16)
+git pull && make build up    # or by hand, to follow main instead of the releases
 make down                    # stop (data is kept)
 make up                      # start again
 ```

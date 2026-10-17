@@ -48,7 +48,15 @@ and health checks on queue workers run by supervisor.
 - `bin/` — `db-create.sh` (the role + DBs, either stack), `doctor.sh` (host-side checks),
   `backup.sh` (the database and APP_KEY into `~/Backups/deployme`, nightly through a
   LaunchAgent on macOS, a systemd user timer or cron on Linux/WSL: everything else can be
-  rebuilt from git and the servers).
+  rebuilt from git and the servers). `update` moves this checkout to a release tag: it checks
+  nothing of your own is in the checkout and nothing runs in the app (`deployme:update busy`),
+  runs backup.sh, fast-forwards the branch (or detaches onto the tag), rebuilds (`bin/build`,
+  assets in dev mode), restarts web/worker/reverb, waits for healthy and runs doctor.sh —
+  going back to the previous commit if that fails — and writes
+  `src/api/storage/app/update-state.json`. `update auto patch|all|off` installs or removes the
+  04:10 job (LaunchAgent, systemd user timer or cron; the marker file `update-agent` beside the
+  state file tells the app it exists), which runs `update --auto`: the app's
+  `deployme:update plan --auto` decides (exit 0 apply, 3 busy, 4 nothing) and names the release.
 - `docker-compose.local.yml` (+ `compose.standalone.yml`, generated `compose.host.yml`),
   `Makefile` (`make help`).
 
@@ -350,6 +358,18 @@ doesn't wait for `make migrate`.
     target (`drift_*` columns), so no page spawns git. `GreenBuild` is the cheaper
     question the projects list and the project page ask: has CI passed on a commit no
     server here runs yet?
+- **Updates** (`Support\Updates`, `Support\Version`, `Actions\Maintenance\CheckForUpdate`,
+  `deployme:update`, `bin/update`): the app looks and says, the host applies. `CheckForUpdate`
+  asks GitHub's latest release of `deployme.update.repository` (`DEPLOYME_UPDATE_REPO`) daily at
+  06:43 — one anonymous GET, `Settings::string('update_latest')` keeps the answer (a failure
+  keeps the last good one and notes the error; the tag must be x.y.z and the url github.com).
+  The running version is `src/api/VERSION` (bump it with the release tag). `Updates::plan`
+  says apply / busy (a deploy or a folder sync is active) / none; in the nightly mode `patch`
+  only a patch release applies. Settings → Updates shows the release (notes escaped), the mode
+  (`auto_update`: off|patch|all; turning it on takes a passkey) and `bin/update`'s last result;
+  the console status bar, `status` and the classic account menu point at it. A release is cut
+  by bumping `src/api/VERSION`, tagging `vX.Y.Z` on the public repo and publishing a GitHub
+  release; the PHP image has its own version (`core/local/php/VERSION`).
 - **Audit log** (`app/Support/Audit`, `app/Models/AuditEntry`, `app/Livewire/Audit`): who
   did what, to which object, when, and how it ended — never a value. Written for trusting a
   host key, breaking a lock, saving or removing a credential, removing a server, project or

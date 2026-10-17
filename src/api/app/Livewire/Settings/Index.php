@@ -3,6 +3,7 @@
 namespace App\Livewire\Settings;
 
 use App\Actions\Credentials\SaveGitHubToken;
+use App\Actions\Maintenance\CheckForUpdate;
 use App\Enums\AuditAction;
 use App\Livewire\Concerns\ConfirmsIdentity;
 use App\Models\Credential;
@@ -15,6 +16,7 @@ use App\Support\Alert;
 use App\Support\Audit;
 use App\Support\Settings;
 use App\Support\Ui;
+use App\Support\Updates;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -33,7 +35,7 @@ class Index extends Component
 {
     use ConfirmsIdentity;
 
-    public const TABS = ['github' => 'GitHub', 'ssh' => 'SSH', 'schedules' => 'Schedules', 'alerts' => 'Alerts', 'appearance' => 'Appearance', 'account' => 'Account'];
+    public const TABS = ['github' => 'GitHub', 'ssh' => 'SSH', 'schedules' => 'Schedules', 'updates' => 'Updates', 'alerts' => 'Alerts', 'appearance' => 'Appearance', 'account' => 'Account'];
 
     #[Url]
     public string $tab = 'github';
@@ -50,6 +52,11 @@ class Index extends Component
 
     /** @var array<string, int|string> setting => value, as the selects hold them */
     public array $schedules = [];
+
+    // Updates: how often to look for a release, and what the nightly job may apply.
+    public int $updateCheck = 1;
+
+    public string $autoUpdate = 'off';
 
     // Left empty on purpose: a stored bot token is never rendered back.
     public string $telegramToken = '';
@@ -88,6 +95,8 @@ class Index extends Component
         $this->adding = $this->adding && $this->identityConfirmed();
 
         $this->schedules = collect(Settings::DEFAULTS)->map(fn ($default, string $key) => Settings::int($key))->all();
+        $this->updateCheck = Settings::int('update_check');
+        $this->autoUpdate = Updates::mode();
         $this->telegramChatId = Settings::string('telegram_chat_id');
         $this->telegramSet = Settings::string('telegram_bot_token') !== '';
     }
@@ -109,6 +118,34 @@ class Index extends Component
         }
 
         $this->notice = 'Schedules saved.';
+    }
+
+    public function checkForUpdate(CheckForUpdate $check): void
+    {
+        $this->reset('notice', 'problem');
+
+        $result = $check(force: true);
+        $result['ok'] ? $this->notice = $result['message'] : $this->problem = $result['message'];
+    }
+
+    public function saveUpdates(): void
+    {
+        $this->reset('notice', 'problem');
+
+        if (! array_key_exists($this->updateCheck, Settings::CHOICES['update_check']) || ! array_key_exists($this->autoUpdate, Updates::MODES)) {
+            $this->problem = 'Pick one of the listed choices.';
+
+            return;
+        }
+
+        // An update that applies itself at night restarts the stack: asking for it takes a passkey.
+        if ($this->autoUpdate !== Updates::mode() && $this->autoUpdate !== 'off' && ! $this->confirmIdentity(route('settings', ['tab' => 'updates']))) {
+            return;
+        }
+
+        Settings::set('update_check', $this->updateCheck);
+        Updates::setMode($this->autoUpdate);
+        $this->notice = 'Update settings saved.';
     }
 
     /**
@@ -424,6 +461,15 @@ class Index extends Component
             'choices' => Settings::CHOICES,
             'passkeys' => $user->passkeys()->latest()->get(),
             'appearance' => Ui::preferences($user),
+            'updates' => [
+                'current' => Updates::current(),
+                'latest' => Updates::latest(),
+                'available' => Updates::available(),
+                'modes' => Updates::MODES,
+                'agent' => Updates::agentInstalled(),
+                'lastRun' => Updates::lastRun(),
+                'repository' => (string) config('deployme.update.repository'),
+            ],
             'credentials' => Credential::query()->withCount('projects')->orderBy('login')->get(),
             'ssh' => [
                 'servers' => $aliases->reject->looksLikeGitHost()->count(),

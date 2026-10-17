@@ -147,7 +147,7 @@ roll back and cancel, and the client asks you before each one.
 </table>
 
 Also included: 🔁 one-way **folder mappings** (your machine ↔ server, rsync, previews, capped
-deletes), 🔑 **passkey or password sign-in** (with optional authenticator codes), and 💾 nightly **backups** of deploy.me itself.
+deletes), 🔑 **passkey or password sign-in** (with optional authenticator codes), 💾 nightly **backups** of deploy.me itself, and ⬆️ **updates** to its own releases (`bin/update`, by itself at night if you ask).
 
 ## 📸 Screenshots
 
@@ -330,7 +330,7 @@ flowchart LR
 | `src/api/app/Livewire` | The pages |
 | `src/api/resources/ssh-scripts` | The bash scripts that run on your servers |
 | `core/local` | The PHP image, supervisor programs, the sandbox server |
-| `bin` | Host-side scripts: `db-create.sh`, `doctor.sh`, `backup.sh` |
+| `bin` | Host-side scripts: `db-create.sh`, `doctor.sh`, `backup.sh`, `update` |
 | `design/canvas` | The design the UI is built to match |
 
 [`CLAUDE.md`](CLAUDE.md) is the detailed map for anyone changing the code.
@@ -348,6 +348,7 @@ flowchart LR
 | `make dev` · `make assets` | Vite with HMR · build the frontend |
 | `make test` · `make sandbox` · `make test-ssh` | The Pest suite · start the SSH sandbox · run the real-SSH tests against it |
 | `make backup` · `make backup-install` · `make backup-status` | Back up deploy.me's database and `APP_KEY` |
+| `make update` · `make update-check` | Update deploy.me to its newest release (backup, rebuild, doctor, back out on failure) · is one out? |
 | `make artisan c="…"` · `make sh` | Artisan, or a shell, in the web container |
 | `make help` | Every target |
 

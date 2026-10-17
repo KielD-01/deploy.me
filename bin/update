@@ -1,0 +1,404 @@
+#!/usr/bin/env bash
+# Update deploy.me to its newest release (or a tag you name), on the machine it runs on.
+# The app only says that a release is out (Settings → Updates); applying it rebuilds
+# and restarts the containers the app runs in, so it is done from here.
+#
+#   bin/update                 apply the newest release: back up, update this checkout,
+#                              rebuild, restart, run the doctor; back to where it was if it fails
+#   bin/update check           look for a newer release and say so; changes nothing
+#   bin/update v1.2.3          that release (older than this one only with --force)
+#   bin/update status          what runs, what's out, the nightly job and the last run
+#   bin/update auto patch      the nightly job (04:10) applies patch releases (1.0.x) only
+#   bin/update auto all        ... and every other release too
+#   bin/update auto off        no nightly job; updating is yours again (the default)
+#
+# Flags: --yes (don't ask), --dry-run (say what would happen), --force (an older tag, or a
+# checkout with changes of your own), --no-backup (don't).
+#
+# What it does, in order, and stops at the first thing that doesn't hold:
+#   1. the checkout has no changes of its own, and nothing is running in the app (a deploy
+#      or a folder sync: the stack restarts, so it waits);
+#   2. bin/backup.sh: the database and the APP_KEY, kept in ~/Backups/deployme;
+#   3. git: fast-forwards the branch to the release tag (a detached checkout moves to it);
+#   4. bin/build, the assets (development mode), the containers restarted; the web container
+#      applies pending migrations as it starts;
+#   5. bin/doctor.sh. If it fails, the checkout goes back to the previous commit and the
+#      stack is rebuilt on it. Migrations aren't undone: they add before they remove, but
+#      the backup from step 2 is there, and its path is in the message.
+#
+# The result of each run is written to src/api/storage/app/update-state.json (Settings →
+# Updates shows it) and, when Telegram alerts are set up, sent there. Where the release tags
+# come from: DEPLOYME_UPDATE_REMOTE (default: origin).
+set -euo pipefail
+
+# This repository, following the symlink the nightly job is installed as.
+source_path=${BASH_SOURCE[0]}
+while [ -L "$source_path" ]; do
+    target=$(readlink -- "$source_path")
+    case "$target" in
+        /*) source_path=$target ;;
+        *) source_path=$(dirname -- "$source_path")/$target ;;
+    esac
+done
+source_path="$(cd -- "$(dirname -- "$source_path")" && pwd)/$(basename -- "$source_path")"
+
+repo="${DEPLOYME_REPO:-$(cd -- "$(dirname -- "$source_path")/.." && pwd)}"
+. "$repo/bin/lib.sh"
+cd "$repo"
+
+os=$(deployme_os)
+remote="${DEPLOYME_UPDATE_REMOTE:-origin}"
+dest="${DEPLOYME_BACKUP_DIR:-$HOME/Backups/deployme}"
+state_file="$repo/src/api/storage/app/update-state.json"
+agent_file="$repo/src/api/storage/app/update-agent"
+link="$HOME/.local/bin/deployme-update"
+plist="$HOME/Library/LaunchAgents/dev.deployme.update.plist"
+unit_dir="$HOME/.config/systemd/user"
+web=deployme-web
+
+yes=0 dry=0 force=0 backup=1 auto=0
+action=apply
+tag=
+mode_arg=
+
+for arg in "$@"; do
+    case "$arg" in
+        --yes|-y) yes=1 ;;
+        --dry-run) dry=1 ;;
+        --force) force=1 ;;
+        --no-backup) backup=0 ;;
+        --auto) auto=1 ;;
+        check|status) action=$arg ;;
+        auto) action=auto ;;
+        off|patch|all) mode_arg=$arg ;;
+        v[0-9]*|[0-9]*.[0-9]*) tag=$arg ;;
+        -h|--help) sed -n '2,/^set -euo/p' "$source_path" | grep '^#' | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "Usage: bin/update [check|status|auto off|patch|all] [vX.Y.Z] [--yes] [--dry-run] [--force] [--no-backup]" >&2; exit 64 ;;
+    esac
+done
+
+# --- small helpers ------------------------------------------------------------------------
+
+log() { printf '%s  %s\n' "$(date -Iseconds)" "$*"; }
+
+json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+
+# artisan in the web container, quietly; empty output when the app isn't up.
+app() {
+    docker inspect -f '{{.State.Running}}' "$web" 2>/dev/null | grep -q true || return 1
+    deployme_compose exec -T "$web" php artisan "$@" 2>/dev/null
+}
+
+# "1.2.3" from v1.2.3 / 1.2.3 / 1.2; nothing for anything else.
+version_of() { printf '%s' "$1" | sed -En 's/^v?([0-9]+)\.([0-9]+)(\.([0-9]+))?$/\1.\2.\4/p' | sed 's/\.$/.0/'; }
+
+# Is $1 older than $2? Both are x.y.z.
+older() {
+    local a b i
+    IFS=. read -r -a a <<< "$1"
+    IFS=. read -r -a b <<< "$2"
+    for i in 0 1 2; do
+        [ "${a[$i]:-0}" -lt "${b[$i]:-0}" ] && return 0
+        [ "${a[$i]:-0}" -gt "${b[$i]:-0}" ] && return 1
+    done
+    return 1
+}
+
+# patch, minor or major: how far $2 is from $1.
+kind() {
+    local a b
+    IFS=. read -r -a a <<< "$1"
+    IFS=. read -r -a b <<< "$2"
+    if [ "${a[0]}" != "${b[0]}" ]; then echo major
+    elif [ "${a[1]}" != "${b[1]}" ]; then echo minor
+    else echo patch
+    fi
+}
+
+current_version() { tr -d '[:space:]' < "$repo/src/api/VERSION" 2>/dev/null || echo dev; }
+
+# Newest release tag known to this checkout.
+latest_tag() { git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1; }
+
+fetch_tags() {
+    git fetch --tags --quiet --force "$remote" 2>/dev/null \
+        || deployme_die "Couldn't fetch the release tags from '$remote' (DEPLOYME_UPDATE_REMOTE names another remote)."
+}
+
+# $1 result (ok, rolled_back, failed), $2 from, $3 to, $4 message, $5 backup path.
+write_state() {
+    mkdir -p "$(dirname "$state_file")"
+    printf '{"at":"%s","result":"%s","from":"%s","to":"%s","message":"%s","backup":"%s"}\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" "$3" "$(json_escape "$4")" "$(json_escape "${5:-}")" > "$state_file"
+}
+
+# Telegram, when it's set up: the app does the sending.
+notify() { app deployme:update notify "$1" > /dev/null || true; }
+
+# The newest backup bin/backup.sh made.
+latest_backup() { { ls -1t "$dest"/deployme-*.sql.gz 2>/dev/null || true; } | head -n 1; }
+
+# --- the nightly job ----------------------------------------------------------------------
+
+install_linux_agent() {
+    if systemctl --user show-environment >/dev/null 2>&1; then
+        mkdir -p "$unit_dir"
+        cat > "$unit_dir/deployme-update.service" <<UNIT
+[Unit]
+Description=deploy.me update (what Settings → Updates allows)
+
+[Service]
+Type=oneshot
+ExecStart=$link --auto --yes
+UNIT
+        cat > "$unit_dir/deployme-update.timer" <<UNIT
+[Unit]
+Description=deploy.me update at 04:10
+
+[Timer]
+OnCalendar=*-*-* 04:10:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+        systemctl --user daemon-reload
+        systemctl --user enable --now deployme-update.timer >/dev/null
+        echo "✓ deployme-update.timer runs $link at 04:10"
+    else
+        ( { crontab -l 2>/dev/null || true; } | { grep -v deployme-update || true; }; echo "10 4 * * * $link --auto --yes >> $dest/update.log 2>&1" ) | crontab -
+        echo "✓ A crontab line runs $link at 04:10"
+    fi
+}
+
+install_agent() {
+    mkdir -p "$HOME/.local/bin" "$dest"
+    ln -sfn "$source_path" "$link"
+
+    if [ "$os" != macos ]; then
+        install_linux_agent
+    else
+        mkdir -p "$HOME/Library/LaunchAgents"
+        cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>dev.deployme.update</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$link</string>
+        <string>--auto</string>
+        <string>--yes</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>10</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>$dest/update.log</string>
+    <key>StandardErrorPath</key>
+    <string>$dest/update.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:$HOME/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>
+PLIST
+        launchctl unload "$plist" 2> /dev/null || true
+        launchctl load "$plist"
+        echo "✓ dev.deployme.update runs $link at 04:10"
+    fi
+
+    mkdir -p "$(dirname "$agent_file")"
+    date -u +%Y-%m-%dT%H:%M:%SZ > "$agent_file"
+}
+
+remove_agent() {
+    if [ "$os" = macos ]; then
+        launchctl unload "$plist" 2> /dev/null || true
+        rm -f "$plist"
+    else
+        systemctl --user disable --now deployme-update.timer >/dev/null 2>&1 || true
+        rm -f "$unit_dir/deployme-update.service" "$unit_dir/deployme-update.timer"
+        if command -v crontab >/dev/null 2>&1; then
+            ( { crontab -l 2>/dev/null || true; } | { grep -v deployme-update || true; } ) | crontab - 2>/dev/null || true
+        fi
+    fi
+    rm -f "$link" "$agent_file"
+}
+
+agent_installed() { [ -f "$agent_file" ]; }
+
+# --- commands that don't change the checkout ------------------------------------------------
+
+if [ "$action" = auto ]; then
+    case "$mode_arg" in
+        patch|all)
+            app deployme:update mode "$mode_arg" >/dev/null || deployme_die "The app isn't running, so it can't keep the choice. Start it first (make up)."
+            install_agent
+            echo "✓ Automatic updates: $mode_arg. A deploy or a folder sync running at 04:10 makes it wait for the next night."
+            ;;
+        off)
+            app deployme:update mode off >/dev/null || deployme_warn "The app isn't running; its setting stays as it was (Settings → Updates)."
+            remove_agent
+            echo "✓ Automatic updates are off; bin/update is yours again."
+            ;;
+        *) echo "Usage: bin/update auto off|patch|all" >&2; exit 64 ;;
+    esac
+    exit 0
+fi
+
+if [ "$action" = status ]; then
+    now=$(current_version)
+    git fetch --tags --quiet --force "$remote" 2>/dev/null || deployme_warn "Couldn't reach '$remote'; the tags are as of the last fetch."
+    newest=$(version_of "$(latest_tag)")
+    echo "Running    $now  ($(git describe --tags --always 2>/dev/null))"
+    echo "Newest     ${newest:-none found}$([ -n "$newest" ] && older "$now" "$newest" && echo "  ← bin/update")"
+    if agent_installed; then echo "Nightly    installed (04:10), mode: $(app deployme:update mode || echo 'the app is down')"; else echo "Nightly    not installed (bin/update auto patch)"; fi
+    if [ -f "$state_file" ]; then echo "Last run   $(cat "$state_file")"; fi
+    exit 0
+fi
+
+if [ "$action" = check ]; then
+    app deployme:update check || deployme_warn "The app isn't running; asking git for tags instead."
+    fetch_tags
+    now=$(current_version)
+    newest=$(version_of "$(latest_tag)")
+    if [ -n "$newest" ] && older "$now" "$newest"; then
+        echo "deploy.me $newest is out (you run $now): bin/update"
+    else
+        echo "deploy.me $now is the newest release."
+    fi
+    exit 0
+fi
+
+# --- apply -------------------------------------------------------------------------------------
+
+now=$(current_version)
+
+if [ "$auto" = 1 ]; then
+    # The nightly run: what Settings → Updates allows, and nothing while something runs.
+    mkdir -p "$dest"
+    exec >> "$dest/update.log" 2>&1
+    plan=$(app deployme:update plan --auto) && plan_code=0 || plan_code=$?
+    if [ "$plan_code" -ne 0 ]; then
+        [ "$plan_code" -eq 3 ] && log "A deploy or a folder sync is running; trying again tomorrow night."
+        exit 0
+    fi
+    log "$plan"
+    # The release the app allowed, not whatever newer tag git happens to hold.
+    planned=$(printf '%s' "$plan" | sed -En 's/.*"latest":"([0-9.]+)".*/\1/p')
+    [ -z "$tag" ] && [ -n "$planned" ] && tag="v$planned"
+fi
+
+fetch_tags
+
+if [ -z "$tag" ]; then tag=$(latest_tag); fi
+[ -n "$tag" ] || deployme_die "No release tags found on '$remote'."
+git rev-parse -q --verify "refs/tags/$tag" >/dev/null || deployme_die "There's no tag $tag."
+target=$(version_of "$tag")
+[ -n "$target" ] || deployme_die "$tag isn't a release number."
+
+if [ "$target" = "$now" ]; then deployme_ok "deploy.me $now is the newest release."; exit 0; fi
+if older "$target" "$now" && [ "$force" = 0 ]; then
+    deployme_die "$tag is older than the $now you run. --force goes back to it."
+fi
+
+# An automatic run applies patch releases only when asked to; the app's plan already decided.
+kind_of=$(kind "$now" "$target")
+deployme_say "deploy.me $now → $target ($kind_of release)"
+if [ "$dry" = 1 ]; then
+    echo "  Would: back up (bin/backup.sh), update this checkout to $tag, rebuild, restart, run the doctor."
+    exit 0
+fi
+
+# 1. nothing of your own in the checkout; nothing running in the app.
+if [ -n "$(git status --porcelain --untracked-files=no)" ] && [ "$force" = 0 ]; then
+    deployme_die "This checkout has changes of its own (git status). Commit or stash them, or --force."
+fi
+# 3 is the app saying so; a stopped app (no answer) doesn't hold anything up.
+app deployme:update busy >/dev/null && busy_code=0 || busy_code=$?
+if [ "$busy_code" -eq 3 ]; then
+    deployme_die "A deploy or a folder sync is running. Wait until it ends, then run bin/update again."
+fi
+
+if [ "$yes" = 0 ] && [ -t 0 ]; then
+    read -r -p "  Update now? The app restarts for a few seconds. [y/N] " reply
+    case "$reply" in y|Y|yes) ;; *) echo "  Nothing changed."; exit 0 ;; esac
+fi
+
+# 2. the backup.
+backup_path=
+if [ "$backup" = 1 ]; then
+    deployme_say "Backing up"
+    "$repo/bin/backup.sh" || deployme_die "The backup failed, so nothing was updated. (--no-backup if you know why.)"
+    backup_path=$(latest_backup)
+    deployme_ok "${backup_path:-backup made}"
+fi
+
+# 3. the checkout.
+previous=$(git rev-parse HEAD)
+branch=$(git symbolic-ref -q --short HEAD || true)
+deployme_say "Updating the checkout to $tag"
+if [ -n "$branch" ]; then
+    git merge --ff-only "refs/tags/$tag" >/dev/null 2>&1 \
+        || deployme_die "$branch can't fast-forward to $tag (it has commits of its own). Nothing changed."
+else
+    git checkout --detach "refs/tags/$tag" >/dev/null 2>&1 || deployme_die "Couldn't check out $tag."
+fi
+
+# 4. the stack on the new code.
+rebuild() {
+    "$repo/bin/build" || return 1
+    if [ "$(deployme_mode)" != prod ]; then
+        make -C "$repo" assets || return 1
+    fi
+    deployme_compose up -d || return 1
+    # Same image, new code (development mode mounts it): restart what runs it.
+    deployme_compose restart deployme-web deployme-worker deployme-reverb || return 1
+}
+
+wait_healthy() {
+    local i
+    for i in $(seq 1 45); do
+        [ "$(docker inspect -f '{{.State.Health.Status}}' "$web" 2>/dev/null)" = healthy ] && return 0
+        sleep 2
+    done
+    return 1
+}
+
+verify() { wait_healthy && "$repo/bin/doctor.sh"; }
+
+go_back() {
+    deployme_warn "Going back to $(git describe --tags --always "$previous" 2>/dev/null || echo "$previous")"
+    if [ -n "$branch" ]; then git reset --hard "$previous" >/dev/null; else git checkout --detach "$previous" >/dev/null 2>&1; fi
+    rebuild && wait_healthy
+}
+
+deployme_say "Rebuilding and restarting"
+if rebuild && verify; then
+    write_state ok "$now" "$target" "Updated to $target." "$backup_path"
+    notify "updated to $target (was $now)."
+    deployme_ok "deploy.me $target is running."
+    exit 0
+fi
+
+# 5. it didn't hold.
+if go_back; then
+    msg="Update to $target failed its checks; deploy.me $now runs again. Migrations the new code ran aren't undone."
+    write_state rolled_back "$now" "$target" "$msg" "$backup_path"
+    notify "update to $target failed; back on $now."
+    deployme_die "$msg${backup_path:+ Backup: $backup_path}"
+fi
+
+msg="Update to $target failed and going back to $now didn't work either. Check: docker compose ps; make doctor.${backup_path:+ Backup: $backup_path}"
+write_state failed "$now" "$target" "$msg" "$backup_path"
+notify "update to $target failed, and so did going back. Look at the machine."
+deployme_die "$msg"

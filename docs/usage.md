@@ -19,9 +19,10 @@ chapter stands on its own, so skip to the one you need.
 - [13. Folder mappings](#13--folder-mappings)
 - [14. Audit log](#14--audit-log)
 - [15. Back up deploy.me itself](#15--back-up-deployme-itself)
-- [16. Let an AI agent help](#16--let-an-ai-agent-help)
-- [17. The Console theme](#17--the-console-theme)
-- [18. Troubleshooting](#18--troubleshooting)
+- [16. Update deploy.me](#16--update-deployme)
+- [17. Let an AI agent help](#17--let-an-ai-agent-help)
+- [18. The Console theme](#18--the-console-theme)
+- [19. Troubleshooting](#19--troubleshooting)
 
 ---
 
@@ -293,7 +294,64 @@ This writes a `pg_dump` of the `deployme` database and a copy of `src/api/.env` 
 also copied to iCloud Drive on a Mac that has it, or to `DEPLOYME_OFFSITE_DIR` if you set it. Everything else can be rebuilt from git and
 the servers.
 
-## 16. 🤖 Let an AI agent help
+## 16. ⬆️ Update deploy.me
+
+deploy.me looks once a day for a newer release of itself (one anonymous request to the
+repository's GitHub releases; nothing about your machine is sent). When one is out you see
+it three places: **Settings → Updates** (with the release notes), the Console theme's status
+bar (`↑ 1.0.2`) and its `status` command, and the account menu in the Classic theme.
+
+Applying it is done **on the machine deploy.me runs on**, because an update rebuilds and
+restarts the very containers the app runs in:
+
+```bash
+bin/update            # the newest release (make update)
+bin/update check      # is there one? (make update-check)
+bin/update v1.2.0     # that release
+bin/update status     # what runs, what's out, the nightly job, the last run
+bin/update --dry-run  # say what it would do
+```
+
+What `bin/update` does, stopping at the first thing that doesn't hold:
+
+1. Checks that your checkout has no changes of its own and that **no deploy or folder sync is
+   running** (the stack restarts, so it waits).
+2. Runs `bin/backup.sh`: the database and the `APP_KEY` (see chapter 15). No backup, no update
+   (`--no-backup` if you know why).
+3. Moves the checkout to the release tag: a fast-forward of your branch, so a branch with
+   commits of its own stops here and nothing changes.
+4. Rebuilds the image (`bin/build`), the assets in development mode, and restarts the web,
+   worker and Reverb containers. The web container applies pending migrations as it starts.
+5. Waits for the web container to turn healthy and runs `bin/doctor.sh`. **If that fails it
+   goes back** to the previous commit and rebuilds. Migrations the new code ran are not
+   undone (they add before they remove); the backup from step 2 is there, and its path is in
+   the message.
+
+The result of the last run is shown in Settings → Updates and, with Telegram alerts set up
+(chapter 12), sent there.
+
+### Let it update by itself
+
+Off by default. To turn it on:
+
+```bash
+bin/update auto patch   # patch releases (1.0.x) every night at 04:10
+bin/update auto all     # every release
+bin/update auto off     # back to doing it yourself
+```
+
+This installs the nightly job (a LaunchAgent on macOS, a systemd user timer or cron on
+Linux and WSL2) and keeps the choice in Settings → Updates, where you can also change it
+(turning it on asks for your passkey, since it restarts the stack unattended). At night it
+applies only what the choice allows, **never while a deploy or a folder sync is running**
+(it tries again the next night), and writes to `~/Backups/deployme/update.log`. A minor
+release (1.**1**.0) can bring migrations, which is why "patch" is the middle setting.
+
+If your checkout's tags come from a remote other than `origin`, set `DEPLOYME_UPDATE_REMOTE`.
+A fork that publishes its own releases sets `DEPLOYME_UPDATE_REPO=owner/name` in `.env`
+of the app (`src/api/.env`).
+
+## 17. 🤖 Let an AI agent help
 
 ```bash
 claude mcp add deployme -- docker exec -i deployme-web php artisan deployme:mcp
@@ -303,7 +361,7 @@ Now ask *"what's deployed where?"* or *"why did run #42 fail?"*. Add `--allow-de
 let the agent deploy and roll back. See **[docs/mcp.md](mcp.md)** for every client and
 every tool.
 
-## 17. 🖥️ The Console theme
+## 18. 🖥️ The Console theme
 
 The Console is the default look: deploy.me as a **tmux session**. Switch between it and
 the **Classic** pages (a top bar, cards and tables) under **Settings → Appearance**, or
@@ -374,7 +432,7 @@ you to pick one. The runs it starts are recorded with the trigger `console`.
 | `theme` | `theme console` or `theme classic` |
 | `clear` | Clear the screen |
 
-## 18. 🧯 Troubleshooting
+## 19. 🧯 Troubleshooting
 
 Start with:
 

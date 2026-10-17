@@ -10,7 +10,7 @@ WEB := $(DC) exec deployme-web
 WORKER := $(DC) exec deployme-worker
 
 .DEFAULT_GOAL := help
-.PHONY: help install configure trust-ca init db-create build up down restart ps logs sh sh-worker artisan composer assets dev setup enroll test sandbox test-ssh migrate fresh doctor workers
+.PHONY: help install configure trust-ca init db-create build up update update-check down restart ps logs sh sh-worker artisan composer assets dev setup enroll test sandbox test-ssh migrate fresh doctor workers
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -41,6 +41,12 @@ up: .env ## Start the stack
 
 down: .env ## Stop the stack
 	$(DC) down
+
+update: .env ## Update deploy.me to its newest release (backup, rebuild, restart, doctor; see bin/update --help)
+	bin/update
+
+update-check: .env ## Is a newer deploy.me release out?
+	bin/update check
 
 restart: .env ## Restart the stack
 	$(DC) restart

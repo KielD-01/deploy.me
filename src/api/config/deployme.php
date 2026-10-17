@@ -17,6 +17,18 @@ return [
     // and print the one-time link instead.
     'web_setup' => (bool) env('DEPLOYME_WEB_SETUP', false),
 
+    // The release this checkout is (src/api/VERSION, bumped when a release is tagged),
+    // and where newer ones are announced. A fork points DEPLOYME_UPDATE_REPO at itself.
+    'version' => trim((string) @file_get_contents(base_path('VERSION'))) ?: 'dev',
+
+    'update' => [
+        'repository' => env('DEPLOYME_UPDATE_REPO', 'KielD-01/deploy.me'),
+        // What bin/update on the host writes after each run (storage/ is mounted in every mode).
+        'state_file' => storage_path('app/update-state.json'),
+        // Exists while bin/update's nightly job is installed on the host.
+        'agent_file' => storage_path('app/update-agent'),
+    ],
+
     'ssh' => [
         'binary' => env('DEPLOYME_SSH_BINARY', 'ssh'),
         'keygen_binary' => env('DEPLOYME_SSH_KEYGEN_BINARY', 'ssh-keygen'),

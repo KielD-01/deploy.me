@@ -2,6 +2,7 @@
 
 use App\Actions\Deployments\DetectStalledDeployments;
 use App\Actions\Folders\DispatchDueFolderSyncs;
+use App\Actions\Maintenance\CheckForUpdate;
 use App\Actions\Maintenance\PruneOldData;
 use App\Actions\Projects\DispatchDueCiPolls;
 use App\Actions\Servers\DispatchDueProbes;
@@ -57,4 +58,11 @@ Schedule::call(fn () => app(DispatchDueHealthChecks::class)())
 Schedule::call(fn () => app(PruneOldData::class)())
     ->dailyAt('03:30')
     ->name('prune-old-data')
+    ->withoutOverlapping();
+
+// Is there a newer deploy.me release? One anonymous GET to GitHub a day, unless
+// Settings → Updates says off. Applying it is bin/update on the host.
+Schedule::call(fn () => app(CheckForUpdate::class)())
+    ->dailyAt('06:43')
+    ->name('check-for-update')
     ->withoutOverlapping();
