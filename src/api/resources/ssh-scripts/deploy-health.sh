@@ -1,5 +1,6 @@
 # Waits for the app to answer, asking from the server itself. Inputs: URL,
-# TIMEOUT and INTERVAL (seconds). A 2xx or 3xx passes. Uses curl or wget, and
+# TIMEOUT and INTERVAL (seconds). A 2xx or 3xx passes, where redirects lead
+# (curl and wget follow them). Uses curl or wget, and
 # for plain http:// falls back to bash's /dev/tcp on servers with neither.
 #
 # With curl it asks this server's own edge first, the URL's host resolved to
@@ -31,7 +32,10 @@ probe_edge() {
   hostport=${rest%%/*}
   host=${hostport%%:*}
   [ "$host" != "$hostport" ] && port=${hostport##*:}
-  curl -sS -k -o /dev/null -w '%{http_code}' --max-time 10 --resolve "$host:$port:127.0.0.1" "$URL" 2>/dev/null || true
+  # Redirects are followed, still through this edge (an http:// URL is sent on
+  # to https:// as a rule): the edge's own redirect says nothing about the app.
+  curl -sS -k -L --max-redirs 5 -o /dev/null -w '%{http_code}' --max-time 10 \
+    --resolve "$host:$port:127.0.0.1" --resolve "$host:443:127.0.0.1" "$URL" 2>/dev/null || true
 }
 
 # The HTTP status, then who answered: edge or public.
@@ -42,7 +46,7 @@ probe() {
       echo "$code edge"
       return
     fi
-    code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$URL" 2>/dev/null || true)
+    code=$(curl -sS -L --max-redirs 5 -o /dev/null -w '%{http_code}' --max-time 10 "$URL" 2>/dev/null || true)
   elif command -v wget >/dev/null 2>&1; then
     code=$(wget -q -S -O /dev/null --timeout=10 --tries=1 "$URL" 2>&1 | awk '/^  HTTP\// { code = $2 } END { print code }')
   else
