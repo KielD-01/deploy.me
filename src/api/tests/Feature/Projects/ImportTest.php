@@ -98,6 +98,23 @@ it('refuses names servers wouldn’t accept', function () {
     expect(Project::query()->count())->toBe(0);
 });
 
+it('publishes the folder it inspected, not whatever the path field says by then', function () {
+    Credential::factory()->create(['owners' => ['KielD-01']]);
+    $inspected = tempGitRepo(['README.md' => "# Demo\n"]);
+    $other = tempGitRepo(['README.md' => "# Something else\n"]);
+
+    Livewire::test(Import::class)
+        ->call('switchTo', 'local')
+        ->set('path', $inspected)
+        ->call('inspect')
+        ->set('path', $other)
+        ->set('publishOwner', 'KielD-01')
+        ->set('publishName', 'demo')
+        ->call('publish');
+
+    Queue::assertPushed(PublishRepository::class, fn (PublishRepository $job) => $job->path === $inspected);
+});
+
 it('puts a local repository on GitHub from the worker, then picks up the remote', function () {
     Credential::factory()->create(['owners' => ['KielD-01', 'MR-Studio-KZ-UA']]);
     $repo = tempGitRepo(['README.md' => "# Demo\n"]);

@@ -259,7 +259,8 @@ class Import extends Component
 
         PublishRepository::dispatch(
             $this->publishId,
-            $this->path,
+            // The folder that was inspected: the path field may say something else by now.
+            (string) ($detection->data['path'] ?? ''),
             $credentialId,
             owner: $github === null ? $this->publishOwner : null,
             name: $github === null ? $this->publishName : null,
@@ -286,7 +287,7 @@ class Import extends Component
 
         if ($this->publishing['state'] === 'done') {
             // The folder now has a GitHub remote (or is in sync with it): look again.
-            $data = app(LocalInspector::class)->inspect($this->path);
+            $data = app(LocalInspector::class)->inspect((string) ($this->detection['path'] ?? ''));
             $this->detection = $data;
             $this->strategies = (new Detection($data))->suggestedStrategies(localFolder: true);
         }
