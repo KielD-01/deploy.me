@@ -94,6 +94,32 @@ it('asks for a passkey before deleting at the destination, and keeps the form me
         ->assertSet('name', 'Uploads');
 });
 
+it('asks for a passkey before a mapping that deletes points somewhere else', function () {
+    $mapping = FolderMapping::factory()->create([
+        'server_id' => $this->server->id, 'direction' => 'pull', 'local_path' => $this->local,
+        'remote_path' => '/opt/srv/app/uploads', 'delete_extraneous' => true,
+    ]);
+
+    // Pull to push: the deleting now happens on the server.
+    Livewire::test(Folders::class, ['serverId' => $this->server->id])
+        ->call('edit', $mapping->id)
+        ->set('direction', 'push')
+        ->call('save')
+        ->assertRedirect(route('password.confirm'));
+
+    expect($mapping->refresh()->direction->value)->toBe('pull');
+
+    // Back from confirming: the form is as it was left, and saving goes through.
+    session(['auth.password_confirmed_at' => time()]);
+    Livewire::test(Folders::class, ['serverId' => $this->server->id])
+        ->assertSet('direction', 'push')
+        ->assertSet('deleteExtraneous', true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($mapping->refresh()->direction->value)->toBe('push');
+});
+
 it('shows a preview and applies it, deleting no more than it showed', function () {
     $mapping = FolderMapping::factory()->create(['server_id' => $this->server->id, 'local_path' => $this->local, 'delete_extraneous' => true]);
     $preview = SyncRun::factory()->create([

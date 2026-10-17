@@ -152,7 +152,16 @@ class Folders extends Component
             return;
         }
 
-        // Deleting files at the destination needs a fresh passkey confirmation.
+        $this->deleteExtraneous = false;
+        $this->confirmDeleting();
+    }
+
+    /**
+     * Deleting files at the destination needs a fresh passkey confirmation:
+     * the form waits in the session meanwhile.
+     */
+    private function confirmDeleting(): void
+    {
         session()->put($this->draftKey(), [
             'editing' => $this->editing,
             'name' => $this->name,
@@ -162,7 +171,6 @@ class Folders extends Component
             'excludes' => $this->excludes,
             'schedule' => $this->schedule,
         ]);
-        $this->deleteExtraneous = false;
         $this->confirmIdentity(route('servers.show', ['server' => $this->server, 'tab' => 'folders']));
     }
 
@@ -232,6 +240,7 @@ class Folders extends Component
         ], [], ['localPath' => 'folder on your Mac', 'remotePath' => 'folder on the server']);
 
         $mapping = $this->editing !== null ? $this->mapping($this->editing) : new FolderMapping(['server_id' => $this->serverId]);
+        $roots = app(ProjectRoots::class);
 
         if ($this->deleteExtraneous && ! $mapping->delete_extraneous && ! $this->identityConfirmed()) {
             $this->deleteExtraneous = false;
@@ -240,7 +249,20 @@ class Folders extends Component
             return;
         }
 
-        $roots = app(ProjectRoots::class);
+        // A mapping that deletes, pointed at another folder or turned the other
+        // way, deletes somewhere nobody confirmed: that asks again too.
+        $moved = $mapping->exists && $mapping->delete_extraneous && (
+            $this->direction !== $mapping->direction->value
+            || $roots->normalize($this->localPath) !== $mapping->local_path
+            || rtrim(trim($this->remotePath), '/') !== $mapping->remote_path
+        );
+
+        if ($this->deleteExtraneous && $moved && ! $this->identityConfirmed()) {
+            $this->confirmDeleting();
+
+            return;
+        }
+
         $mapping->fill([
             'name' => trim($this->name),
             'direction' => $this->direction,
