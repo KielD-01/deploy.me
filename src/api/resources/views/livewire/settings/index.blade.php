@@ -112,7 +112,7 @@
                                         <span class="text-xs text-warning">Without read:packages, GHCR images can’t be pulled</span>
                                     @endif
                                 </td>
-                                <td @class(['text-[13px] whitespace-nowrap', 'text-error' => $credential->expires_at?->isPast()])>{{ $credential->expires_at?->toFormattedDateString() ?? 'Never' }}</td>
+                                <td @class(['text-[13px] whitespace-nowrap', 'text-error' => $credential->expires_at?->isPast()])>{{ $credential->expires_at?->forViewer()->toFormattedDateString() ?? 'Never' }}</td>
                                 <td class="text-[13px] text-muted">{{ $credential->projects_count }}</td>
                                 <td class="text-right whitespace-nowrap">
                                     <button type="button" class="btn btn-xs btn-ghost" wire:click="checkToken({{ $credential->id }})" wire:loading.attr="disabled">Check</button>

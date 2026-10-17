@@ -93,7 +93,7 @@
             <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
                 <h2 class="mono text-[15px] font-semibold">{{ $file->path }}</h2>
                 <span class="text-[13px] text-muted">
-                    v{{ $file->version }} · saved {{ $file->updated_at->toFormattedDateString() }}
+                    v{{ $file->version }} · saved {{ $file->updated_at->forViewer()->toFormattedDateString() }}
                     @if ($versions) · {{ $versions }} earlier {{ Str::plural('version', $versions) }} kept @endif
                 </span>
                 @unless ($editing)

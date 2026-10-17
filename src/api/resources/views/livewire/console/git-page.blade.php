@@ -36,7 +36,7 @@
                     <button type="button" class="con-act shrink-0" wire:click="$dispatch('open-deploy-dialog', { commit: @js($commit['sha']) })"
                             title="Deploy {{ substr($commit['sha'], 0, 7) }}">deploy</button>
                 @endif
-                <span class="w-[6ch] shrink-0 text-right t-faint" title="{{ $commit['date']?->toDayDateTimeString() }}">{{ $commit['date']?->diffForHumans(short: true, syntax: \Carbon\CarbonInterface::DIFF_ABSOLUTE) ?? '' }}</span>
+                <span class="w-[6ch] shrink-0 text-right t-faint" title="{{ $commit['date']?->forViewer()->toDayDateTimeString() }}">{{ $commit['date']?->diffForHumans(short: true, syntax: \Carbon\CarbonInterface::DIFF_ABSOLUTE) ?? '' }}</span>
             </div>
         @empty
             <p class="px-3 t-mute">deploy.me can't read this branch yet: its repository isn't on the Mac and has no mirror.</p>
