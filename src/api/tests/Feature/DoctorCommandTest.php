@@ -16,6 +16,8 @@ beforeEach(function () {
     // the scheduler's heartbeat.
     Broadcast::shouldReceive('connection')->andReturnSelf();
     Broadcast::shouldReceive('broadcast')->andReturnNull();
+    // The credentials the doctor looks for: this machine's .env has them, a CI runner doesn't.
+    config(['broadcasting.connections.reverb.key' => 'doctor-key', 'broadcasting.connections.reverb.secret' => 'doctor-secret']);
     Cache::put('deployme:scheduler:heartbeat', now()->getTimestamp());
 
     $this->keys = sys_get_temp_dir().'/deployme-doctor-'.bin2hex(random_bytes(4));
