@@ -98,3 +98,24 @@ it('keeps a deploy’s heartbeat going while git clones the mirror, so a long cl
     expect(app(DetectStalledDeployments::class)())->toBe(0)
         ->and($deployment->refresh()->status)->toBe(DeploymentStatus::Running);
 });
+
+it('keeps the heartbeat going while a big export is unpacked in the worker', function () {
+    $credential = Credential::factory()->create(['login' => 'KielD-01']);
+    $target = demoTarget(['source' => ProjectSource::Github, 'github_owner' => 'KielD-01', 'github_repo' => 'demo', 'credential_id' => $credential->id]);
+    $deployment = Deployment::factory()->create(['target_id' => $target->id, 'status' => DeploymentStatus::Running, 'heartbeat_at' => now()]);
+    $context = DeployContext::for($deployment, new FakeSshClient);
+
+    Process::fake([
+        '*-xf*' => function () {
+            $this->travel(3)->minutes();
+
+            return Process::describe()->iterations(3);
+        },
+        '*rev-parse*' => Process::result(str_repeat('a', 40)."\n"),
+        '*' => Process::result(),
+    ]);
+
+    app(SourceBuilder::class)->build($context, DeliveryStrategyKey::PushArchive, null);
+
+    expect(app(DetectStalledDeployments::class)())->toBe(0);
+});

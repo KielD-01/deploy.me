@@ -12,6 +12,7 @@ use App\Platform\Local\ProjectRoots;
 use App\Support\Format;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Gets the files a delivery strategy ships into a folder in the worker.
@@ -80,7 +81,21 @@ final class SourceBuilder
             }
 
             $this->git->mustRun($repository, ['archive', '--format=tar', '-o', $tar, $sha], timeout: 900, while: $beat);
-            $unpack = Process::timeout(900)->run(['tar', '-xf', $tar, '-C', $dir]);
+            $unpack = Process::timeout(900)->start(['tar', '-xf', $tar, '-C', $dir]);
+
+            try {
+                while ($unpack->running()) {
+                    $unpack->ensureNotTimedOut();
+                    $beat();
+                    usleep(200_000);
+                }
+            } catch (Throwable $e) {
+                $unpack->stop(5);
+
+                throw $e;
+            }
+
+            $unpack = $unpack->wait();
 
             if (! $unpack->successful()) {
                 throw new StepFailed('Couldn’t unpack the archive: '.Str::limit(trim($unpack->errorOutput()), 200));
