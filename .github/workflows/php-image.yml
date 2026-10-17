@@ -6,6 +6,7 @@
 # Needs the repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a Docker
 # Hub access token with write access). Tags: 1 (what installs use), latest, and
 # sha-<commit>. Rebuilt weekly too, for FrankenPHP and Debian security fixes.
+# The Docker Hub page's overview is core/local/php/DOCKERHUB.md, synced each run.
 name: PHP base image
 
 on:
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - core/local/php/Dockerfile.base
+      - core/local/php/DOCKERHUB.md
       - .github/workflows/php-image.yml
   schedule:
     - cron: "17 4 * * 1"
@@ -123,3 +125,21 @@ jobs:
 
       - name: Check it
         run: docker buildx imagetools inspect "$IMAGE:1"
+
+  # The repository's page on Docker Hub: a one-line summary and the overview.
+  # Separate from the build, so a failed build doesn't leave the page stale.
+  describe:
+    needs: check
+    if: needs.check.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.IMAGE }}
+          short-description: "PHP 8.5 runtime for deploy.me: FrankenPHP, extensions, ssh, git, rsync. amd64 + arm64"
+          readme-filepath: core/local/php/DOCKERHUB.md
+          enable-url-completion: true
