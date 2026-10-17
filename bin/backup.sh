@@ -74,12 +74,18 @@ UNIT
         systemctl --user daemon-reload
         systemctl --user enable --now deployme-backup.timer >/dev/null
         echo "✓ deployme-backup.timer runs $link at 03:20, into $dest"
-        command -v loginctl >/dev/null && ! loginctl show-user "$USER" -p Linger 2>/dev/null | grep -q yes \
-            && echo "· It runs while you're logged in; 'sudo loginctl enable-linger $USER' makes it run regardless"
+        # if, not &&: a false test as the function's last command would fail it under set -e.
+        if command -v loginctl >/dev/null && ! loginctl show-user "$USER" -p Linger 2>/dev/null | grep -q yes; then
+            echo "· It runs while you're logged in; 'sudo loginctl enable-linger $USER' makes it run regardless"
+        fi
     else
-        ( crontab -l 2>/dev/null | grep -v deployme-backup; echo "20 3 * * * $link >> $dest/cron.log 2>&1" ) | crontab -
+        # No crontab yet (crontab -l fails) or nothing else in it (grep -v finds
+        # no line) is the usual first install, not a failure.
+        ( { crontab -l 2>/dev/null || true; } | { grep -v deployme-backup || true; }; echo "20 3 * * * $link >> $dest/cron.log 2>&1" ) | crontab -
         echo "✓ A crontab line runs $link at 03:20, into $dest"
-        [ "$os" = wsl ] && echo "· WSL runs cron only while the distribution is up; turn systemd on in /etc/wsl.conf for a timer"
+        if [ "$os" = wsl ]; then
+            echo "· WSL runs cron only while the distribution is up; turn systemd on in /etc/wsl.conf for a timer"
+        fi
     fi
 }
 
