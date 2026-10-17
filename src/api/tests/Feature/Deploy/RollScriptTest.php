@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\Process;
 // service named without --scale gets one when it has none), `stop` and `rm`
 // take ids off it, `config --services` names DOCKER_SERVICES (api by default),
 // and `inspect` reports every container healthy except the ids in
-// DOCKER_STARTING, named after its id.
+// DOCKER_STARTING, named after its id. A service's stopped containers are in
+// <service>.stopped: `docker ps -aq` by label finds them, and, as Compose does,
+// `up --scale` counts them and starts them again before it creates any.
 beforeEach(function () {
     $this->dir = tempProject([
         'compose.yaml' => "services:\n  api:\n    image: demo\n",
@@ -25,6 +27,9 @@ beforeEach(function () {
         last=; for a in "$@"; do last=$a; done
         case " $* " in
           *" config "*) printf '%s\n' ${DOCKER_SERVICES:-api}; exit 0 ;;
+          " ps -aq "*)
+            service=; for a in "$@"; do case "$a" in label=com.docker.compose.service=*) service=${a#label=com.docker.compose.service=} ;; esac; done
+            cat "$DOCKER_STATE/$service.stopped" 2>/dev/null; exit 0 ;;
           *" ps -q "*) cat "$DOCKER_STATE/$last" 2>/dev/null; exit 0 ;;
           *" rename "*) exit 0 ;;
           *" up "*)
@@ -36,6 +41,7 @@ beforeEach(function () {
                 --*|-d) continue ;;
                 *=*)
                   service=${arg%%=*}; want=${arg##*=}
+                  cat "$DOCKER_STATE/$service.stopped" >> "$DOCKER_STATE/$service" 2>/dev/null; rm -f "$DOCKER_STATE/$service.stopped"
                   have=$(grep -c . "$DOCKER_STATE/$service" 2>/dev/null || echo 0)
                   i=$have
                   while [ "$i" -lt "$want" ]; do i=$((i + 1)); echo "new-$service-$i" >> "$DOCKER_STATE/$service"; done
@@ -110,6 +116,19 @@ it('starts as many containers again, waits for them, retires the old ones and na
         ->and($log)->toContain('--scale api=4')
         ->toContain('rename new-api-3 api-green-1')
         ->toContain('rename new-api-4 api-green-2');
+});
+
+it('never takes a stopped container of the service for the new colour', function () {
+    // One serving, and a replica that crashed (or was stopped by hand).
+    file_put_contents("{$this->tmp}/state/api", "old-api-1\n");
+    file_put_contents("{$this->tmp}/state/api.stopped", "old-api-2\n");
+
+    $run = rollScript($this->dir, $this->tmp, ['api'], 'blue');
+
+    expect($run->exitCode())->toBe(0, $run->output().$run->errorOutput())
+        ->and($run->output())->toContain('api: 1 running')
+        ->and(trim((string) file_get_contents("{$this->tmp}/state/api")))->toBe('new-api-2')
+        ->and((string) file_get_contents("{$this->tmp}/docker.log"))->not->toContain('rename old-api-2');
 });
 
 it('removes the new containers again and keeps the old ones when health never comes', function () {

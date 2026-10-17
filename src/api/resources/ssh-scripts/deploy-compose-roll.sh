@@ -47,6 +47,16 @@ for service in "${services[@]}"; do
     continue
   fi
   rolled+=("$service")
+  # A stopped container of the service (a replica that crashed, one stopped by
+  # hand) counts toward --scale, and --no-recreate would start it again, with
+  # the old release's image and config, as the new colour. It goes first.
+  stopped=$(docker ps -aq --filter "label=com.docker.compose.project=$STACK" --filter "label=com.docker.compose.service=$service" \
+    --filter label=com.docker.compose.oneoff=False --filter status=exited --filter status=created --filter status=dead 2>/dev/null)
+  if [ -n "$stopped" ]; then
+    # shellcheck disable=SC2086
+    docker rm -f $stopped > /dev/null 2>&1 || true
+    echo "  $service: removed $(printf '%s\n' "$stopped" | grep -c .) stopped container(s) first"
+  fi
   ids=$(docker compose "${args[@]}" ps -q "$service" 2>/dev/null)
   count=$(printf '%s\n' "$ids" | grep -c . || true)
   if [ "$count" -eq 0 ]; then
