@@ -7,6 +7,7 @@ use App\Enums\AuditAction;
 use App\Livewire\Concerns\ConfirmsIdentity;
 use App\Models\Credential;
 use App\Models\SshHostKey;
+use App\Models\User;
 use App\Platform\GitHub\GitHubException;
 use App\Platform\Ssh\SshConfigCompiler;
 use App\Platform\Ssh\SshConfigReader;
@@ -15,6 +16,7 @@ use App\Support\Audit;
 use App\Support\Settings;
 use App\Support\Ui;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -279,15 +281,28 @@ class Index extends Component
 
         $user = auth()->user();
 
-        if (! $user->passkeys()->exists()) {
+        // Under the user's row lock, which removing a passkey takes too: the
+        // passkey this counts can't be going at the same moment.
+        $removed = DB::transaction(function () use ($user, $disable): bool {
+            User::query()->whereKey($user->id)->lockForUpdate()->first();
+
+            if (! $user->passkeys()->exists()) {
+                return false;
+            }
+
+            $disable($user);
+            // A random value nobody knows, as before a password was chosen.
+            $user->forceFill(['password' => Str::random(64), 'password_set_at' => null])->save();
+
+            return true;
+        });
+
+        if (! $removed) {
             $this->problem = 'Your password is your only way in. Add a passkey first.';
 
             return;
         }
 
-        $disable($user);
-        // A random value nobody knows, as before a password was chosen.
-        $user->forceFill(['password' => Str::random(64), 'password_set_at' => null])->save();
         Audit::record(AuditAction::PasswordRemoved, ['subject' => $user->email]);
         $this->notice = 'Password removed. You sign in with a passkey only.';
     }
