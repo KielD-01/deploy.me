@@ -58,7 +58,9 @@ You don't need a PaaS, a cloud control plane or an agent on the server: just `ss
 Added from `~/.ssh/config`. Host keys are trusted on first use and pinned after that.
 Scheduled probes read CPU, load, memory, disks, Docker, Compose stacks and the edge proxy,
 plus the **ten busiest processes** by CPU, memory and TCP traffic, each shown with its
-container. Status updates live over websockets.
+container. Status updates live over websockets. A server you can't reach directly goes
+**through a jump host, a SOCKS5 or HTTP proxy, or your VPN**, and that route is checked
+before every probe and deploy.
 
 </td>
 <td width="50%" valign="top">
@@ -76,8 +78,10 @@ repository.
 
 ### 🚀 Deploys
 Two layouts: `releases/<timestamp>` with `shared/` and an atomic `current` link (keeping the
-last *N*), or **in place**. Each run takes a remote lock, streams a redacted log, and can be
-cancelled cleanly or **retried from the step that failed**.
+last *N*), or **in place**. Each project picks **its folder on each server**: one named after
+it inside the server's deploy path or another folder, or an exact folder of its own. Each
+run takes a remote lock, streams a redacted log, and can be cancelled cleanly or **retried
+from the step that failed**.
 
 </td>
 <td valign="top">
@@ -344,7 +348,7 @@ flowchart LR
 | `make up` · `make down` · `make restart` | Start, stop or restart the stack |
 | `make ps` · `make logs s=deployme-worker` | Status; follow logs (`s=` for one service) |
 | `make enroll` | A one-time link to set up a passkey or password (first run, or a lost way in) |
-| `make doctor` | Check infra, containers, TLS, websockets, every server alias and the GitHub tokens |
+| `make doctor` | Check infra, containers, TLS, websockets, every server alias and route, and the GitHub tokens |
 | `make dev` · `make assets` | Vite with HMR · build the frontend |
 | `make test` · `make sandbox` · `make test-ssh` | The Pest suite · start the SSH sandbox · run the real-SSH tests against it |
 | `make backup` · `make backup-install` · `make backup-status` | Back up deploy.me's database and `APP_KEY` |
@@ -358,25 +362,28 @@ flowchart LR
   characters, is rate-limited, and can require an authenticator code. There's one account:
   the first visit (or `make enroll`) creates it, then the page is gone, and the last way in
   can't be removed. Trusting
-  a host key, touching env files, deleting during a sync, adding or removing tokens, and
-  changing how you sign in all ask you to confirm it's you again.
+  a host key, touching env files, deleting during a sync, adding or removing tokens,
+  changing how a server is reached, and changing how you sign in all ask you to confirm
+  it's you again.
 - 🤫 **Secrets never go in argv or logs.** Remote scripts receive them over stdin, git gets
-  tokens only through `GIT_ASKPASS`, and the step logger redacts before anything is stored
-  or broadcast.
-- 🔐 **Encrypted at rest.** GitHub tokens, env files and the Telegram token are encrypted
-  with `APP_KEY`.
+  tokens only through `GIT_ASKPASS`, a proxy's password reaches ssh's `ProxyCommand` through
+  a private file in a memory-only folder, and the step logger redacts before anything is
+  stored or broadcast.
+- 🔐 **Encrypted at rest.** GitHub tokens, env files, proxy passwords and the Telegram token
+  are encrypted with `APP_KEY`.
 - 📌 **Pinned host keys.** Trusted on first use and stored in the database. A changed key
   stops the connection.
 - 👀 **The probe reads names and counters, never command lines.** Its network sample runs
   read-only `ss` under `sudo -n`, and is skipped where sudo would ask for a password.
 - 🚧 **Guard rails.** Local imports stay inside the project roots, nothing is pushed into a
-  reserved server path (`/opt/infra`), and the MCP server is read-only unless you say
-  otherwise.
+  reserved server path (`/opt/infra`), a deploy folder is never a system or home folder or
+  inside another project's, a live project's folder is never moved under it, and the MCP
+  server is read-only unless you say otherwise.
 
 ## 🧪 Tests
 
 ```bash
-make test       # 590+ Pest tests, in the container, against deployme_test
+make test       # 800+ Pest tests, in the container, against deployme_test
 make sandbox    # then:
 make test-ssh   # the deploy scripts for real, against the local SSH sandbox
 ```

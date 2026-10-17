@@ -21,7 +21,7 @@
         };
         $letters = ['targets' => 't', 'releases' => 'l', 'environment' => 'e', 'hooks' => 'h', 'settings' => ','];
         $names = ['targets' => 'log', 'releases' => 'releases', 'environment' => 'env', 'hooks' => 'hooks', 'settings' => 'settings'];
-        $targetList = $project->targets()->active()->with(['server', 'currentRelease', 'activeDeployment'])->orderBy('id')->get();
+        $targetList = $project->targets()->active()->with(['project', 'server', 'currentRelease', 'activeDeployment'])->orderBy('id')->get();
         $yes = fn (bool $on) => [$on ? 'yes' : 'no', $on ? 't-ok' : 't-mute'];
         $conf = array_filter([
             'layout' => [$project->versionable ? 'releases, keep '.$project->keep_releases : 'in place', ''],

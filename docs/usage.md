@@ -134,7 +134,8 @@ over a ProxyJump there), and ssh, rsync and git all read that config.
 | **HTTP proxy** | The same through `CONNECT` (it must allow the ssh port) | As above |
 | **VPN on this machine** | Nothing changes in ssh: the VPN routes the traffic. deploy.me checks it, it never starts it | WireGuard or Tailscale running on the host. Docker Desktop and OrbStack usually send the containers' traffic through the Mac's VPN, and on Linux Docker's NAT does the same (if yours doesn't, Tailscale's userspace SOCKS5 proxy works as a proxy route). Use the server's VPN IP in `HostName` (MagicDNS names don't resolve inside containers), and give a **check address** only the VPN reaches, like its gateway |
 
-The proxy password is stored encrypted and never shown again. It reaches the proxy through
+Saving a changed route asks for your passkey first. The proxy password is stored encrypted
+and never shown again. It reaches the proxy through
 a small helper that ssh runs as its `ProxyCommand`, which reads it from a private file in
 deploy.me's memory-only runtime folder: never from a command line or a log.
 

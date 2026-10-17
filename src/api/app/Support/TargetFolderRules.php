@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Project;
 use App\Models\Server;
 use App\Models\Target;
 
@@ -52,17 +53,19 @@ final class TargetFolderRules
 
         foreach ($others as $other) {
             $theirs = rtrim($other->path, '/');
+            /** @var Project $project */
+            $project = $other->project;
 
             if ($theirs === $path) {
-                return "{$other->project->name} already deploys to {$path}.";
+                return "{$project->name} already deploys to {$path}.";
             }
 
             if (str_starts_with($path.'/', $theirs.'/')) {
-                return "{$path} is inside {$theirs}, where {$other->project->name} deploys.";
+                return "{$path} is inside {$theirs}, where {$project->name} deploys.";
             }
 
             if (str_starts_with($theirs.'/', $path.'/')) {
-                return "{$other->project->name} deploys inside it, to {$theirs}.";
+                return "{$project->name} deploys inside it, to {$theirs}.";
             }
         }
 

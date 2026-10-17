@@ -5,6 +5,7 @@ namespace App\Actions\Targets;
 use App\Deploy\Compose;
 use App\Enums\TargetHealth;
 use App\Events\TargetHealthChanged;
+use App\Models\Server;
 use App\Models\Target;
 use App\Platform\Ssh\Exceptions\SshException;
 use App\Platform\Ssh\RemoteScript;
@@ -32,7 +33,10 @@ class CheckTargetHealth
 
         // The way to the server is down: every check would fail the same way
         // and call the app unhealthy. The probe retries the route each minute.
-        if ($target->server->routeIsDown()) {
+        /** @var Server $server */
+        $server = $target->server;
+
+        if ($server->routeIsDown()) {
             return null;
         }
 

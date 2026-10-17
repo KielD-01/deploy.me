@@ -1161,7 +1161,7 @@ parameters:
 		-
 			message: '#^Access to an undefined property App\\Livewire\\Projects\\Targets\:\:\$project\.$#'
 			identifier: property.notFound
-			count: 9
+			count: 12
 			path: app/Livewire/Projects/Targets.php
 
 		-
@@ -1418,12 +1418,6 @@ parameters:
 
 		-
 			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
-			identifier: property.notFound
-			count: 1
-			path: app/Models/Target.php
-
-		-
-			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$default_deploy_path\.$#'
 			identifier: property.notFound
 			count: 1
 			path: app/Models/Target.php

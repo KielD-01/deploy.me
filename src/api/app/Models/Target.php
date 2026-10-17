@@ -162,8 +162,19 @@ class Target extends Model
 
     public function usesServerDefault(): bool
     {
-        return $this->server->default_deploy_path !== null
-            && rtrim($this->path, '/') === self::pathFor($this->server->default_deploy_path, $this->project->slug);
+        /** @var Server $server */
+        $server = $this->server;
+
+        return $server->default_deploy_path !== null
+            && rtrim($this->path, '/') === self::pathFor($server->default_deploy_path, $this->slug());
+    }
+
+    private function slug(): string
+    {
+        /** @var Project $project */
+        $project = $this->project;
+
+        return $project->slug;
     }
 
     /**
@@ -173,7 +184,7 @@ class Target extends Model
     {
         return match (true) {
             $this->usesServerDefault() => 'server default',
-            basename($this->path) === $this->project->slug => 'inside '.dirname($this->path),
+            basename($this->path) === $this->slug() => 'inside '.dirname($this->path),
             default => 'exact folder',
         };
     }

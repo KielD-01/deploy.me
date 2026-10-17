@@ -43,7 +43,8 @@ class CheckRoute
 
         [$state, $detail] = $this->check($server, $timeout);
 
-        $check = $server->routeChecks()->create([
+        $check = RouteCheck::query()->create([
+            'server_id' => $server->id,
             'kind' => $route->kind,
             'state' => $state,
             'reason' => $reason,

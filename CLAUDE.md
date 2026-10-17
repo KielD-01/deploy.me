@@ -103,7 +103,8 @@ doesn't wait for `make migrate`.
   (`KnownHosts`). Remote work is a script from `resources/ssh-scripts/` sent over stdin
   (`RemoteScript`) — never user data in argv. Tests use `Testing\FakeSshClient`.
   - **Routes** (`Platform/Ssh/Route`, `servers.route_kind`/`route`/`route_secret`): a server
-    can be reached direct, through a jump host, a SOCKS5 or HTTP proxy, or a VPN on the host.
+    can be reached direct, through a jump host, a SOCKS5 or HTTP proxy, or a VPN on the host
+    (saving a changed one needs a passkey).
     The compiler writes a `Host <alias>` block per route after the enforced options and
     before the Includes (then `Host *` again: an Include inside a Host block only applies to
     that host). Jump is `ProxyJump`; a proxy is `ProxyCommand php

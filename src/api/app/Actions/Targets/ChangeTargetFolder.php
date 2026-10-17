@@ -3,6 +3,8 @@
 namespace App\Actions\Targets;
 
 use App\Enums\AuditAction;
+use App\Models\Project;
+use App\Models\Server;
 use App\Models\Target;
 use App\Support\Audit;
 use App\Support\TargetFolderRules;
@@ -29,14 +31,18 @@ class ChangeTargetFolder
     public function __invoke(Target $target, string $folder, bool $exact = false): Target
     {
         $target->loadMissing(['project', 'server', 'currentRelease']);
+        /** @var Project $project */
+        $project = $target->project;
+        /** @var Server $server */
+        $server = $target->server;
         $folder = TargetFolderRules::normalize($folder);
-        $path = $exact ? $folder : Target::pathFor($folder, $target->project->slug);
+        $path = $exact ? $folder : Target::pathFor($folder, $project->slug);
 
         $problem = match (true) {
             $target->activeDeployment()->exists() => 'A run is still going on this target. Wait for it, or cancel it first.',
             $target->isLive() => self::liveProblem($target),
             $path === rtrim($target->path, '/') => "It already deploys to {$path}.",
-            default => TargetFolderRules::problem($target->server, $path, except: $target),
+            default => TargetFolderRules::problem($server, $path, except: $target),
         };
 
         if ($problem !== null) {
@@ -55,7 +61,7 @@ class ChangeTargetFolder
         ])->save();
 
         Audit::record(AuditAction::TargetFolderChanged, [
-            'subject' => "{$target->project->name} on {$target->server->name} · {$from} → {$path}",
+            'subject' => "{$project->name} on {$server->name} · {$from} → {$path}",
             'server_id' => $target->server_id,
             'project_id' => $target->project_id,
             'detail' => 'nothing on the server changed',
@@ -66,7 +72,10 @@ class ChangeTargetFolder
 
     public static function liveProblem(Target $target): string
     {
-        return "{$target->project->name} is live in {$target->path}, so deploy.me won’t move it: its releases, shared files and stack run from there. "
+        /** @var Project $project */
+        $project = $target->project;
+
+        return "{$project->name} is live in {$target->path}, so deploy.me won’t move it: its releases, shared files and stack run from there. "
             .'To move it, remove the target (nothing on the server changes), assign the project again with the new folder, copy shared/ across on the server, deploy, and delete the old folder by hand once it’s healthy.';
     }
 }
