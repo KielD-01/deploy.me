@@ -442,6 +442,23 @@ it('runs host hooks in the release folder and stops at one that fails', function
     expect($hook['script']->render())->toContain(base64_encode($deployment->release->path), base64_encode('php artisan migrate --force'));
 });
 
+it('masks secrets in what a failed step says, not only in the log', function () {
+    $target = gitProjectTarget();
+    $target->project->envFiles()->create(['path' => '.env', 'role' => 'app', ...ProjectEnvFile::contentAttributes("DB_PASSWORD=s3cret-pa55word\n")]);
+    fakeDeployScripts($this->ssh, ['deploy-activate' => new SshResult(1, '', "fatal: auth s3cret-pa55word refused by https://bot:ghp_abcdefghijklmnopqrstuvwxyz12@github.com/x\n", 1.0)]);
+
+    $deployment = runDeploy($target);
+    $step = $deployment->steps()->where('key', 'activate')->sole();
+
+    expect($deployment->status)->toBe(DeploymentStatus::Failed)
+        ->and($deployment->outcome)->toContain('fatal: auth')
+        ->and($deployment->outcome)->not->toContain('s3cret-pa55word')
+        ->and($deployment->outcome)->not->toContain('ghp_')
+        ->and($step->detail)->toContain('fatal: auth')
+        ->and($step->detail)->not->toContain('s3cret-pa55word')
+        ->and($step->detail)->not->toContain('ghp_');
+});
+
 it('rolls back to an older release that’s still on the server', function () {
     $target = gitProjectTarget();
     $first = runDeploy($target)->release;

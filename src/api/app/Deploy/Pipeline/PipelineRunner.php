@@ -180,6 +180,8 @@ class PipelineRunner
             $switchedBack instanceof Release => '↩ ',
             default => '✗ ',
         };
+        // The outcome goes to the run pages, to Telegram and to MCP answers.
+        $outcome = $context->log->redactor->redact((string) $outcome);
         $context->log->note($mark.$outcome);
         $context->log->flush();
 
@@ -249,7 +251,9 @@ class PipelineRunner
 
             throw $e;
         } catch (Throwable $e) {
-            $message = $e instanceof SshException ? $e->userMessage() : $e->getMessage();
+            // What a script printed on stderr can hold a secret: the step's
+            // detail is masked like the log is.
+            $message = $context->log->redactor->redact($e instanceof SshException ? $e->userMessage() : $e->getMessage());
 
             $row->update([
                 'status' => $e instanceof DeploymentCancelled ? StepStatus::Cancelled : StepStatus::Failed,
