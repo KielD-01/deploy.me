@@ -5,6 +5,7 @@ namespace App\Deploy\Pipeline\Steps;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
 use App\Deploy\Pipeline\StepFailed;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Enums\DeploymentKind;
 use App\Models\Release;
 use App\Platform\Ssh\Exceptions\SshException;
@@ -52,7 +53,7 @@ final class RecordState implements Step
                 'TARGET' => $context->layout->root,
                 'STATE' => $this->json($state + ['bootstrapped_at' => now()->toIso8601String(), 'current' => null, 'previous' => null]),
                 'ONLY_IF_MISSING' => 1,
-            ], timeout: 30)->throwIfFailed('Couldn’t write .deploy/state.json.');
+            ], timeout: StepTimeout::QUICK)->throwIfFailed('Couldn’t write .deploy/state.json.');
 
             return null;
         }
@@ -75,7 +76,7 @@ final class RecordState implements Step
                 'TARGET' => $context->layout->root,
                 'STATE' => $this->json($state),
                 'ONLY_IF_MISSING' => 0,
-            ], timeout: 30)->throwIfFailed('Couldn’t write .deploy/state.json.');
+            ], timeout: StepTimeout::QUICK)->throwIfFailed('Couldn’t write .deploy/state.json.');
         } catch (StepFailed|SshException $e) {
             $context->log->note('! '.($e instanceof SshException ? $e->userMessage() : $e->getMessage()));
 

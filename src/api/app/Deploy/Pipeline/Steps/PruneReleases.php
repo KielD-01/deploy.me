@@ -5,6 +5,7 @@ namespace App\Deploy\Pipeline\Steps;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
 use App\Deploy\Pipeline\StepFailed;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Deploy\ReleasePruner;
 use App\Enums\ReleaseStatus;
 use App\Models\Release;
@@ -62,7 +63,7 @@ final class PruneReleases implements Step
                 'TARGET' => $context->layout->root,
                 'NAMES' => implode("\n", array_map(fn (Release $release) => $release->name, $remove)),
                 'KEEP' => $live->name,
-            ], timeout: 600)->throwIfFailed('Couldn’t remove the old releases.');
+            ], timeout: StepTimeout::PRUNE)->throwIfFailed('Couldn’t remove the old releases.');
         } catch (StepFailed|SshException $e) {
             $context->log->note('! '.($e instanceof SshException ? $e->userMessage() : $e->getMessage()));
 

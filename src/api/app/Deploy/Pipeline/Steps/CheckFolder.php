@@ -5,6 +5,7 @@ namespace App\Deploy\Pipeline\Steps;
 use App\Deploy\Conversion\Conversion;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Models\Release;
 use Illuminate\Support\Str;
 
@@ -38,7 +39,7 @@ final class CheckFolder implements Step
         $target = $context->target;
         $name = Release::nextName($target);
 
-        $context->script('deploy-convert', $conversion->vars($context, $name, 'check'), timeout: 120)
+        $context->script('deploy-convert', $conversion->vars($context, $name, 'check'), timeout: StepTimeout::CHECK)
             ->throwIfFailed('The folder can’t be converted as planned.');
 
         $previous = $target->currentRelease()->first();

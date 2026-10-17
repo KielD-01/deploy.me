@@ -6,6 +6,7 @@ use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\AlwaysRuns;
 use App\Deploy\Pipeline\Step;
 use App\Deploy\Pipeline\StepFailed;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Deploy\ScriptRun;
 use App\Enums\DeploymentStatus;
 use App\Models\Deployment;
@@ -71,7 +72,7 @@ final class AcquireLease implements AlwaysRuns, Step
             'STALE_AFTER' => self::STALE_AFTER,
             // The script takes the lock over only while it still names this run.
             'TAKEOVER' => $takeOver !== null ? $takeOver->id : '',
-        ], timeout: 30);
+        ], timeout: StepTimeout::QUICK);
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Deploy\Pipeline\Steps;
 
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Enums\AuditAction;
 use App\Support\Audit;
 
@@ -38,7 +39,7 @@ final class BreakLock implements Step
             'TARGET' => $context->layout->root,
             'OWNER' => $context->deployment->id,
             'FORCE' => 1,
-        ], timeout: 60)->throwIfFailed('Couldn’t remove the lock.');
+        ], timeout: StepTimeout::SHORT)->throwIfFailed('Couldn’t remove the lock.');
 
         $broken = $run->marker('broken') === '1';
         $holder = (string) $run->marker('previous');

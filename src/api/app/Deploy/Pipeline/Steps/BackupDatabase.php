@@ -6,6 +6,7 @@ use App\Deploy\Compose;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
 use App\Deploy\Pipeline\StepFailed;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Models\Project;
 use App\Models\Release;
 use App\Support\DotEnv;
@@ -76,7 +77,7 @@ final class BackupDatabase implements Step
             'DB_PASSWORD' => $database['password'],
             'DIR' => $context->layout->deployDir().'/backups',
             'KEEP' => $keep,
-        ], timeout: 1800);
+        ], timeout: StepTimeout::LONG);
 
         if ($run->result->exitCode === self::ROW_SECURITY) {
             throw new StepFailed(

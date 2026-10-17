@@ -4,6 +4,7 @@ namespace App\Deploy\Pipeline\Steps;
 
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 
 /**
  * Gives the folder's lock back, and removes a registry login the deploy
@@ -32,14 +33,14 @@ final class ReleaseLease implements Step
     public function run(DeployContext $context): ?string
     {
         if (isset($context->memo['registry_config'])) {
-            $context->script('deploy-forget-login', ['DIR' => (string) $context->memo['registry_config']], timeout: 30);
+            $context->script('deploy-forget-login', ['DIR' => (string) $context->memo['registry_config']], timeout: StepTimeout::QUICK);
             unset($context->memo['registry_config']);
         }
 
         $context->script('deploy-unlock', [
             'TARGET' => $context->layout->root,
             'OWNER' => $context->deployment->id,
-        ], timeout: 30)->throwIfFailed('Couldn’t release the lock. The next deploy takes it over, since this run is over by then.');
+        ], timeout: StepTimeout::QUICK)->throwIfFailed('Couldn’t release the lock. The next deploy takes it over, since this run is over by then.');
 
         return null;
     }

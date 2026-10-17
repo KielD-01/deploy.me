@@ -6,6 +6,7 @@ use App\Deploy\Compose;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
 use App\Deploy\Pipeline\StepFailed;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Enums\ReleaseStatus;
 use App\Models\Release;
 use App\Platform\Ssh\Exceptions\SshException;
@@ -70,7 +71,7 @@ final class PruneImages implements Step
                 'KEEP_TAGS' => implode("\n", $staying['tags']),
                 'REFS' => implode("\n", $refs),
                 'KEEP_REFS' => implode("\n", $staying['refs']),
-            ], timeout: 600)->throwIfFailed('Couldn’t remove the old images.');
+            ], timeout: StepTimeout::PRUNE)->throwIfFailed('Couldn’t remove the old images.');
         } catch (StepFailed|SshException $e) {
             $context->log->note('! '.($e instanceof SshException ? $e->userMessage() : $e->getMessage()));
 

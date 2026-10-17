@@ -7,6 +7,7 @@ use App\Deploy\Delivery\ImagePlan;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
 use App\Deploy\Pipeline\StepFailed;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Enums\DeliveryStrategyKey;
 use App\Models\Project;
 use App\Models\Release;
@@ -65,7 +66,7 @@ final class WritePins implements Step
             'FILE' => rtrim($release->path, '/').'/'.self::FILE,
             'CONTENT' => self::withPins('', $pins),
             'MODE' => '0644',
-        ], timeout: 60)->throwIfFailed('Couldn’t write the image pins.');
+        ], timeout: StepTimeout::SHORT)->throwIfFailed('Couldn’t write the image pins.');
 
         $release->update(['image_pins' => $pins]);
 

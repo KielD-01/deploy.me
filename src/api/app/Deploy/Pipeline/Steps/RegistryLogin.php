@@ -6,6 +6,7 @@ use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\AlwaysRuns;
 use App\Deploy\Pipeline\Step;
 use App\Deploy\Pipeline\StepFailed;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Enums\Activation;
 use App\Enums\DeliveryStrategyKey;
 use App\Enums\DeploymentKind;
@@ -64,7 +65,7 @@ final class RegistryLogin implements AlwaysRuns, Step
             'USERNAME' => $credential->login,
             'TOKEN' => $credential->token,
             'DIR' => $dir,
-        ], timeout: 60)->throwIfFailed('ghcr.io refused the login. The token needs read:packages.');
+        ], timeout: StepTimeout::SHORT)->throwIfFailed('ghcr.io refused the login. The token needs read:packages.');
 
         $context->memo['registry_config'] = $dir;
 

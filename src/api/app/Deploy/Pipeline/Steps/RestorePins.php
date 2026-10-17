@@ -5,6 +5,7 @@ namespace App\Deploy\Pipeline\Steps;
 use App\Deploy\Compose;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Enums\DeploymentKind;
 use App\Models\Release;
 
@@ -61,7 +62,7 @@ final class RestorePins implements Step
             'FILE' => rtrim($release->path, '/').'/'.WritePins::FILE,
             'CONTENT' => WritePins::withPins('', $pins),
             'MODE' => '0644',
-        ], timeout: 60)->throwIfFailed('Couldn’t put the release’s image pins back.');
+        ], timeout: StepTimeout::SHORT)->throwIfFailed('Couldn’t put the release’s image pins back.');
 
         return implode(' · ', array_map(fn (string $var, string $value) => "{$var}={$value}", array_keys($pins), $pins));
     }

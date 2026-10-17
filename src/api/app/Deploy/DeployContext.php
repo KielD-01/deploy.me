@@ -4,6 +4,7 @@ namespace App\Deploy;
 
 use App\Deploy\Logging\StepLogger;
 use App\Deploy\Pipeline\DeploymentCancelled;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Models\Deployment;
 use App\Models\Project;
 use App\Models\Server;
@@ -80,7 +81,7 @@ final class DeployContext
      *
      * @param  array<string, string|int>  $vars
      */
-    public function script(string $name, array $vars = [], int $timeout = 300): ScriptRun
+    public function script(string $name, array $vars = [], int $timeout = StepTimeout::MEDIUM): ScriptRun
     {
         $markers = [];
         $pgidFile = $this->layout->runs()."/{$this->deployment->id}.pgid";
@@ -122,7 +123,7 @@ final class DeployContext
                 $this->server->ssh_alias,
                 RemoteScript::file('deploy-kill', ['FILE' => $pgidFile]),
                 fn (string $line, string $stream) => $this->log->line($line, $stream),
-                30,
+                StepTimeout::QUICK,
             );
         } catch (Throwable $e) {
             $this->log->note('! Couldn’t stop what the script left running on the server: '.($e instanceof SshException ? $e->userMessage() : $e->getMessage()));

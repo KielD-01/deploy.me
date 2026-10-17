@@ -6,6 +6,7 @@ use App\Deploy\Compose;
 use App\Deploy\Conversion\Conversion;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Models\Release;
 use Illuminate\Support\Str;
 
@@ -42,7 +43,7 @@ final class CheckCompose implements Step
         /** @var Conversion $conversion */
         $conversion = $context->memo['conversion'];
 
-        $run = $context->script('deploy-convert', $conversion->vars($context, $release->name, 'compose'), timeout: 120)
+        $run = $context->script('deploy-convert', $conversion->vars($context, $release->name, 'compose'), timeout: StepTimeout::CHECK)
             ->throwIfFailed('Compose can’t read the stack from the release.');
 
         $services = (int) $run->marker('services');

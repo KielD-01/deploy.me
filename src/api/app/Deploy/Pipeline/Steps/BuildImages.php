@@ -52,7 +52,7 @@ final class BuildImages implements Step
                 'FILE' => rtrim($release->path, '/').'/'.ServerBuild::FILE,
                 'CONTENT' => $override,
                 'MODE' => '0644',
-            ], timeout: 60)->throwIfFailed('Couldn’t write the build recipe into the release.');
+            ], timeout: StepTimeout::SHORT)->throwIfFailed('Couldn’t write the build recipe into the release.');
 
             $vars['FILES'] .= "\n".ServerBuild::FILE;
 
@@ -62,7 +62,7 @@ final class BuildImages implements Step
                     'DOCKERFILE' => $build['dockerfile'],
                     'CONTEXT' => $build['context'],
                     'EXCLUDE' => implode("\n", ServerBuild::excluded($context->project, $build['context'])),
-                ], timeout: 60)->throwIfFailed('Couldn’t keep the shared files out of the build.');
+                ], timeout: StepTimeout::SHORT)->throwIfFailed('Couldn’t keep the shared files out of the build.');
             }
         }
 

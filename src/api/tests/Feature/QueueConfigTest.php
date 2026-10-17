@@ -44,6 +44,14 @@ it('keeps every deploy step inside the deploy job’s budget', function () {
         ->and(RecreateServices::timeout($slowToStop))->toBe(StepTimeout::MAX);
 });
 
+it('keeps every named step timeout inside the deploy job’s budget', function () {
+    $timeouts = (new ReflectionClass(StepTimeout::class))->getConstants();
+
+    expect($timeouts)->toHaveKeys(['QUICK', 'SHORT', 'CHECK', 'MEDIUM', 'PRUNE', 'TRANSFER', 'LONG', 'MAX'])
+        ->and(max($timeouts))->toBe(StepTimeout::MAX)
+        ->and(max($timeouts))->toBeLessThan(RunDeployment::TIMEOUT);
+});
+
 it('gives folder syncs a worker of their own, so a long sync never holds up a deploy', function () {
     preg_match_all('/queue:work (\S+) --queue=(\S+)/', (string) file_get_contents(supervisorQueuesConf()), $matches, PREG_SET_ORDER);
     $served = collect($matches)->flatMap(fn (array $m) => array_map(fn (string $queue) => "{$m[1]}/{$queue}", explode(',', $m[2])))->all();

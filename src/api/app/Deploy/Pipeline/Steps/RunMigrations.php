@@ -5,6 +5,7 @@ namespace App\Deploy\Pipeline\Steps;
 use App\Deploy\Compose;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Models\Project;
 use App\Models\Release;
 use Illuminate\Support\Str;
@@ -58,7 +59,7 @@ final class RunMigrations implements Step
         $release = $context->memo['release'];
         $service = (string) $context->project->migrate_service;
 
-        $run = $context->script('deploy-compose', Compose::vars($context->project, $release->path, 'run', [$service], self::commandFor($context->project, $service)), timeout: 1800)
+        $run = $context->script('deploy-compose', Compose::vars($context->project, $release->path, 'run', [$service], self::commandFor($context->project, $service)), timeout: StepTimeout::LONG)
             ->throwIfFailed('The migrations failed, so the new release didn’t go live.');
 
         // Laravel lists each migration it ran with DONE.

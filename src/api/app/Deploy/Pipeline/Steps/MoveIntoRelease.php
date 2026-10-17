@@ -5,6 +5,7 @@ namespace App\Deploy\Pipeline\Steps;
 use App\Deploy\Conversion\Conversion;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Models\Release;
 
 /**
@@ -41,7 +42,7 @@ final class MoveIntoRelease implements Step
         // From here on, a failure puts the old layout back.
         $context->memo['moving'] = true;
 
-        $run = $context->script('deploy-convert', $conversion->vars($context, $release->name, 'move'), timeout: 900)
+        $run = $context->script('deploy-convert', $conversion->vars($context, $release->name, 'move'), timeout: StepTimeout::TRANSFER)
             ->throwIfFailed('Moving the files failed.');
 
         $toRelease = (int) $run->marker('to_release');

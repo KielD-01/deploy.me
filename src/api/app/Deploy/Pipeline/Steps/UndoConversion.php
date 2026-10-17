@@ -7,6 +7,7 @@ use App\Deploy\Conversion\Conversion;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
 use App\Deploy\Pipeline\StepFailed;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Enums\DeploymentKind;
 use App\Models\Release;
 use Illuminate\Support\Str;
@@ -46,7 +47,7 @@ final class UndoConversion implements Step
             ? $this->converted($context)
             : [$context->memo['release'], (bool) ($context->memo['restarted'] ?? false)];
 
-        $run = $context->script('deploy-convert', Conversion::bare($context->layout->root, $release->name, 'undo'), timeout: 900)
+        $run = $context->script('deploy-convert', Conversion::bare($context->layout->root, $release->name, 'undo'), timeout: StepTimeout::TRANSFER)
             ->throwIfFailed('Couldn’t put the old layout back.');
 
         $context->memo['undone'] = true;
@@ -54,7 +55,7 @@ final class UndoConversion implements Step
         $done = ["{$back} ".Str::plural('item', $back).' back'];
 
         if ($restarted && Compose::builtin($context->project)) {
-            $context->script('deploy-compose', Compose::vars($context->project, $context->layout->root, 'recreate', $context->project->app_services ?? []), timeout: 900)
+            $context->script('deploy-compose', Compose::vars($context->project, $context->layout->root, 'recreate', $context->project->app_services ?? []), timeout: StepTimeout::TRANSFER)
                 ->throwIfFailed('Recreating the app services from the old folder failed.');
             $done[] = 'app services recreated from the old folder';
         }

@@ -5,6 +5,7 @@ namespace App\Deploy\Pipeline\Steps;
 use App\Deploy\Compose;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Models\Release;
 use Illuminate\Support\Str;
 
@@ -38,7 +39,7 @@ final class CheckStack implements Step
         /** @var Release $release */
         $release = $context->memo['release'];
 
-        $run = $context->script('deploy-compose', Compose::vars($context->project, $release->path, 'config'), timeout: 120)
+        $run = $context->script('deploy-compose', Compose::vars($context->project, $release->path, 'config'), timeout: StepTimeout::CHECK)
             ->throwIfFailed('Compose can’t read the stack from the new release.');
 
         $services = (int) $run->marker('services');

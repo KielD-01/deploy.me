@@ -6,6 +6,7 @@ use App\Deploy\Compose;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
 use App\Deploy\Pipeline\StepFailed;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Enums\ReleaseStatus;
 use App\Models\Release;
 use Illuminate\Support\Str;
@@ -47,7 +48,7 @@ final class InspectExisting implements Step
             'STACK' => $context->project->dockerized ? (string) $context->project->stack_name : '',
             // IMAGE_TAG is the convention a project without detected pins follows.
             'VARS' => $context->project->dockerized ? implode("\n", array_keys(Compose::pinKinds($context->project)) ?: ['IMAGE_TAG']) : '',
-        ], timeout: 60)->throwIfFailed('Couldn’t read the folder.');
+        ], timeout: StepTimeout::SHORT)->throwIfFailed('Couldn’t read the folder.');
 
         $sha = fn (?string $value) => preg_match('/^[0-9a-f]{40}$/', (string) $value) === 1 ? (string) $value : null;
         $commit = $sha($run->marker('commit'));

@@ -4,6 +4,7 @@ namespace App\Deploy\Pipeline\Steps;
 
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Models\Project;
 use App\Models\Release;
 
@@ -44,7 +45,7 @@ final class LinkShared implements Step
             'SHARED' => $context->layout->shared(),
             'DIRS' => implode("\n", $dirs),
             'FILES' => implode("\n", $files),
-        ], timeout: 120)->throwIfFailed('Couldn’t link the shared files.');
+        ], timeout: StepTimeout::CHECK)->throwIfFailed('Couldn’t link the shared files.');
 
         return implode(', ', [...$dirs, ...$files]);
     }

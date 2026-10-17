@@ -5,6 +5,7 @@ namespace App\Deploy\Pipeline\Steps;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\AlwaysRuns;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use Illuminate\Support\Str;
 
 /**
@@ -41,7 +42,7 @@ final class SyncEnvFiles implements AlwaysRuns, Step
                 'FILE' => $context->layout->envFile($file->path),
                 'CONTENT' => $file->content,
                 'MODE' => '0600',
-            ], timeout: 60)->throwIfFailed("Couldn’t write {$file->path}.");
+            ], timeout: StepTimeout::SHORT)->throwIfFailed("Couldn’t write {$file->path}.");
         }
 
         return $files->count().' '.Str::plural('file', $files->count()).' · v'.$files->pluck('version')->implode(', v');

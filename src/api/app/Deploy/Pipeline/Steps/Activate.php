@@ -4,6 +4,7 @@ namespace App\Deploy\Pipeline\Steps;
 
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Enums\Activation;
 use App\Models\Release;
 
@@ -72,7 +73,7 @@ final class Activate implements Step
             'TARGET' => $context->layout->root,
             // The deploy's registry login, so the script's own pulls work.
             'DOCKER_CONFIG_DIR' => (string) ($context->memo['registry_config'] ?? ''),
-        ], timeout: 1800)->throwIfFailed("{$script} failed.");
+        ], timeout: StepTimeout::LONG)->throwIfFailed("{$script} failed.");
 
         return "ran {$script}";
     }
@@ -82,7 +83,7 @@ final class Activate implements Step
         $context->script('deploy-activate', [
             'TARGET' => $context->layout->root,
             'RELEASE' => $release->name,
-        ], timeout: 60)->throwIfFailed("Couldn’t point current at {$release->name}.");
+        ], timeout: StepTimeout::SHORT)->throwIfFailed("Couldn’t point current at {$release->name}.");
     }
 
     public static function usesScript(DeployContext $context): bool

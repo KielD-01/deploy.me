@@ -5,6 +5,7 @@ namespace App\Deploy\Pipeline\Steps;
 use App\Deploy\Conversion\Conversion;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Models\Release;
 use Illuminate\Support\Str;
 
@@ -40,7 +41,7 @@ final class LinkSharedItems implements Step
         /** @var Conversion $conversion */
         $conversion = $context->memo['conversion'];
 
-        $context->script('deploy-convert', $conversion->vars($context, $release->name, 'link'), timeout: 300)
+        $context->script('deploy-convert', $conversion->vars($context, $release->name, 'link'), timeout: StepTimeout::MEDIUM)
             ->throwIfFailed('Couldn’t link the shared files.');
 
         return Str::limit(implode(', ', $conversion->shared()), 200);

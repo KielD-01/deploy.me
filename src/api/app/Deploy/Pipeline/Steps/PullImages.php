@@ -5,6 +5,7 @@ namespace App\Deploy\Pipeline\Steps;
 use App\Deploy\Compose;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Enums\DeliveryStrategyKey;
 use App\Models\Release;
 
@@ -42,7 +43,7 @@ final class PullImages implements Step
         $context->script('deploy-compose', [
             ...Compose::vars($context->project, $release->path, 'pull', $services),
             'DOCKER_CONFIG_DIR' => (string) ($context->memo['registry_config'] ?? ''),
-        ], timeout: 1800)->throwIfFailed('Pulling the images failed.');
+        ], timeout: StepTimeout::LONG)->throwIfFailed('Pulling the images failed.');
 
         unset($context->memo['registry_config']);
 

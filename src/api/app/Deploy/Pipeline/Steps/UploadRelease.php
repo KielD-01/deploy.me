@@ -6,6 +6,7 @@ use App\Deploy\Delivery\SourceBuilder;
 use App\Deploy\Delivery\Strategies\ServerGit;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Step;
+use App\Deploy\Pipeline\StepTimeout;
 use App\Deploy\Upload\Uploader;
 use App\Enums\DeliveryStrategyKey;
 use App\Models\Release;
@@ -97,7 +98,7 @@ final class UploadRelease implements Step
             'TARGET' => $context->layout->root,
             'RELEASE' => $release->name,
             'FILTERS' => implode("\n", [...$this->filters($context, $strategy), 'dir-merge,-r .gitignore']),
-        ], timeout: 900)->throwIfFailed('Couldn’t put the release into place.');
+        ], timeout: StepTimeout::TRANSFER)->throwIfFailed('Couldn’t put the release into place.');
 
         $updated = (int) $run->marker('updated');
         $deleted = (int) $run->marker('deleted');
@@ -118,7 +119,7 @@ final class UploadRelease implements Step
             'MIRROR' => $context->layout->deployDir().'/repo.git',
             'REF' => $release->commit_sha ?? $context->project->branch,
             'DEST' => $inPlace ? $context->layout->incoming($release->name) : $release->path,
-        ], timeout: 1800)->throwIfFailed('The server couldn’t fetch the commit.');
+        ], timeout: StepTimeout::LONG)->throwIfFailed('The server couldn’t fetch the commit.');
 
         $sha = (string) $run->marker('commit');
         if (preg_match('/^[0-9a-f]{40}$/', $sha) === 1 && $sha !== $release->commit_sha) {
