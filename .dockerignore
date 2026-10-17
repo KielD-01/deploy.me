@@ -1,0 +1,3 @@
+# The PHP image only copies core/local/php/*; keep everything else out of the build context.
+*
+!core/local/php/

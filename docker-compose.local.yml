@@ -1,0 +1,169 @@
+# deploy.me — local stack.
+#
+# Uses the shared ~/Personal/infra stack over proxy-network: Postgres as
+# `postgres`, Valkey as `redis`, and the caddy-docker-proxy edge via labels.
+# Nothing is published on the host; the app lives at https://deployme.localhost.
+#
+#   make init      # first run: database, image, assets, setup
+#   make up | down | logs s=deployme-worker
+
+name: deployme
+
+x-php: &php
+  build:
+    context: .
+    dockerfile: core/local/php/Dockerfile
+  image: deployme-php:local
+  working_dir: /app
+  # tini reaps ssh ControlPersist masters that outlive their parent.
+  init: true
+  environment: &php-env
+    TZ: Europe/Kyiv
+    SSH_AUTH_SOCK: /run/host-services/ssh-auth.sock
+    DEPLOYME_HOST_HOME: ${HOME:?HOME is not set}
+    DEPLOYME_HOST_USER: ${USER:?USER is not set}
+    DEPLOYME_PROJECT_ROOTS: ${HOME}/Personal:${HOME}/Claude:${HOME}/Projects:${HOME}/Cursor
+  tmpfs:
+    - /run/deployme:mode=0700,size=16m
+  security_opt:
+    - no-new-privileges:true
+  networks: [proxy-network, internal]
+  restart: unless-stopped
+
+networks:
+  proxy-network:
+    external: true
+  internal:
+    driver: bridge
+
+volumes:
+  vite_node_modules:
+  sandbox_host_keys:
+
+services:
+  deployme-web:
+    <<: *php
+    container_name: deployme-web
+    command: ["frankenphp", "php-server", "--listen", "0.0.0.0:8000", "--root", "/app/public"]
+    environment:
+      <<: *php-env
+      DEPLOYME_ROLE: web
+    volumes:
+      - ./src/api:/app
+      # ~ in ssh config resolves to /root; absolute /Users/... paths resolve too.
+      - ${HOME}/.ssh:/root/.ssh:ro
+      - ${HOME}/.ssh:${HOME}/.ssh:ro
+      - /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock
+      # Project roots at identical paths: git worktrees store absolute paths.
+      - ${HOME}/Personal:${HOME}/Personal:ro
+      - ${HOME}/Claude:${HOME}/Claude:ro
+      - ${HOME}/Projects:${HOME}/Projects:ro
+      - ${HOME}/Cursor:${HOME}/Cursor:ro
+    labels:
+      caddy: deployme.localhost
+      caddy.tls: internal
+      caddy.encode: zstd gzip
+      # Browser websockets (/app/<key>) go to Reverb; everything else to the
+      # app. A path matcher alone, because over HTTP/2 a websocket request has
+      # no Connection/Upgrade headers to match on. Laravel has no /app routes,
+      # and Vite lives on its own subdomain. stream_close_delay keeps sockets
+      # open across edge reloads.
+      caddy.@ws.path: "/app /app/*"
+      caddy.0_reverse_proxy: "@ws deployme-reverb:8080"
+      caddy.0_reverse_proxy.flush_interval: "-1"
+      caddy.0_reverse_proxy.stream_close_delay: 5m
+      caddy.1_reverse_proxy: "{{upstreams 8000}}"
+      com.panel.group: deployme
+      com.panel.type: laravel
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8000/up || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  deployme-worker:
+    <<: *php
+    container_name: deployme-worker
+    command: ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+    # Longer than supervisor's stopwaitsecs so workers finish their job.
+    stop_grace_period: 330s
+    mem_limit: 1g
+    environment:
+      <<: *php-env
+      DEPLOYME_ROLE: worker
+    volumes:
+      - ./src/api:/app
+      - ${HOME}/.ssh:/root/.ssh:ro
+      - ${HOME}/.ssh:${HOME}/.ssh:ro
+      - /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock
+      # Read-write: the worker pushes to GitHub from local repos.
+      - ${HOME}/Personal:${HOME}/Personal
+      - ${HOME}/Claude:${HOME}/Claude
+      - ${HOME}/Projects:${HOME}/Projects
+      - ${HOME}/Cursor:${HOME}/Cursor
+    labels:
+      com.panel.group: deployme
+      com.panel.type: worker
+    healthcheck:
+      test: ["CMD", "supervisorctl", "-c", "/etc/supervisor/supervisord.conf", "status"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  deployme-reverb:
+    <<: *php
+    container_name: deployme-reverb
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
+    environment:
+      <<: *php-env
+      DEPLOYME_ROLE: reverb
+    volumes:
+      - ./src/api:/app
+    labels:
+      com.panel.group: deployme
+      com.panel.type: reverb
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 8080) ? 0 : 1);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+
+  # A stand-in server for developing and testing the SSH layer: `make sandbox`.
+  # It appears in the add-server wizard as the alias "sandbox".
+  deployme-sshd-target:
+    build:
+      context: core/local/sshd-target
+    image: deployme-sshd-target:local
+    container_name: deployme-sshd-target
+    hostname: sandbox
+    profiles: [sandbox]
+    volumes:
+      - ./src/api/storage/app/sandbox-ssh:/sandbox-keys:ro
+      - sandbox_host_keys:/etc/ssh/keys
+    networks: [internal]
+    restart: unless-stopped
+    labels:
+      com.panel.group: deployme
+      com.panel.type: sandbox
+
+  # Vite dev server with HMR, only while working on the UI: `make dev`.
+  # Without it the app serves the built assets from public/build (`make assets`).
+  deployme-vite:
+    image: node:24-alpine
+    container_name: deployme-vite
+    profiles: [dev]
+    working_dir: /app
+    command: ["sh", "-c", "npm install --no-audit --no-fund && npm run dev"]
+    volumes:
+      - ./src/api:/app
+      - vite_node_modules:/app/node_modules
+    networks: [proxy-network]
+    labels:
+      caddy: vite.deployme.localhost
+      caddy.tls: internal
+      caddy.reverse_proxy: "{{upstreams 5173}}"
+      com.panel.group: deployme
+      com.panel.type: vite

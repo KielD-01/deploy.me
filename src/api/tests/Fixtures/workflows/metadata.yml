@@ -1,0 +1,18 @@
+name: Release
+on: [push]
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=sha
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}

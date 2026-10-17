@@ -1,0 +1,31 @@
+# A workflow that copies the image name into a shell variable before pushing,
+# lowercasing it on the way — which registry names need and a GitHub owner
+# rarely is.
+name: CI
+on:
+  push:
+    branches: [main]
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/example-api
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: example-api:ci
+
+      - name: Push
+        run: |
+          set -eux
+          image="${IMAGE,,}"
+          docker tag example-api:ci "$image:${GITHUB_SHA}"
+          docker push "$image:${GITHUB_SHA}"
+          docker push "$image:latest"

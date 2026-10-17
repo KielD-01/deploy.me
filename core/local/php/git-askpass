@@ -1,0 +1,9 @@
+#!/bin/sh
+# GIT_ASKPASS helper. git asks "Username for ..." and then "Password for ...".
+# The token is handed to each git invocation in DEPLOYME_GIT_TOKEN, so it never
+# appears in argv, a remote URL or a config file.
+case "$1" in
+  Username*) printf '%s\n' "${DEPLOYME_GIT_USERNAME:-x-access-token}" ;;
+  Password*) printf '%s\n' "${DEPLOYME_GIT_TOKEN:?DEPLOYME_GIT_TOKEN is not set}" ;;
+  *) exit 1 ;;
+esac

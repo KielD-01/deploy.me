@@ -1,0 +1,78 @@
+<?php
+
+namespace App\Actions\Maintenance;
+
+use App\Deploy\Logging\LogArchive;
+use App\Enums\DeploymentStatus;
+use App\Enums\SyncRunStatus;
+use App\Models\AuditEntry;
+use App\Models\Deployment;
+use App\Models\ServerSnapshot;
+use App\Models\SyncRun;
+use App\Models\TargetHealthCheck;
+use App\Support\Settings;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * The nightly tidy-up, by Settings → Schedules: finished runs' logs move from
+ * the database into gzipped archives, old archives go, and so do old probe
+ * history, old health checks, old audit entries and old folder syncs (each
+ * mapping keeps its newest).
+ */
+class PruneOldData
+{
+    /**
+     * @return array{archived: int, archives_removed: int, snapshots: int, syncs: int, health_checks: int, audit: int}
+     */
+    public function __invoke(): array
+    {
+        $archived = 0;
+
+        Deployment::query()
+            ->whereNotIn('status', DeploymentStatus::ACTIVE)
+            ->where('finished_at', '<', now()->subDays(Settings::int('log_retention_days')))
+            ->whereExists(fn ($query) => $query->select(DB::raw(1))->from('deployment_logs')->whereColumn('deployment_logs.deployment_id', 'deployments.id'))
+            ->orderBy('id')
+            ->each(function (Deployment $deployment) use (&$archived): void {
+                if (LogArchive::write($deployment)) {
+                    DB::table('deployment_logs')->where('deployment_id', $deployment->id)->delete();
+                    $archived++;
+                }
+            });
+
+        $removed = 0;
+        $cutoff = now()->subDays(Settings::int('archive_retention_days'))->getTimestamp();
+        foreach (glob(storage_path('app/deploy-logs/*.log.gz')) ?: [] as $file) {
+            if (filemtime($file) < $cutoff && @unlink($file)) {
+                $removed++;
+            }
+        }
+
+        $snapshots = ServerSnapshot::query()
+            ->where('captured_at', '<', now()->subDays(Settings::int('snapshot_retention_days')))
+            ->delete();
+
+        $syncs = SyncRun::query()
+            ->whereNotIn('status', SyncRunStatus::ACTIVE)
+            ->where('created_at', '<', now()->subDays(Settings::int('archive_retention_days')))
+            ->whereNotIn('id', SyncRun::query()->selectRaw('max(id)')->groupBy('folder_mapping_id'))
+            ->delete();
+
+        $checks = TargetHealthCheck::query()
+            ->where('checked_at', '<', now()->subDays(Settings::int('health_retention_days')))
+            ->delete();
+
+        // The audit log refuses DELETE unless the transaction says it's the
+        // prune; the flag is transaction-local, so it can't leak past this.
+        $audit = DB::transaction(function (): int {
+            DB::statement("select set_config('deployme.pruning', 'on', true)");
+
+            return AuditEntry::query()->where('occurred_at', '<', now()->subDays(Settings::int('audit_retention_days')))->delete();
+        });
+
+        return [
+            'archived' => $archived, 'archives_removed' => $removed, 'snapshots' => $snapshots,
+            'syncs' => $syncs, 'health_checks' => $checks, 'audit' => $audit,
+        ];
+    }
+}

@@ -1,0 +1,100 @@
+#!/bin/sh
+# Stand-in for the Docker CLI. It answers the probe's questions the way a
+# server with Docker, Compose and the shared caddy-docker-proxy edge would,
+# and plays along with the deploy scripts' compose commands. It runs nothing.
+# Every call goes to /tmp/docker-calls.log for the integration tests, followed
+# by the lines of any compose file given by absolute path (the temporary
+# override of a one-off run), each prefixed with "  | ".
+#
+# A release can steer it with files of its own: .sandbox-unhealthy makes its
+# services unhealthy, and .sandbox-migrations is what `compose run` prints.
+echo "$*" >> /tmp/docker-calls.log 2>/dev/null
+
+case "$*" in
+  "version --format {{.Client.Version}}"|"version --format {{.Server.Version}}") echo "28.3.2"; exit 0 ;;
+  "compose version --short") echo "2.39.1"; exit 0 ;;
+  "network inspect proxy-network --format {{.Driver}}") echo "bridge"; exit 0 ;;
+  "network inspect "*) echo "Error response from daemon: network $3 not found" >&2; exit 1 ;;
+  "ps --format {{.Names}} {{.Image}}")
+    echo "caddy lucaslorentz/caddy-docker-proxy:2.9-alpine"
+    echo "postgres timescale/timescaledb:2.29.0-pg18"
+    exit 0
+    ;;
+  "inspect -f {{json .NetworkSettings.Networks}} caddy") echo '{"proxy-network":{}}'; exit 0 ;;
+  # The shared database is a container of that name here, so a backup finds it
+  # without having to resolve a network alias.
+  "inspect --type container postgres") exit 0 ;;
+  "inspect --type container "*) echo "Error: No such container: ${*##* }" >&2; exit 1 ;;
+  "compose ls --all --format json") echo '[{"Name":"infra","Status":"running(3)","ConfigFiles":"/opt/infra/compose.yaml"}]'; exit 0 ;;
+  "info") echo "Server Version: 28.3.2"; exit 0 ;;
+esac
+
+if [ "$1" = compose ]; then
+  shift
+  dir=""
+  action=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --project-directory) dir=$2; shift 2 ;;
+      -f|--file)
+        case "$2" in /*) sed 's/^/  | /' "$2" >> /tmp/docker-calls.log 2>/dev/null ;; esac
+        shift 2
+        ;;
+      --ansi|-p|--project-name|--progress|--env-file) shift 2 ;;
+      -*) shift ;;
+      *) action=$1; shift; break ;;
+    esac
+  done
+
+  case "$action" in
+    build) echo "#1 [app] building (sandbox)"; echo "#2 exporting to image"; exit 0 ;;
+    pull) echo "app Pulled"; exit 0 ;;
+    up) echo "Container app  Recreated"; echo "Container app  Started"; exit 0 ;;
+    run)
+      if [ -f "$dir/.sandbox-migrations" ]; then cat "$dir/.sandbox-migrations"; else echo "   INFO  Nothing to migrate."; fi
+      exit 0
+      ;;
+    exec) exit 0 ;;
+    config)
+      # --images lists what the stack runs (the release's own pins say which
+      # tag), --services names them, and --quiet only parses the files. A
+      # release with .sandbox-broken-compose is one compose can't read.
+      if [ -f "$dir/.sandbox-broken-compose" ]; then
+        echo "validating $dir/compose.yaml: services.app.volumes.0: invalid spec" >&2
+        exit 15
+      fi
+      case "$*" in
+        *--images*)
+          tag=$(sed -n 's/^IMAGE_TAG=//p' "$dir/.deployme-pins.env" 2>/dev/null | tail -n 1)
+          echo "sandbox-app:${tag:-latest}"
+          ;;
+        *--services*) echo "app" ;;
+      esac
+      exit 0
+      ;;
+    ps)
+      if [ -f "$dir/.sandbox-unhealthy" ]; then printf 'app\trunning\tunhealthy\n'; else printf 'app\trunning\thealthy\n'; fi
+      exit 0
+      ;;
+  esac
+fi
+
+case "$*" in
+  exec*pg_dump*)
+    # A role row-level security applies to: what Postgres says when
+    # pg_dump asks for the rows with row_security off.
+    case "$*" in
+      *" -U rls_app "*)
+        echo 'pg_dump: error: query failed: ERROR:  query would be affected by row-level security policy for table "orders"' >&2
+        exit 1
+        ;;
+    esac
+    printf 'PGDMP sandbox dump\n'
+    exit 0
+    ;;
+  "image rm "*) echo "Untagged: ${*#image rm }"; exit 0 ;;
+  login*) cat >/dev/null; echo "Login Succeeded"; exit 0 ;;
+esac
+
+echo "sandbox docker: '$*' isn't simulated" >&2
+exit 1

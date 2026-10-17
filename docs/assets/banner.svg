@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360" role="img" aria-labelledby="t d">
+  <title id="t">deploy.me</title>
+  <desc id="d">Deploy your projects to your own servers over SSH: releases, Docker Compose, blue/green, rollbacks and live logs.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0e1116"/>
+      <stop offset="1" stop-color="#161a2e"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6c93f5"/>
+      <stop offset=".5" stop-color="#a78bf0"/>
+      <stop offset="1" stop-color="#4bbfb2"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx=".15" cy=".1" r=".6">
+      <stop offset="0" stop-color="#2a5bd7" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#2a5bd7" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx=".9" cy=".95" r=".55">
+      <stop offset="0" stop-color="#0f766e" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#0f766e" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow3" cx=".62" cy=".05" r=".4">
+      <stop offset="0" stop-color="#6d4ac7" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#6d4ac7" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity=".04"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="360" rx="24" fill="url(#bg)"/>
+  <rect width="1200" height="360" rx="24" fill="url(#grid)"/>
+  <rect width="1200" height="360" rx="24" fill="url(#glow1)"/>
+  <rect width="1200" height="360" rx="24" fill="url(#glow2)"/>
+  <rect width="1200" height="360" rx="24" fill="url(#glow3)"/>
+
+  <!-- Logo mark: a rocket-ish arrow into a server -->
+  <g transform="translate(72 70)">
+    <rect width="76" height="76" rx="20" fill="url(#brand)"/>
+    <path d="M22 50 L38 24 L54 50" fill="none" stroke="#0e1116" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="38" cy="56" r="5" fill="#0e1116"/>
+  </g>
+
+  <text x="172" y="128" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="68" font-weight="800" fill="#ffffff" letter-spacing="-2">deploy<tspan fill="url(#brand)">.me</tspan></text>
+  <text x="74" y="196" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="26" font-weight="500" fill="#c9d1e3">Ship your projects to your own servers over SSH.</text>
+  <text x="74" y="232" font-family="Inter, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="19" fill="#8b95ab">Releases · Docker Compose · blue/green · rollbacks · live logs · an MCP server for AI agents</text>
+
+  <!-- The pipeline -->
+  <g font-family="JetBrains Mono, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="600">
+    <g transform="translate(74 270)">
+      <rect width="118" height="40" rx="20" fill="#6c93f5" fill-opacity=".16" stroke="#6c93f5" stroke-opacity=".6"/>
+      <circle cx="22" cy="20" r="6" fill="#6c93f5"/>
+      <text x="36" y="25" fill="#c9d7fb">commit</text>
+    </g>
+    <path d="M200 290 h30" stroke="#5a6478" stroke-width="2" stroke-dasharray="4 5"/>
+    <g transform="translate(238 270)">
+      <rect width="104" height="40" rx="20" fill="#8f86f2" fill-opacity=".16" stroke="#8f86f2" stroke-opacity=".6"/>
+      <circle cx="22" cy="20" r="6" fill="#8f86f2"/>
+      <text x="36" y="25" fill="#d6d2fb">build</text>
+    </g>
+    <path d="M350 290 h30" stroke="#5a6478" stroke-width="2" stroke-dasharray="4 5"/>
+    <g transform="translate(388 270)">
+      <rect width="122" height="40" rx="20" fill="#a78bf0" fill-opacity=".16" stroke="#a78bf0" stroke-opacity=".6"/>
+      <circle cx="22" cy="20" r="6" fill="#a78bf0"/>
+      <text x="36" y="25" fill="#e2d8fb">migrate</text>
+    </g>
+    <path d="M518 290 h30" stroke="#5a6478" stroke-width="2" stroke-dasharray="4 5"/>
+    <g transform="translate(556 270)">
+      <rect width="112" height="40" rx="20" fill="#79a6d6" fill-opacity=".16" stroke="#79a6d6" stroke-opacity=".6"/>
+      <circle cx="22" cy="20" r="6" fill="#79a6d6"/>
+      <text x="36" y="25" fill="#d3e3f5">switch</text>
+    </g>
+    <path d="M676 290 h30" stroke="#5a6478" stroke-width="2" stroke-dasharray="4 5"/>
+    <g transform="translate(714 270)">
+      <rect width="128" height="40" rx="20" fill="#4bbfb2" fill-opacity=".2" stroke="#4bbfb2" stroke-opacity=".8"/>
+      <path d="M17 20 l5 5 l9 -10" fill="none" stroke="#4bbfb2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="40" y="25" fill="#c6efe9">healthy</text>
+    </g>
+  </g>
+
+  <!-- A terminal card -->
+  <g transform="translate(880 64)">
+    <rect width="252" height="196" rx="14" fill="#0b0e13" fill-opacity=".85" stroke="#ffffff" stroke-opacity=".08"/>
+    <circle cx="20" cy="20" r="5" fill="#ff5f57"/>
+    <circle cx="38" cy="20" r="5" fill="#febc2e"/>
+    <circle cx="56" cy="20" r="5" fill="#28c840"/>
+    <g font-family="JetBrains Mono, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5">
+      <text x="18" y="56" fill="#8b95ab">#42 · deploy · box</text>
+      <text x="18" y="82" fill="#4bbfb2">✓ <tspan fill="#c9d1e3">Preflight</tspan></text>
+      <text x="18" y="104" fill="#4bbfb2">✓ <tspan fill="#c9d1e3">Pull ghcr.io images</tspan></text>
+      <text x="18" y="126" fill="#4bbfb2">✓ <tspan fill="#c9d1e3">pg_dump, migrate</tspan></text>
+      <text x="18" y="148" fill="#4bbfb2">✓ <tspan fill="#c9d1e3">Roll blue → green</tspan></text>
+      <text x="18" y="170" fill="#a78bf0">● <tspan fill="#c9d1e3">Health gate</tspan><tspan fill="#5a6478"> 200 OK</tspan></text>
+    </g>
+  </g>
+</svg>

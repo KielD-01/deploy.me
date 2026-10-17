@@ -1,0 +1,256 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+/*
+ * Theme: values lifted from a sibling project's tokens.css (light and the
+ * audited dark palette), matching design/canvas. Flat: no depth, no noise.
+ */
+@plugin 'daisyui' {
+    themes: false;
+}
+
+@plugin 'daisyui/theme' {
+    name: 'deployme';
+    default: true;
+    color-scheme: light;
+    --color-base-100: #ffffff;
+    --color-base-200: #f7f8fa;
+    --color-base-300: #e2e5ea;
+    --color-base-content: #10131a;
+    --color-primary: #2a5bd7;
+    --color-primary-content: #ffffff;
+    --color-secondary: #6d4ac7;
+    --color-secondary-content: #ffffff;
+    --color-accent: #0f766e;
+    --color-accent-content: #ffffff;
+    --color-neutral: #10131a;
+    --color-neutral-content: #ffffff;
+    --color-info: #2a5bd7;
+    --color-info-content: #ffffff;
+    --color-success: #127d5a;
+    --color-success-content: #ffffff;
+    --color-warning: #a25f05;
+    --color-warning-content: #ffffff;
+    --color-error: #c0332f;
+    --color-error-content: #ffffff;
+    --radius-selector: 0.25rem;
+    --radius-field: 0.375rem;
+    --radius-box: 0.625rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+}
+
+@plugin 'daisyui/theme' {
+    name: 'deployme-dark';
+    prefersdark: true;
+    color-scheme: dark;
+    --color-base-100: #161a21;
+    --color-base-200: #0e1116;
+    --color-base-300: #272d37;
+    --color-base-content: #e8ebf0;
+    --color-primary: #6c93f5;
+    --color-primary-content: #0e1116;
+    --color-secondary: #a78bf0;
+    --color-secondary-content: #0e1116;
+    --color-accent: #4bbfb2;
+    --color-accent-content: #0e1116;
+    --color-neutral: #e8ebf0;
+    --color-neutral-content: #0e1116;
+    --color-info: #6c93f5;
+    --color-info-content: #0e1116;
+    --color-success: #3fbf92;
+    --color-success-content: #0e1116;
+    --color-warning: #e0a040;
+    --color-warning-content: #0e1116;
+    --color-error: #f0736c;
+    --color-error-content: #0e1116;
+    --radius-selector: 0.25rem;
+    --radius-field: 0.375rem;
+    --radius-box: 0.625rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+}
+
+/* Tokens daisyUI has no slot for: sunk surfaces, the two hairline strengths,
+ * and the two quieter text inks. They follow the theme like daisyUI's own. */
+@theme inline {
+    --font-sans: 'Inter Variable', -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --color-sunk: var(--dm-sunk);
+    --color-line: var(--dm-line);
+    --color-line-strong: var(--dm-line-strong);
+    --color-muted: var(--dm-muted);
+    --color-subtle: var(--dm-subtle);
+    --color-log: #0b0e12;
+    --color-log-content: #d7dde7;
+}
+
+:root,
+[data-theme='deployme'] {
+    --dm-sunk: #f1f3f6;
+    --dm-line: #e2e5ea;
+    --dm-line-strong: #c9ced7;
+    --dm-muted: #5b6472;
+    --dm-subtle: #656f7e;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+        --dm-sunk: #1e232b;
+        --dm-line: #272d37;
+        --dm-line-strong: #3a424f;
+        --dm-muted: #9aa3b2;
+        --dm-subtle: #828b9a;
+    }
+}
+
+[data-theme='deployme-dark'] {
+    --dm-sunk: #1e232b;
+    --dm-line: #272d37;
+    --dm-line-strong: #3a424f;
+    --dm-muted: #9aa3b2;
+    --dm-subtle: #828b9a;
+}
+
+@layer base {
+    [x-cloak] {
+        display: none !important;
+    }
+
+    body {
+        @apply bg-base-200 text-base-content font-sans antialiased;
+        font-size: 14px;
+        line-height: 20px;
+    }
+
+    .mono {
+        @apply font-mono tabular-nums;
+        font-size: 12px;
+    }
+}
+
+/* The keep-N-releases slider (components/keep-slider.blade.php). The thumb,
+ * the fill and the numbers all place themselves with the same formula, so
+ * they line up at every value. */
+@layer components {
+    .keep-slider {
+        --thumb: 18px;
+        --track: 4px;
+        --at-thumb: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--p));
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        width: 100%;
+    }
+
+    .keep-slider input[type='range'] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 100%;
+        height: var(--thumb);
+        margin: 0;
+        background: transparent;
+        cursor: pointer;
+    }
+
+    .keep-slider input[type='range']::-webkit-slider-runnable-track {
+        height: var(--track);
+        border-radius: 999px;
+        background: linear-gradient(to right, var(--color-primary) 0 var(--at-thumb), var(--dm-sunk) var(--at-thumb) 100%);
+    }
+
+    .keep-slider input[type='range']::-moz-range-track {
+        height: var(--track);
+        border-radius: 999px;
+        background: linear-gradient(to right, var(--color-primary) 0 var(--at-thumb), var(--dm-sunk) var(--at-thumb) 100%);
+    }
+
+    .keep-slider input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        box-sizing: border-box;
+        width: var(--thumb);
+        height: var(--thumb);
+        margin-top: calc((var(--track) - var(--thumb)) / 2);
+        border-radius: 50%;
+        border: 2px solid var(--color-primary);
+        background: var(--color-base-100);
+    }
+
+    .keep-slider input[type='range']::-moz-range-thumb {
+        box-sizing: border-box;
+        width: var(--thumb);
+        height: var(--thumb);
+        border-radius: 50%;
+        border: 2px solid var(--color-primary);
+        background: var(--color-base-100);
+    }
+
+    .keep-slider input[type='range']:focus-visible {
+        outline: none;
+    }
+
+    .keep-slider input[type='range']:focus-visible::-webkit-slider-thumb {
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 30%, transparent);
+    }
+
+    .keep-slider input[type='range']:focus-visible::-moz-range-thumb {
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 30%, transparent);
+    }
+
+    .keep-slider-labels {
+        position: relative;
+        height: 16px;
+    }
+
+    .keep-slider-label {
+        position: absolute;
+        top: 0;
+        left: calc(var(--thumb) / 2 + (100% - var(--thumb)) * var(--at));
+        transform: translateX(-50%);
+        font-size: 12px;
+        line-height: 16px;
+        color: var(--dm-muted);
+        cursor: pointer;
+    }
+
+    .keep-slider-label.is-current {
+        color: var(--color-base-content);
+        font-weight: 600;
+    }
+}
+
+/* Deploy log lines, added by resources/js/deploy-log.js. The pane is dark in
+ * both themes, so these colours are fixed. */
+@layer components {
+    .log-line {
+        display: flex;
+        gap: 0.75rem;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .log-time {
+        flex: none;
+        opacity: 0.45;
+        user-select: none;
+    }
+
+    .log-sys {
+        color: #ffffff;
+        font-weight: 600;
+    }
+
+    .log-err {
+        color: #f3a6a2;
+    }
+}

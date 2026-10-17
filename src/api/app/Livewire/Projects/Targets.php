@@ -1,0 +1,236 @@
+<?php
+
+namespace App\Livewire\Projects;
+
+use App\Actions\Deployments\StartDeployment;
+use App\Actions\Projects\AssignProject;
+use App\Deploy\DeploymentBusy;
+use App\Deploy\RemoteLayout;
+use App\Enums\AuditAction;
+use App\Enums\DeploymentKind;
+use App\Enums\ServerStatus;
+use App\Livewire\Concerns\ConfirmsIdentity;
+use App\Models\Project;
+use App\Models\Server;
+use App\Models\Target;
+use App\Support\Audit;
+use Illuminate\Contracts\View\View;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
+use Livewire\Component;
+
+/**
+ * The servers a project runs on, what's live on each, and assigning it to
+ * another one.
+ */
+class Targets extends Component
+{
+    use ConfirmsIdentity;
+
+    #[Locked]
+    public int $projectId;
+
+    public bool $assigning = false;
+
+    public $serverId = null;
+
+    public string $baseDir = '';
+
+    // Deploy the branch once assigned; the deploy creates the folders itself.
+    public bool $deployAfter = true;
+
+    // Without a deploy: create the folders and upload the env files now.
+    public bool $prepare = true;
+
+    public bool $browsing = false;
+
+    public ?string $notice = null;
+
+    public ?string $problem = null;
+
+    public function mount(int $projectId): void
+    {
+        $this->projectId = $projectId;
+    }
+
+    #[Computed]
+    public function project(): Project
+    {
+        return Project::query()->findOrFail($this->projectId);
+    }
+
+    // Runs update the table as they go.
+    #[On('echo-private:projects.{projectId},.updated')]
+    public function refreshTargets(): void {}
+
+    // So do health checks that come back different.
+    #[On('echo-private:projects.{projectId},.health.updated')]
+    public function refreshHealth(): void {}
+
+    // And reads of a folder, which say whether it needs converting.
+    #[On('echo-private:projects.{projectId},.folder.read')]
+    public function refreshFolder(): void {}
+
+    public function startAssigning(): void
+    {
+        $this->reset('notice', 'problem');
+        $this->assigning = true;
+
+        $first = collect($this->serverChoices())->first(fn (array $choice) => ! $choice['assigned']);
+        if ($first !== null) {
+            $this->pickServer($first['id']);
+        }
+    }
+
+    public function pickServer(int $id): void
+    {
+        $server = Server::query()->active()->find($id);
+
+        if ($server !== null) {
+            $this->serverId = $server->id;
+            $this->baseDir = $server->default_deploy_path ?: '/opt/srv';
+            $this->resetValidation();
+        }
+    }
+
+    public function usePath(): void
+    {
+        $this->browsing = false;
+    }
+
+    public function assign(AssignProject $assign, StartDeployment $start): void
+    {
+        $server = Server::query()->active()->find((int) $this->serverId);
+
+        if ($server === null) {
+            $this->addError('serverId', 'Pick a server.');
+
+            return;
+        }
+
+        $target = $assign($this->project, $server, $this->baseDir);
+        $this->reset('assigning', 'browsing');
+
+        if ($this->deployAfter) {
+            $this->startRun($target, DeploymentKind::Deploy, $start);
+
+            return;
+        }
+
+        if ($this->prepare) {
+            $this->startRun($target, DeploymentKind::Bootstrap, $start);
+
+            return;
+        }
+
+        $this->notice = "Assigned to {$server->name}. It deploys to {$target->path}.";
+    }
+
+    public function prepareTarget(int $id, StartDeployment $start): void
+    {
+        $this->startRun($this->project->targets()->active()->findOrFail($id), DeploymentKind::Bootstrap, $start);
+    }
+
+    /**
+     * Takes what an earlier deployment left in an in-place folder as the
+     * live release, without changing anything there.
+     */
+    public function adoptTarget(int $id, StartDeployment $start): void
+    {
+        $this->startRun($this->project->targets()->active()->findOrFail($id), DeploymentKind::Adopt, $start);
+    }
+
+    /**
+     * Removes a deploy lock nothing will give back, whoever holds it. It's a
+     * run of its own, so who broke it and when stays on record, and it asks
+     * for a passkey first.
+     */
+    public function breakLock(int $id, StartDeployment $start): void
+    {
+        $this->reset('notice', 'problem');
+        $target = $this->project->targets()->active()->findOrFail($id);
+
+        if ($target->activeDeployment()->exists()) {
+            $this->problem = 'A run is still going on this target. Wait for it, or cancel it first.';
+
+            return;
+        }
+
+        if (! $this->confirmIdentity(route('projects.show', ['project' => $this->project, 'tab' => 'targets']))) {
+            return;
+        }
+
+        $this->startRun($target, DeploymentKind::Unlock, $start);
+    }
+
+    public function remove(int $id): void
+    {
+        $this->reset('notice', 'problem');
+        $target = $this->project->targets()->active()->with('server')->findOrFail($id);
+
+        if ($target->activeDeployment()->exists()) {
+            $this->problem = 'A run is still going on this target. Wait for it, or cancel it first.';
+
+            return;
+        }
+
+        $target->update(['archived_at' => now()]);
+        Audit::record(AuditAction::TargetRemoved, [
+            'subject' => "{$this->project->name} on {$target->server->name} · {$target->path}",
+            'server_id' => $target->server_id,
+            'project_id' => $target->project_id,
+            'detail' => 'nothing on the server changed',
+        ]);
+        $this->notice = "Removed {$target->server->name}. Nothing on the server changed.";
+    }
+
+    private function startRun(Target $target, DeploymentKind $kind, StartDeployment $start): void
+    {
+        try {
+            $deployment = $start($target, $kind, auth()->user());
+        } catch (DeploymentBusy $e) {
+            $this->problem = $e->getMessage();
+
+            return;
+        }
+
+        $this->redirectRoute('deployments.show', $deployment, navigate: true);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function serverChoices(): array
+    {
+        $assigned = $this->project->targets()->active()->pluck('server_id')->all();
+
+        return Server::query()->active()->with('latestSnapshot')->orderBy('name')->get()
+            ->map(fn (Server $server) => [
+                'id' => $server->id,
+                'name' => $server->name,
+                'env' => $server->env_tag,
+                'default' => $server->default_deploy_path,
+                'free' => $server->latestSnapshot?->diskFor($server->default_deploy_path ?: '/')['available'] ?? null,
+                'offline' => $server->status === ServerStatus::Offline,
+                'assigned' => in_array($server->id, $assigned, true),
+            ])
+            ->all();
+    }
+
+    public function render(): View
+    {
+        $project = $this->project;
+        $server = $this->serverId !== null ? Server::query()->find((int) $this->serverId) : null;
+        $path = $server !== null && str_starts_with(trim($this->baseDir), '/') ? Target::pathFor(trim($this->baseDir), $project->slug) : null;
+
+        return view('livewire.projects.targets', [
+            'targets' => $project->targets()->active()->with(['project', 'server', 'latestDeployment', 'activeDeployment', 'currentRelease'])->orderBy('id')->get(),
+            'choices' => $this->assigning ? $this->serverChoices() : [],
+            'server' => $server,
+            'path' => $path,
+            'preview' => $path !== null ? (new RemoteLayout($path, $project->versionable))->preview($project->keep_releases, $project->envFiles()->pluck('path')->all()) : [],
+            'envCount' => $project->envFiles()->count(),
+        ]);
+    }
+}

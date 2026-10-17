@@ -1,0 +1,318 @@
+{
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Overview"
+    },
+    {
+      "id": "page-2",
+      "name": "Servers"
+    },
+    {
+      "id": "page-3",
+      "name": "Projects"
+    },
+    {
+      "id": "page-4",
+      "name": "Deploy"
+    },
+    {
+      "id": "page-5",
+      "name": "Settings and sign-in"
+    },
+    {
+      "id": "page-6",
+      "name": "Convert to releases"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Dashboard",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1320,
+      "page": "page-1"
+    },
+    {
+      "file": "Deployments.dc.html",
+      "title": "Deployments",
+      "x": 1600,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-1"
+    },
+    {
+      "file": "Servers.dc.html",
+      "title": "Servers",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 760,
+      "page": "page-2"
+    },
+    {
+      "file": "AddServerHost.dc.html",
+      "title": "Add server · 1 Pick host",
+      "x": 1600,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2"
+    },
+    {
+      "file": "AddServerChecks.dc.html",
+      "title": "Add server · 2 Connection",
+      "x": 3200,
+      "y": 0,
+      "w": 1440,
+      "h": 940,
+      "page": "page-2"
+    },
+    {
+      "file": "AddServerPath.dc.html",
+      "title": "Add server · 3 Deploy path",
+      "x": 0,
+      "y": 1140,
+      "w": 1440,
+      "h": 900,
+      "page": "page-2"
+    },
+    {
+      "file": "AddServerReview.dc.html",
+      "title": "Add server · 4 Review",
+      "x": 1600,
+      "y": 1140,
+      "w": 1440,
+      "h": 960,
+      "page": "page-2"
+    },
+    {
+      "file": "Server.dc.html",
+      "title": "Server page",
+      "x": 3200,
+      "y": 1140,
+      "w": 1440,
+      "h": 1500,
+      "page": "page-2"
+    },
+    {
+      "file": "Projects.dc.html",
+      "title": "Projects",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 820,
+      "page": "page-3"
+    },
+    {
+      "file": "ImportGithub.dc.html",
+      "title": "Import · from GitHub",
+      "x": 1600,
+      "y": 0,
+      "w": 1440,
+      "h": 1100,
+      "page": "page-3"
+    },
+    {
+      "file": "ImportLocal.dc.html",
+      "title": "Import · from a local folder",
+      "x": 3200,
+      "y": 0,
+      "w": 1440,
+      "h": 1180,
+      "page": "page-3"
+    },
+    {
+      "file": "ProjectTargets.dc.html",
+      "title": "Project · Targets and assign",
+      "x": 0,
+      "y": 1380,
+      "w": 1440,
+      "h": 1120,
+      "page": "page-3"
+    },
+    {
+      "file": "ProjectReleases.dc.html",
+      "title": "Project · Releases",
+      "x": 1600,
+      "y": 1380,
+      "w": 1440,
+      "h": 1060,
+      "page": "page-3"
+    },
+    {
+      "file": "ProjectEnvironment.dc.html",
+      "title": "Project · Environment",
+      "x": 3200,
+      "y": 1380,
+      "w": 1440,
+      "h": 920,
+      "page": "page-3"
+    },
+    {
+      "file": "ProjectHooks.dc.html",
+      "title": "Project · Hooks",
+      "x": 0,
+      "y": 2700,
+      "w": 1440,
+      "h": 900,
+      "page": "page-3"
+    },
+    {
+      "file": "ProjectSettings.dc.html",
+      "title": "Project · Settings and delivery",
+      "x": 1600,
+      "y": 2700,
+      "w": 1440,
+      "h": 1420,
+      "page": "page-3"
+    },
+    {
+      "file": "DeployDialog.dc.html",
+      "title": "Deploy dialog",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-4"
+    },
+    {
+      "file": "RunLive.dc.html",
+      "title": "Run · live",
+      "x": 1600,
+      "y": 0,
+      "w": 1440,
+      "h": 1060,
+      "page": "page-4"
+    },
+    {
+      "file": "RunRolledBack.dc.html",
+      "title": "Run · failed, rolled back",
+      "x": 3200,
+      "y": 0,
+      "w": 1440,
+      "h": 1120,
+      "page": "page-4"
+    },
+    {
+      "file": "RunWaitingCi.dc.html",
+      "title": "Run · waiting for CI",
+      "x": 0,
+      "y": 1320,
+      "w": 1440,
+      "h": 900,
+      "page": "page-4"
+    },
+    {
+      "file": "Settings.dc.html",
+      "title": "Settings",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1120,
+      "page": "page-5"
+    },
+    {
+      "file": "Login.dc.html",
+      "title": "Sign in",
+      "x": 1600,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "page-5"
+    },
+    {
+      "file": "ConvertTargets.dc.html",
+      "title": "Targets · earlier deployment found",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 760,
+      "page": "page-6"
+    },
+    {
+      "file": "ConvertPlan.dc.html",
+      "title": "Convert · review the plan",
+      "x": 1600,
+      "y": 0,
+      "w": 1440,
+      "h": 1220,
+      "page": "page-6"
+    },
+    {
+      "file": "ConvertRun.dc.html",
+      "title": "Run · converted, with undo",
+      "x": 0,
+      "y": 1340,
+      "w": 1440,
+      "h": 1140,
+      "page": "page-6"
+    },
+    {
+      "file": "ConvertBlocked.dc.html",
+      "title": "Convert · blocked by a CI deploy",
+      "x": 1600,
+      "y": 1340,
+      "w": 1440,
+      "h": 1320,
+      "page": "page-6"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-page-1",
+      "x": 0,
+      "y": -300,
+      "w": 560,
+      "text": "Overview: the dashboard and the deployment history. Live values (running deploys, probes, CI state) arrive over Reverb, so these screens update without a reload.",
+      "page": "page-1"
+    },
+    {
+      "id": "note-page-2",
+      "x": 0,
+      "y": -300,
+      "w": 560,
+      "text": "Servers. Add-server wizard, left to right on the first row: pick a host from ~/.ssh/config → connection checks (host key is trusted on first use) → default deploy path → review specs. Hosts whose HostName is github.com are git identities and are hidden from the picker.",
+      "page": "page-2"
+    },
+    {
+      "id": "note-page-3",
+      "x": 0,
+      "y": -300,
+      "w": 560,
+      "text": "Projects. Top row: the list and both import paths. The local import shows warehouse, a real repo with workflows but no GitHub remote, so pushing it is offered before CI can run. Rows two and three: the project page tabs for acme-erp. Versionable, Docker, branch and env are project-level; each target only picks a server and a directory.",
+      "page": "page-3"
+    },
+    {
+      "id": "note-page-4",
+      "x": 0,
+      "y": -300,
+      "w": 560,
+      "text": "Deploy flow. The dialog picks a commit and shows which delivery strategy will be used and why. The run page streams steps and logs live over Reverb; the three states are running, auto-rolled-back after a failed health check, and waiting for CI to publish images.",
+      "page": "page-4"
+    },
+    {
+      "id": "note-page-5",
+      "x": 0,
+      "y": -300,
+      "w": 560,
+      "text": "Settings and sign-in. deploy.me has a single local user, with an optional authenticator code at sign-in.",
+      "page": "page-5"
+    },
+    {
+      "id": "note-page-6",
+      "x": 0,
+      "y": -300,
+      "w": 560,
+      "text": "Convert to releases, for a folder an earlier deployment left in place. Top row: the Targets tab notices it, and the plan says what moves where and why. atelier.example.org’s files match commit 138da66 in the local repo, so everything becomes the first release except the two env files, which go to shared/. Bottom row: the finished run, with Undo, and example.dev, blocked while its GitHub deploy job still copies files into the folder. Converting never deletes anything. The times, the run number, the src/api/.env size and example’s image tag are placeholders.",
+      "page": "page-6"
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-6"
+  }
+}

@@ -1,0 +1,25 @@
+name: Deploy (production)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag or SHA to deploy"
+        required: true
+        default: main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          script: |
+            set -euo pipefail
+            cd /srv/projects/example
+            git fetch --prune --tags --force origin
+            git checkout -f "${{ github.event.inputs.ref }}"
+            bash deploy/deploy.sh

@@ -1,0 +1,60 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      registry: ${{ steps.meta.outputs.registry }}
+      short_sha: ${{ steps.meta.outputs.short_sha }}
+    steps:
+      - name: Image metadata
+        id: meta
+        run: |
+          OWNER_LC="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "registry=ghcr.io/${OWNER_LC}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(echo '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+  images:
+    name: Image (${{ matrix.service }})
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            file: core/prod/api/Dockerfile
+          - service: web
+            file: core/prod/web/Dockerfile
+          - service: worker
+            file: core/prod/worker/Dockerfile
+    steps:
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ needs.prepare.outputs.registry }}/example-${{ matrix.service }}:sha-${{ needs.prepare.outputs.short_sha }}
+            ${{ needs.prepare.outputs.registry }}/example-${{ matrix.service }}:main
+
+  deploy:
+    if: github.event_name == 'push'
+    needs: [prepare, images]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          source: scripts/deploy-prod.sh,docker-compose.prod.yml
+          target: ${{ secrets.DEPLOY_PATH }}
+      - uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          script: |
+            "${{ secrets.DEPLOY_PATH }}/scripts/deploy-prod.sh" --sha "${{ github.sha }}"

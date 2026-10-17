@@ -1,0 +1,12 @@
+{"v":1,"hostname":"build-box","user":"ci","home":"/home/ci","arch":"x86_64","kernel":"6.8.0-45-generic",
+ "os":{"id":"ubuntu","version":"24.04","pretty":"Ubuntu 24.04.3 LTS"},"uptime":3283200,
+ "cpu":{"model":"AMD EPYC 7B13","cores":4,"threads":8,"usage":12.3,"mhz":2450,"mhz_max":3500,"load":[0.42,0.38,0.35]},
+ "mem":{"total":17179869184,"available":9771050598,"swap_total":0,"swap_free":0},
+ "disks":[
+  {"source":"/dev/sda1","fstype":"ext4","size":171798691840,"used":67004809216,"available":104793882624,"mount":"/"},
+  {"source":"/dev/sdb1","fstype":"ext4","size":1099511627776,"used":1044536049254,"available":54975578522,"mount":"/srv"}
+ ],
+ "tools":{"bash":"/usr/bin/bash","git":"2.43.0","rsync":"3.2.7","docker_client":"28.3.2","docker_server":"28.3.2","docker_error":"","compose":"2.39.1","gnu_mv":true,"flock":true},
+ "proxy":{"network":"bridge","caddy_docker_proxy":"caddy","caddy_on_network":true},
+ "access":{"uid":1000,"sudo_nopasswd":false,"docker_group":true},
+ "stacks":[{"Name":"infra","Status":"running(3)","ConfigFiles":"/opt/infra/compose.yaml"}]}

@@ -1,0 +1,368 @@
+<?php
+
+namespace App\Livewire\Projects;
+
+use App\Actions\Deployments\StartDeployment;
+use App\Deploy\Compose;
+use App\Deploy\Delivery\DeliveryResolver;
+use App\Deploy\Delivery\GitHubMirror;
+use App\Deploy\Delivery\Resolution;
+use App\Deploy\DeploymentBusy;
+use App\Deploy\Pipeline\Steps\BackupDatabase;
+use App\Enums\CiState;
+use App\Enums\DeploymentKind;
+use App\Enums\ProjectSource;
+use App\Models\Credential;
+use App\Models\Deployment;
+use App\Models\Project;
+use App\Models\Target;
+use App\Platform\Git\GitRunner;
+use App\Platform\Git\LocalRepository;
+use App\Platform\GitHub\CiStatus;
+use App\Platform\GitHub\GitHubClient;
+use App\Platform\GitHub\GitHubException;
+use App\Platform\Local\ProjectRoots;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
+use Livewire\Component;
+
+/**
+ * The deploy dialog: which targets, which commit, and the delivery strategy
+ * that will ship it, with the reasons.
+ */
+class DeployDialog extends Component
+{
+    // How many recent commits the dialog offers.
+    public const COMMITS = 12;
+
+    #[Locked]
+    public int $projectId;
+
+    public bool $open = false;
+
+    /** @var list<int> */
+    public array $targetIds = [];
+
+    // Empty: the branch's latest commit (or the folder as it is).
+    public string $commit = '';
+
+    // Docker projects that migrate: back up first, or skip the migrations.
+    public bool $backup = true;
+
+    public bool $skipMigrations = false;
+
+    public ?string $problem = null;
+
+    // One per opening of the dialog: what makes asking to deploy twice start nothing twice.
+    #[Locked]
+    public string $attempt = '';
+
+    public function mount(int $projectId): void
+    {
+        $this->projectId = $projectId;
+    }
+
+    #[Computed]
+    public function project(): Project
+    {
+        return Project::query()->findOrFail($this->projectId);
+    }
+
+    #[On('open-deploy-dialog')]
+    public function openFor(?int $targetId = null, ?string $commit = null): void
+    {
+        $ids = $this->targetIds();
+
+        $this->targetIds = $targetId !== null && in_array($targetId, $ids, true) ? [$targetId] : array_slice($ids, 0, 1);
+        $this->pickCommit((string) $commit);
+        $this->backup = true;
+        $this->skipMigrations = false;
+        $this->problem = null;
+        $this->open = $ids !== [];
+        $this->attempt = (string) Str::uuid();
+
+        // The button that asked for the dialog spins until this reaches the page.
+        $this->dispatch('deploy-dialog-opened');
+    }
+
+    public function close(): void
+    {
+        $this->reset('open', 'problem');
+    }
+
+    public function pickTarget(string $id): void
+    {
+        $ids = $this->targetIds();
+        $this->targetIds = $id === 'all' ? $ids : array_values(array_intersect([(int) $id], $ids));
+    }
+
+    public function pickCommit(string $sha): void
+    {
+        $this->commit = preg_match('/^[0-9a-f]{7,40}$/', $sha) === 1 ? $sha : '';
+    }
+
+    /**
+     * Starts a run on each picked target and says whether it's on its way to
+     * the run page (the button stays busy until then). Idempotent within one
+     * opening of the dialog: asked again with the same choices — a double
+     * click, a request sent twice — it starts nothing on a target this attempt
+     * already started a run on, and goes to the run it did start.
+     */
+    public function deploy(StartDeployment $start): bool
+    {
+        $this->reset('problem');
+
+        if ($this->attempt === '') {
+            $this->attempt = (string) Str::uuid();
+        }
+
+        $key = "deployme:deploy-dialog:{$this->attempt}:".md5((string) json_encode($this->options()));
+
+        try {
+            return Cache::lock("{$key}:lock", 60)->block(15, fn () => $this->startRuns($start, $key));
+        } catch (LockTimeoutException) {
+            $this->problem = 'The first click on Deploy is still starting these runs.';
+
+            return false;
+        }
+    }
+
+    private function startRuns(StartDeployment $start, string $key): bool
+    {
+        $targets = $this->project->targets()->active()->with(['server', 'project', 'currentRelease'])->whereKey($this->targetIds)->orderBy('id')->get();
+
+        if ($targets->isEmpty()) {
+            $this->problem = 'Pick where to deploy.';
+
+            return false;
+        }
+
+        // A folder an earlier deployment still runs from is converted first.
+        $unconverted = $targets->filter->needsConversion();
+
+        if ($unconverted->isNotEmpty()) {
+            $one = $unconverted->count() === 1;
+            $this->problem = $unconverted->map(fn ($target) => $target->server->name)->implode(', ')
+                .($one ? ' still runs' : ' still run').' from an earlier deployment. Convert '.($one ? 'that folder' : 'those folders').' first: it’s on the Targets tab.';
+
+            return false;
+        }
+
+        // Target id => the run this attempt started there, kept as each one starts.
+        /** @var array<int, int> $runs */
+        $runs = (array) Cache::get($key, []);
+        $busy = [];
+
+        foreach ($targets as $target) {
+            if (isset($runs[$target->id])) {
+                continue;
+            }
+
+            try {
+                $runs[$target->id] = $start($target, DeploymentKind::Deploy, auth()->user(), $this->options())->id;
+                Cache::put($key, $runs, now()->addHour());
+            } catch (DeploymentBusy) {
+                $busy[] = $target->server->name;
+            }
+        }
+
+        $started = Deployment::query()->whereKey(array_values($runs))->orderBy('id')->get();
+
+        if ($busy !== []) {
+            $this->problem = implode(', ', $busy).(count($busy) === 1 ? ' is' : ' are').' busy with another run.'
+                .($started->isNotEmpty() ? ' Started '.$started->map->number()->implode(', ').' on the rest.' : '');
+
+            return false;
+        }
+
+        $first = $started->firstWhere('id', $runs[$targets->first()->id] ?? null) ?? $started->first();
+        $this->redirectRoute('deployments.show', $first, navigate: true);
+
+        return true;
+    }
+
+    /**
+     * The branch's recent commits, newest first, and whether each adds a
+     * migration. From the repository on the Mac, the GitHub mirror, or (no
+     * mirror yet) the branch head from the API.
+     *
+     * @return list<array{sha: string, subject: string, date: ?Carbon, migration: bool}>
+     */
+    #[Computed]
+    public function commits(): array
+    {
+        $project = $this->project;
+        $repository = $this->repository($project);
+
+        if ($repository !== null) {
+            return $this->fromGit($repository, $project->branch);
+        }
+
+        if ($project->source === ProjectSource::Github && ($credential = $project->credential ?? Credential::forOwner((string) $project->github_owner)) !== null) {
+            try {
+                $head = GitHubClient::for($credential)->commits((string) $project->github_owner, (string) $project->github_repo, $project->branch)['head'];
+            } catch (GitHubException) {
+                return [];
+            }
+
+            return $head !== null ? [[
+                'sha' => $head['sha'],
+                'subject' => $head['subject'],
+                'date' => $head['date'] !== null ? Carbon::parse($head['date']) : null,
+                'migration' => false,
+            ]] : [];
+        }
+
+        return [];
+    }
+
+    /**
+     * What GitHub Actions says about each recent commit on the branch.
+     *
+     * @return array<string, CiState>
+     */
+    #[Computed]
+    public function ci(): array
+    {
+        $project = $this->project;
+        $credential = $project->hasGitHub() ? ($project->credential ?? Credential::forOwner((string) $project->github_owner)) : null;
+
+        if ($credential === null) {
+            return [];
+        }
+
+        $runs = Cache::remember("deployme:branch-runs:{$project->id}:{$project->branch}", 20, fn () => rescue(
+            fn () => GitHubClient::for($credential)->workflowRuns((string) $project->github_owner, (string) $project->github_repo, $project->branch)['runs'],
+            [],
+            report: false,
+        ));
+
+        return collect($runs)
+            ->groupBy('head_sha')
+            ->map(fn (Collection $runs) => CiStatus::fromRuns($runs->values()->all())['state'])
+            ->all();
+    }
+
+    #[Computed]
+    public function resolution(): Resolution
+    {
+        return app(DeliveryResolver::class)->resolve($this->project, $this->commit !== '' ? $this->commit : null);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function options(): array
+    {
+        $options = $this->commit !== '' ? ['commit' => $this->commit] : [];
+
+        if ($this->migrates()) {
+            $options['backup'] = $this->backup && BackupDatabase::available($this->project);
+            $options['skip_migrations'] = $this->skipMigrations;
+        }
+
+        return $options;
+    }
+
+    private function migrates(): bool
+    {
+        return Compose::builtin($this->project) && (string) $this->project->migrate_service !== '';
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function targetIds(): array
+    {
+        return $this->project->targets()->active()->orderBy('id')->pluck('id')->all();
+    }
+
+    private function repository(Project $project): ?string
+    {
+        if ($project->source === ProjectSource::Local) {
+            $path = app(ProjectRoots::class)->resolve((string) $project->local_path);
+
+            return $path !== null && LocalRepository::isRepository($path) ? $path : null;
+        }
+
+        $mirror = app(GitHubMirror::class)->path($project);
+
+        return is_dir($mirror) ? $mirror : null;
+    }
+
+    /**
+     * @return list<array{sha: string, subject: string, date: ?Carbon, migration: bool}>
+     */
+    private function fromGit(string $repository, string $branch): array
+    {
+        $log = app(GitRunner::class)->run($repository, [
+            'log', '-n', (string) self::COMMITS, '--format=%x1e%H%x1f%s%x1f%cI', '--name-status', '--end-of-options', $branch,
+        ], timeout: 30);
+
+        if (! $log->successful()) {
+            return [];
+        }
+
+        $commits = [];
+
+        foreach (array_filter(explode("\x1e", $log->output()), fn (string $record) => trim($record) !== '') as $record) {
+            $lines = explode("\n", trim($record));
+            [$sha, $subject, $date] = array_pad(explode("\x1f", (string) array_shift($lines), 3), 3, '');
+            $migration = collect($lines)->contains(fn (string $line) => preg_match('#^A\t(.*/)?database/migrations/[^/]+\.php$#', $line) === 1);
+
+            $commits[] = ['sha' => $sha, 'subject' => $subject, 'date' => $date !== '' ? Carbon::parse($date) : null, 'migration' => $migration];
+        }
+
+        return $commits;
+    }
+
+    public function render(): View
+    {
+        if (! $this->open) {
+            return view('livewire.projects.deploy-dialog', [
+                'targets' => collect(), 'commits' => [], 'live' => [], 'since' => null, 'sinceMigrations' => 0, 'resolution' => null,
+                'migrates' => false, 'canBackup' => false, 'ci' => [],
+            ]);
+        }
+
+        /** @var Collection<int, Target> $targets */
+        $targets = $this->project->targets()->active()->with(['server', 'currentRelease'])->orderBy('id')->get();
+        $commits = $this->commits;
+
+        // Which servers each commit is live on.
+        $live = [];
+        foreach ($targets as $target) {
+            if (($sha = $target->currentRelease?->commit_sha) !== null) {
+                $live[$sha][] = $target->server->name;
+            }
+        }
+
+        // How far the first picked target is behind.
+        $since = null;
+        $sinceMigrations = 0;
+        $liveSha = $targets->firstWhere('id', $this->targetIds[0] ?? null)?->currentRelease?->commit_sha;
+        if ($liveSha !== null && ($index = collect($commits)->search(fn (array $commit) => $commit['sha'] === $liveSha)) !== false) {
+            $since = $index;
+            $sinceMigrations = collect($commits)->take($index)->where('migration', true)->count();
+        }
+
+        return view('livewire.projects.deploy-dialog', [
+            'targets' => $targets,
+            'commits' => $commits,
+            'live' => $live,
+            'since' => $since,
+            'sinceMigrations' => $sinceMigrations,
+            'resolution' => $this->resolution,
+            'ci' => $this->ci,
+            'migrates' => $this->migrates(),
+            'canBackup' => BackupDatabase::available($this->project),
+        ]);
+    }
+}

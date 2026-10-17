@@ -1,0 +1,36 @@
+name: example
+
+networks:
+  proxy-network:
+    external: true
+  backend:
+    driver: bridge
+
+x-app: &app
+  image: ghcr.io/example-org/example.app:${IMAGE_TAG:-latest}
+  restart: unless-stopped
+  env_file: .env
+  labels:
+    caddy: example.app, admin.example.app
+    caddy.reverse_proxy: "{{upstreams 80}}"
+  networks:
+    - proxy-network
+    - backend
+
+services:
+  app-blue:
+    <<: *app
+    container_name: example-app-blue
+  app-green:
+    <<: *app
+    container_name: example-app-green
+
+  worker:
+    image: ghcr.io/example-org/example.app:${IMAGE_TAG:-latest}
+    command: ["php", "artisan", "queue:work"]
+    networks: [backend]
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    ports: !reset []
+    networks: [backend]

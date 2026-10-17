@@ -1,0 +1,7 @@
+# deploy.me sandbox: key-only login for `deploy`, persistent host keys.
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AllowUsers deploy
+HostKey /etc/ssh/keys/ssh_host_ed25519_key
+HostKey /etc/ssh/keys/ssh_host_rsa_key

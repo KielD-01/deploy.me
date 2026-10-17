@@ -1,0 +1,19 @@
+name: studio
+
+services:
+  api:
+    image: ${API_IMAGE:-ghcr.io/example-org/studio-api:main}
+    labels:
+      - caddy=studio.example.com
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/example-org/studio-web:main}
+  migrate:
+    build:
+      context: .
+      dockerfile: core/prod/api/Dockerfile
+  postgres:
+    image: postgres:16-alpine
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:RELEASE.2025-09-07T16-13-09Z}
+  mail:
+    image: ${MAILSERVER_IMAGE:-mailserver/docker-mailserver:15.0.0}

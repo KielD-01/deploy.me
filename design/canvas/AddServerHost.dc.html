@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+  <style>
+body{margin:0;background:#f7f8fa}
+*{box-sizing:border-box}
+.app{--bg:#f7f8fa;--surface:#ffffff;--sunk:#f1f3f6;--line:#e2e5ea;--line2:#c9ced7;--text:#10131a;--muted:#5b6472;--subtle:#656f7e;--primary:#2a5bd7;--primary-hover:#1f49b8;--primary-sunk:#edf2fe;--primary-border:#c7d7fa;--on-primary:#ffffff;--ok:#127d5a;--ok-bg:#e7f5f0;--ok-border:#bee3d6;--warn:#a25f05;--warn-bg:#fdf3e3;--warn-border:#e8c99a;--danger:#c0332f;--danger-bg:#fcedec;--danger-border:#f0c9c6;--violet:#6d4ac7;--violet-bg:#f0ebfb;--teal:#0f766e;--teal-bg:#e6f4f2;--scrim:rgba(16,19,26,0.45);--shadow-1:0 1px 2px rgba(16,19,26,0.06), 0 1px 3px rgba(16,19,26,0.04);--shadow-pop:0 12px 32px rgba(16,19,26,0.14);background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:20px;-webkit-font-smoothing:antialiased;position:relative;overflow:hidden;color-scheme:light}
+.app.theme-dark{--bg:#0e1116;--surface:#161a21;--sunk:#1e232b;--line:#272d37;--line2:#3a424f;--text:#e8ebf0;--muted:#9aa3b2;--subtle:#828b9a;--primary:#6c93f5;--primary-hover:#86a7f8;--primary-sunk:#1a2540;--primary-border:#2f4478;--on-primary:#0e1116;--ok:#3fbf92;--ok-bg:#10261f;--ok-border:#1c4536;--warn:#e0a040;--warn-bg:#2a1f0e;--warn-border:#4a3a1a;--danger:#f0736c;--danger-bg:#2b1413;--danger-border:#4d2422;--violet:#a78bf0;--violet-bg:#221c38;--teal:#4bbfb2;--teal-bg:#0f2523;--scrim:rgba(0,0,0,0.6);--shadow-1:0 1px 2px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);--shadow-pop:0 12px 32px rgba(0,0,0,0.55);color-scheme:dark}
+a{color:var(--primary);text-decoration:none}
+a:hover{color:var(--primary-hover);text-decoration:underline}
+button{font:inherit}
+.mono{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.subtle{color:var(--subtle)}
+.cap{font-size:12px;line-height:16px}
+.sm{font-size:13px;line-height:18px}
+.strong{font-weight:600}
+.row{display:flex;align-items:center;gap:8px}
+.col{display:flex;flex-direction:column}
+.grow{flex:1 1 0;min-width:0}
+.hdr{height:56px;display:flex;align-items:center;gap:28px;padding:0 32px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;letter-spacing:-0.01em}
+.nav{display:flex;gap:2px}
+.nav a{display:flex;align-items:center;gap:7px;height:32px;padding:0 10px;border-radius:6px;color:var(--muted);font-weight:500}
+.nav a:hover{text-decoration:none;color:var(--text)}
+.nav a.on{background:var(--sunk);color:var(--text)}
+.main{padding:24px 32px 48px;display:flex;flex-direction:column;gap:20px}
+.crumbs{display:flex;align-items:center;gap:6px;font-size:13px;line-height:18px;color:var(--muted)}
+.ph{display:flex;align-items:flex-end;gap:16px}
+.ph h1{margin:0;font-size:22px;line-height:28px;font-weight:600;letter-spacing:-0.01em}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.ch{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 16px;border-bottom:1px solid var(--line)}
+.ch h2{margin:0;font-size:15px;line-height:22px;font-weight:600}
+.cb{padding:16px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--line2);background:var(--surface);color:var(--text);font-size:14px;font-weight:500;white-space:nowrap;cursor:default;flex:none}
+.btn-sm{height:32px;padding:0 10px;font-size:13px}
+.btn-xs{height:26px;padding:0 8px;font-size:12px;border-radius:4px;gap:4px}
+.btn-primary{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn-danger{color:var(--danger);border-color:var(--danger-border)}
+.btn-icon{padding:0;width:36px}
+.btn-sm.btn-icon{width:32px}
+.btn-xs.btn-icon{width:26px}
+.badge{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.b-ok{background:var(--ok-bg);color:var(--ok)}
+.b-warn{background:var(--warn-bg);color:var(--warn)}
+.b-err{background:var(--danger-bg);color:var(--danger)}
+.b-info{background:var(--primary-sunk);color:var(--primary)}
+.b-violet{background:var(--violet-bg);color:var(--violet)}
+.b-teal{background:var(--teal-bg);color:var(--teal)}
+.b-line{background:transparent;box-shadow:inset 0 0 0 1px var(--line2)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--subtle)}
+.d-ok{background:var(--ok)}
+.d-warn{background:var(--warn)}
+.d-err{background:var(--danger)}
+.d-info{background:var(--primary)}
+.inp{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:1px solid var(--line2);border-radius:6px;background:var(--surface);color:var(--text);min-width:0}
+.inp.ph{color:var(--subtle)}
+.inp.focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-sunk)}
+.fld{display:flex;flex-direction:column;gap:6px}
+.lbl{font-size:13px;line-height:18px;font-weight:500}
+.hint{font-size:12px;line-height:16px;color:var(--muted)}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-size:12px;line-height:16px;font-weight:600;color:var(--muted);padding:10px 16px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{font-size:13px;line-height:18px;padding:0 16px;height:52px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl .r{text-align:right}
+.tabs{display:flex;gap:24px;border-bottom:1px solid var(--line)}
+.tabs a{display:flex;align-items:center;gap:6px;padding:10px 0;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs a:hover{text-decoration:none;color:var(--text)}
+.tabs a.on{color:var(--text);border-bottom-color:var(--text)}
+.seg{display:inline-flex;padding:3px;gap:2px;border-radius:8px;background:var(--sunk)}
+.seg span{display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:6px;color:var(--muted);font-weight:500;font-size:13px}
+.seg span.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-1)}
+.tg{width:34px;height:20px;border-radius:999px;background:var(--line2);position:relative;flex:none}
+.tg::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#ffffff;box-shadow:0 1px 2px rgba(0,0,0,0.2)}
+.tg.on{background:var(--primary)}
+.tg.on::after{left:16px}
+.cbx{width:16px;height:16px;border-radius:4px;border:1px solid var(--line2);background:var(--surface);display:inline-flex;align-items:center;justify-content:center;flex:none;color:var(--on-primary)}
+.cbx.on{background:var(--primary);border-color:var(--primary)}
+.rad{width:16px;height:16px;border-radius:50%;border:1px solid var(--line2);background:var(--surface);flex:none}
+.rad.on{border:5px solid var(--primary)}
+.meter{height:6px;border-radius:999px;background:var(--sunk);overflow:hidden;flex:1 1 0;min-width:40px}
+.meter i{display:block;height:100%;border-radius:999px;background:var(--primary)}
+.meter i.warn{background:var(--warn)}
+.meter i.err{background:var(--danger)}
+.steps{display:flex;align-items:center;gap:12px}
+.step{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--muted)}
+.step .n{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;border:1px solid var(--line2);background:var(--surface)}
+.step.on{color:var(--text)}
+.step.on .n{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+.step.done .n{background:var(--ok-bg);border-color:var(--ok-border);color:var(--ok)}
+.steps .sep{width:32px;height:1px;background:var(--line2)}
+.lrow{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line)}
+.lrow:first-child{border-top:0}
+.pick{border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.pick.on{border-color:var(--primary);background:var(--primary-sunk)}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:8px;border:1px solid var(--line)}
+.al-warn{background:var(--warn-bg);border-color:var(--warn-border)}
+.al-err{background:var(--danger-bg);border-color:var(--danger-border)}
+.al-info{background:var(--primary-sunk);border-color:var(--primary-border)}
+.al-ok{background:var(--ok-bg);border-color:var(--ok-border)}
+.log{background:#0b0e12;color:#d7dde7;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:19px;border-radius:8px;padding:14px 16px;white-space:pre;overflow:hidden}
+.log .t{color:#6b7484}
+.log .c{color:#86a7f8}
+.log .ok{color:#3fbf92}
+.log .w{color:#e0a040}
+.log .e{color:#f0736c}
+.log .s{color:#9aa3b2}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.stat .v{font-size:28px;line-height:32px;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.kv{display:grid;grid-template-columns:150px minmax(0,1fr);row-gap:10px;column-gap:16px;font-size:13px;line-height:18px;margin:0}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;min-width:0}
+.scrim{position:absolute;inset:0;z-index:10;background:var(--scrim)}
+.modal{position:absolute;z-index:11;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-pop)}
+.pop{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-pop)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);font-size:12px;line-height:16px;white-space:nowrap}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--sunk);color:var(--muted);display:flex;align-items:center;justify-content:center}
+.divider{height:1px;background:var(--line)}
+</style>
+</helmet>
+<div class="app {{mode}}" style="width: 1440px; min-height: 900px">
+<header class="hdr"><div class="brand"><svg width="24" height="24" viewBox="0 0 24 24" style="flex: none"><rect width="24" height="24" rx="6" style="fill: var(--text)"></rect><path d="M12 16.5V7.5M8 11.5l4-4 4 4" style="fill: none; stroke: var(--surface); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round"></path></svg>deploy.me</div><nav class="nav"><a class=""><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M1.5 8h3l2-4.5 3 9 2-4.5h3"></path></svg>Dashboard</a><a class="on"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><rect x="2.5" y="2.5" width="11" height="4.5" rx="1"></rect><rect x="2.5" y="9" width="11" height="4.5" rx="1"></rect><path d="M5 4.75h.01M5 11.25h.01"></path></svg>Servers</a><a class=""><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M4 2.5h8.5v9H4.5a1.5 1.5 0 0 0-1.5 1.5V4a1.5 1.5 0 0 1 1-1.5z"></path><path d="M3 13a1.5 1.5 0 0 0 1.5 1.5h8v-3"></path></svg>Projects</a><a class=""><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M8 10.5v-8M5 5.5l3-3 3 3"></path><path d="M3 9.5v3a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-3"></path></svg>Deployments</a><a class=""><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M2.5 4.5h6.5M12 4.5h1.5M2.5 11.5h1.5M7 11.5h6.5"></path><circle cx="10.5" cy="4.5" r="1.5"></circle><circle cx="5.5" cy="11.5" r="1.5"></circle></svg>Settings</a></nav><div class="row" style="margin-left: auto; gap: 12px"><span class="badge b-info"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M8 2.5a5.5 5.5 0 1 1-5.5 5.5"></path></svg>1 deploying</span><button type="button" class="btn btn-ghost btn-sm btn-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3a4.5 4.5 0 0 0 6.5 6.5z"></path></svg></button><span class="avatar"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="8" cy="5.5" r="2.5"></circle><path d="M3 13.5c.8-2.4 2.7-3.5 5-3.5s4.2 1.1 5 3.5"></path></svg></span></div></header>
+<main class="main"><div class="col" style="gap: 8px"><div class="crumbs"><span>Servers</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none; color: var(--subtle)"><path d="M6 3.5L10.5 8 6 12.5"></path></svg><span>Add server</span></div><div class="ph"><div class="col grow" style="gap: 4px"><div class="row" style="gap: 10px"><h1>Add server</h1></div></div><div class="row"></div></div></div><div class="steps"><div class="step on"><span class="n">1</span>Pick host</div><span class="sep"></span><div class="step"><span class="n">2</span>Connection</div><span class="sep"></span><div class="step"><span class="n">3</span>Deploy path</div><span class="sep"></span><div class="step"><span class="n">4</span>Review</div></div>
+<div style="display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px"><section class="card"><header class="ch"><h2>Pick a host</h2><span class="muted sm">~/.ssh/config · 10 hosts</span><div class="row" style="margin-left: auto"></div></header><div class="cb" style="padding-bottom: 12px"><div class="inp ph"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none; color: var(--subtle)"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5L14 14"></path></svg><span class="grow" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Filter by alias, user or address</span></div></div><div style="border-top: 1px solid var(--line)"><div class="lrow" style="background: var(--primary-sunk)"><span class="rad on"></span><span class="mono strong" style="width: 140px">build-box</span><span class="mono muted grow">ci@198.51.100.23:22</span><span class="cap muted row" style="gap: 5px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="5" cy="10.5" r="2.5"></circle><path d="M6.8 8.7L13 2.5M11 4.5l1.5 1.5M9.3 6.2l1.5 1.5"></path></svg>id_rsa_build</span></div><div class="lrow"><span class="rad"></span><span class="mono strong" style="width: 140px">vps-legacy</span><span class="mono muted grow">root@203.0.113.77:22</span><span class="cap muted row" style="gap: 5px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="5" cy="10.5" r="2.5"></circle><path d="M6.8 8.7L13 2.5M11 4.5l1.5 1.5M9.3 6.2l1.5 1.5"></path></svg>id_ed25519</span></div><div class="lrow"><span class="rad"></span><span class="mono strong" style="width: 140px">backup-01</span><span class="mono muted grow">backup@198.51.100.61:22</span><span class="cap muted row" style="gap: 5px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="5" cy="10.5" r="2.5"></circle><path d="M6.8 8.7L13 2.5M11 4.5l1.5 1.5M9.3 6.2l1.5 1.5"></path></svg>id_ed25519_backup</span></div><div class="lrow"><span style="width: 16px"></span><span class="mono strong" style="width: 140px; color: var(--muted)">hetzner-prod</span><span class="mono muted grow">deploy@203.0.113.10:22</span><span class="cap muted row" style="gap: 5px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="5" cy="10.5" r="2.5"></circle><path d="M6.8 8.7L13 2.5M11 4.5l1.5 1.5M9.3 6.2l1.5 1.5"></path></svg>id_ed25519_hetzner</span><span class="badge">Added</span></div><div class="lrow"><span style="width: 16px"></span><span class="mono strong" style="width: 140px; color: var(--muted)">do-staging</span><span class="mono muted grow">root@198.51.100.7:22</span><span class="cap muted row" style="gap: 5px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="5" cy="10.5" r="2.5"></circle><path d="M6.8 8.7L13 2.5M11 4.5l1.5 1.5M9.3 6.2l1.5 1.5"></path></svg>id_ed25519_do</span><span class="badge">Added</span></div><div class="lrow"><span style="width: 16px"></span><span class="mono strong" style="width: 140px; color: var(--muted)">home-nas</span><span class="mono muted grow">admin@192.0.2.20:22</span><span class="cap muted row" style="gap: 5px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="5" cy="10.5" r="2.5"></circle><path d="M6.8 8.7L13 2.5M11 4.5l1.5 1.5M9.3 6.2l1.5 1.5"></path></svg>id_ed25519</span><span class="badge">Added</span></div><div class="lrow"><span style="width: 16px"></span><span class="mono strong" style="width: 140px; color: var(--muted)">edge-01</span><span class="mono muted grow">ubuntu@192.0.2.44:22</span><span class="cap muted row" style="gap: 5px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><circle cx="5" cy="10.5" r="2.5"></circle><path d="M6.8 8.7L13 2.5M11 4.5l1.5 1.5M9.3 6.2l1.5 1.5"></path></svg>id_ed25519_edge</span><span class="badge">Added</span></div></div><div class="lrow" style="background: var(--sunk); border-radius: 0 0 10px 10px"><span class="tg"></span><span class="sm">Show git identities</span><span class="cap muted">3 hosts resolve to github.com</span></div></section>
+<div class="col" style="gap: 16px"><section class="card"><header class="ch"><h2>Resolved settings</h2><span class="muted sm">ssh -G build-box</span><div class="row" style="margin-left: auto"></div></header><div class="cb"><dl class="kv"><dt>HostName</dt><dd class="mono">198.51.100.23</dd><dt>User</dt><dd class="mono">ci</dd><dt>Port</dt><dd class="mono">22</dd><dt>IdentityFile</dt><dd class="mono">~/.ssh/id_rsa_build</dd><dt>IdentitiesOnly</dt><dd class="mono">yes</dd><dt>ProxyJump</dt><dd class="muted">none</dd><dt>Defined in</dt><dd class="mono">~/.ssh/config:31</dd></dl></div></section>
+<div class="alert al-info"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none; color: var(--primary); margin-top: 2px"><circle cx="8" cy="8" r="5.5"></circle><path d="M8 7.5v3.5M8 5.2h.01"></path></svg><div class="sm">Keys are read from your ~/.ssh folder, mounted read-only. Your ssh-agent has no keys loaded, so the key files are used directly.</div></div></div></div>
+<div class="row" style="justify-content: flex-end; gap: 10px; border-top: 1px solid var(--line); padding-top: 16px"><button type="button" class="btn btn-ghost">Cancel</button><button type="button" class="btn btn-primary"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex: none;"><path d="M3 8h10M9 4l4 4-4 4"></path></svg>Continue</button></div>
+</main>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":900},"dark":{"editor":"boolean","default":false,"section":"Theme"}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { mode: this.props.dark ? 'theme-dark' : '' };
+  }
+}
+</script>
+</body>
+</html>
