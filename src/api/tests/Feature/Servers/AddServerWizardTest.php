@@ -17,6 +17,8 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->withoutVite();
     $this->actingAs(User::factory()->create());
+    // The page's route asks for it; its actions check it again.
+    session(['auth.password_confirmed_at' => time()]);
 
     $dir = sys_get_temp_dir().'/deployme-wizard-'.bin2hex(random_bytes(4));
     mkdir($dir, 0700, true);
@@ -35,6 +37,7 @@ beforeEach(function () {
 });
 
 it('asks for a passkey before adding a server', function () {
+    session()->forget('auth.password_confirmed_at');
     $this->get('/servers/create')->assertRedirect('/user/confirm-password');
 });
 
@@ -113,4 +116,13 @@ it('stops when the server refuses the key', function () {
         ->call('toConnection')
         ->assertSee('The server refused the key')
         ->assertSet('probe', null);
+});
+
+it('asks again for a passkey once the confirmation the page opened with is old', function () {
+    $wizard = Livewire::test(Create::class);
+    session(['auth.password_confirmed_at' => time() - (int) config('auth.password_timeout', 10800) - 60]);
+
+    // Livewire's updates don't pass through the route's password.confirm.
+    $wizard->call('trustHostKey')->assertRedirect(route('password.confirm'));
+    Livewire::test(Create::class)->call('save')->assertRedirect(route('password.confirm'));
 });

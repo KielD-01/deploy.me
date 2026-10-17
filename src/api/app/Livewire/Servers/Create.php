@@ -5,6 +5,7 @@ namespace App\Livewire\Servers;
 use App\Actions\Servers\RecordProbe;
 use App\Enums\EnvTag;
 use App\Enums\ServerStatus;
+use App\Livewire\Concerns\ConfirmsIdentity;
 use App\Models\Server;
 use App\Models\SshHostKey;
 use App\Platform\Remote\ProbeResult;
@@ -33,6 +34,8 @@ use Livewire\Component;
 #[Title('Add server')]
 class Create extends Component
 {
+    use ConfirmsIdentity;
+
     public const INTERVALS = [60 => 'Every minute', 300 => 'Every 5 minutes', 900 => 'Every 15 minutes', 3600 => 'Every hour'];
 
     #[Locked]
@@ -242,6 +245,11 @@ class Create extends Component
      */
     public function trustHostKey(KnownHosts $knownHosts): void
     {
+        // The route's password.confirm only sees the page load, not its updates.
+        if (! $this->confirmIdentity(route('servers.create'))) {
+            return;
+        }
+
         if ($this->hostKey === null) {
             return;
         }
@@ -317,6 +325,10 @@ class Create extends Component
 
     public function save(RecordProbe $record): void
     {
+        if (! $this->confirmIdentity(route('servers.create'))) {
+            return;
+        }
+
         $this->validate([
             'name' => ['required', 'string', 'max:100'],
             'envTag' => ['required', Rule::enum(EnvTag::class)],
