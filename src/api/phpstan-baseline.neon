@@ -1,0 +1,1627 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ssh_alias\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Folders/RunFolderSync.php
+
+		-
+			message: '#^Parameter \#1 \$mapping of method App\\Actions\\Folders\\RunFolderSync\:\:announce\(\) expects App\\Models\\FolderMapping, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Actions/Folders/RunFolderSync.php
+
+		-
+			message: '#^Parameter \#1 \$mapping of method App\\Actions\\Folders\\RunFolderSync\:\:ensureDestination\(\) expects App\\Models\\FolderMapping, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Folders/RunFolderSync.php
+
+		-
+			message: '#^Parameter \#1 \$mapping of static method App\\Support\\FolderMappingRules\:\:problem\(\) expects App\\Models\\FolderMapping, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Folders/RunFolderSync.php
+
+		-
+			message: '#^Parameter \#2 \$mapping of method App\\Actions\\Folders\\RunFolderSync\:\:rsync\(\) expects App\\Models\\FolderMapping, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Folders/RunFolderSync.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Folders/StartFolderSync.php
+
+		-
+			message: '#^Method App\\Actions\\Folders\\StartFolderSync\:\:__invoke\(\) should return App\\Models\\SyncRun but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Folders/StartFolderSync.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ssh_alias\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Projects/ImportEnvFromServer.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:envFiles\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Actions/Projects/ImportEnvFromServer.php
+
+		-
+			message: '#^Parameter \#1 \$project of static method App\\Actions\\Projects\\ImportEnvFromServer\:\:candidates\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Projects/ImportEnvFromServer.php
+
+		-
+			message: '#^Parameter \#1 \$project of static method App\\Actions\\Projects\\ImportEnvFromServer\:\:role\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Projects/ImportEnvFromServer.php
+
+		-
+			message: '#^Offset ''ci'' on array\{owner\: string, repo\: string, remote\: string\|null, transport\: string, private\?\: bool, default_branch\?\: string\}\|null on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Actions/Projects/ImportProject.php
+
+		-
+			message: '#^Offset ''id'' on array\{owner\: string, repo\: string, remote\: string\|null, transport\: string, private\?\: bool, default_branch\?\: string\}\|null on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Actions/Projects/ImportProject.php
+
+		-
+			message: '#^Offset ''run'' on null on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Actions/Projects/ImportProject.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between null and null will always evaluate to false\.$#'
+			identifier: notIdentical.alwaysFalse
+			count: 2
+			path: app/Actions/Projects/ImportProject.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between null and null will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: app/Actions/Projects/ImportProject.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Projects/PollCi.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:active\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Actions/Projects/PollCi.php
+
+		-
+			message: '#^Parameter \#1 \$credential of static method App\\Platform\\GitHub\\GitHubClient\:\:for\(\) expects App\\Models\\Credential, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Projects/PollCi.php
+
+		-
+			message: '#^Method App\\Actions\\Servers\\RecordProbe\:\:store\(\) should return App\\Models\\ServerSnapshot but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Actions/Servers/RecordProbe.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$health_url\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Targets/CheckTargetHealth.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Targets/CheckTargetHealth.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ssh_alias\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Targets/CheckTargetHealth.php
+
+		-
+			message: '#^Parameter \#1 \$project of static method App\\Deploy\\Compose\:\:builtin\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Targets/CheckTargetHealth.php
+
+		-
+			message: '#^Parameter \#1 \$project of static method App\\Deploy\\Compose\:\:vars\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Targets/CheckTargetHealth.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$dockerized\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Targets/ReadFolder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ssh_alias\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Targets/ReadFolder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stack_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Actions/Targets/ReadFolder.php
+
+		-
+			message: '#^Parameter \#1 \$project of method App\\Actions\\Targets\\ReadFolder\:\:candidates\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Targets/ReadFolder.php
+
+		-
+			message: '#^Parameter \#1 \$project of static method App\\Deploy\\Compose\:\:files\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Actions/Targets/ReadFolder.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:detected\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Deploy/Conversion/ConversionPlanner.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:number\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Deploy/Conversion/ConversionPlanner.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Deploy/Conversion/ConversionPlanner.php
+
+		-
+			message: '#^Parameter \#1 \$project of method App\\Deploy\\Conversion\\ConversionPlanner\:\:sharedCandidates\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Conversion/ConversionPlanner.php
+
+		-
+			message: '#^Parameter \#1 \$project of method App\\Deploy\\Conversion\\ConversionPlanner\:\:sharedPathsAfter\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Conversion/ConversionPlanner.php
+
+		-
+			message: '#^Parameter \#1 \$project of method App\\Deploy\\Conversion\\ConversionPlanner\:\:stack\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Conversion/ConversionPlanner.php
+
+		-
+			message: '#^Parameter \#1 \$project of method App\\Deploy\\Conversion\\ConversionPlanner\:\:suggest\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Conversion/ConversionPlanner.php
+
+		-
+			message: '#^Parameter \#1 \$project of static method App\\Deploy\\Compose\:\:builtin\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Conversion/ConversionPlanner.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$branch\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Conversion/RepositoryComparison.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ssh_alias\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Conversion/RepositoryComparison.php
+
+		-
+			message: '#^Parameter \#1 \$project of method App\\Deploy\\Conversion\\RepositoryComparison\:\:repository\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Conversion/RepositoryComparison.php
+
+		-
+			message: '#^Parameter \#2 \$project of method App\\Deploy\\Conversion\\RepositoryComparison\:\:candidates\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Conversion/RepositoryComparison.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$login\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Delivery/GitHubMirror.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$token\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Delivery/GitHubMirror.php
+
+		-
+			message: '#^Parameter \#1 \$credential of static method App\\Platform\\GitHub\\GhcrClient\:\:for\(\) expects App\\Models\\Credential, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Delivery/Strategies/GhcrImage.php
+
+		-
+			message: '#^Parameter \#1 \$credential of static method App\\Platform\\GitHub\\GitHubClient\:\:for\(\) expects App\\Models\\Credential, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Delivery/Strategies/GhcrImage.php
+
+		-
+			message: '#^Parameter \#1 \$credential of static method App\\Platform\\GitHub\\GitHubClient\:\:for\(\) expects App\\Models\\Credential, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Delivery/Strategies/ServerGit.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$project\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Deploy/DeployContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$server\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/DeployContext.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:layout\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Deploy/DeployContext.php
+
+		-
+			message: '#^Parameter \#2 \$target of class App\\Deploy\\DeployContext constructor expects App\\Models\\Target, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/DeployContext.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$currentRelease\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/PipelineFactory.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$previousRelease\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/PipelineFactory.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$project\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/PipelineFactory.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$release\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/PipelineFactory.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$options\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/PipelineRunner.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$previous_release_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/PipelineRunner.php
+
+		-
+			message: '#^Dead catch \- App\\Deploy\\Pipeline\\WaitingForCi is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: app/Deploy/Pipeline/PipelineRunner.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$versionable\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/ResumePlanner.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:activeDeployment\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Deploy/Pipeline/ResumePlanner.php
+
+		-
+			message: '#^Parameter \#2 \$target of static method App\\Deploy\\Pipeline\\ResumePlanner\:\:plan\(\) expects App\\Models\\Target, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Pipeline/ResumePlanner.php
+
+		-
+			message: '#^Parameter \#3 \$release of static method App\\Deploy\\Pipeline\\ResumePlanner\:\:plan\(\) expects App\\Models\\Release\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Pipeline/ResumePlanner.php
+
+		-
+			message: '#^Parameter \#4 \$steps of static method App\\Deploy\\Pipeline\\ResumePlanner\:\:plan\(\) expects Illuminate\\Support\\Collection\<int, App\\Models\\DeploymentStep\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Pipeline/ResumePlanner.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\Activate\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/Activate.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\BackUpLayout\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/BackUpLayout.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/BackupDatabase.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\BackupDatabase\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/BackupDatabase.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\Bootstrap\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/Bootstrap.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\BreakLock\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/BreakLock.php
+
+		-
+			message: '#^Parameter \#2 \$about of static method App\\Support\\Audit\:\:record\(\) expects array\{subject\?\: string\|null, detail\?\: string\|null, outcome\?\: App\\Enums\\AuditOutcome, server_id\?\: int\|null, project_id\?\: int\|null, user\?\: App\\Models\\User\|null\}, array\{subject\: non\-falsy\-string, server_id\: int, project_id\: int, detail\: non\-falsy\-string, user\: Illuminate\\Database\\Eloquent\\Model\|null\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Pipeline/Steps/BreakLock.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\BuildImages\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/BuildImages.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\CheckCompose\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/CheckCompose.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Deploy/Pipeline/Steps/CheckFolder.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\CheckFolder\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/CheckFolder.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\CheckStack\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/CheckStack.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\HealthCheck\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/HealthCheck.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>path" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Deploy/Pipeline/Steps/HealthCheck.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_message\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/InspectExisting.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/InspectExisting.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Deploy/Pipeline/Steps/InspectExisting.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\InspectExisting\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/InspectExisting.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\LinkShared\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/LinkShared.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\LinkSharedItems\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/LinkSharedItems.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\MoveIntoRelease\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/MoveIntoRelease.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_message\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PickRelease.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PickRelease.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Deploy/Pipeline/Steps/PickRelease.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Deploy/Pipeline/Steps/PickRelease.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$strategy\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Deploy/Pipeline/Steps/PickRelease.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:canRollBackTo\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PickRelease.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:inReleasesFolder\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PickRelease.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:shortSha\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Deploy/Pipeline/Steps/PickRelease.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\PickRelease\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PickRelease.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:inReleasesFolder\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/Preflight.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\Preflight\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/Preflight.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\PruneImages\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PruneImages.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:reject\(\) expects bool\|\(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|Illuminate\\Database\\Eloquent\\Model, Closure\(App\\Models\\Release\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PruneImages.php
+
+		-
+			message: '#^Parameter \#2 \$pinned of static method App\\Deploy\\Pipeline\\Steps\\PruneImages\:\:keeping\(\) expects Illuminate\\Support\\Collection\<int, App\\Models\\Release\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PruneImages.php
+
+		-
+			message: '#^Parameter \#2 \$releases of static method App\\Deploy\\Pipeline\\Steps\\PruneImages\:\:pins\(\) expects Illuminate\\Support\\Collection\<int, App\\Models\\Release\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PruneImages.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\PruneReleases\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PruneReleases.php
+
+		-
+			message: '#^Parameter \#1 \$onDisk of static method App\\Deploy\\ReleasePruner\:\:select\(\) expects Illuminate\\Support\\Collection\<int, App\\Models\\Release\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PruneReleases.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\PullImages\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/PullImages.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\RecreateServices\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RecreateServices.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$login\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Deploy/Pipeline/Steps/RegistryLogin.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$token\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Deploy/Pipeline/Steps/RegistryLogin.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\RegistryLogin\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RegistryLogin.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Deploy/Pipeline/Steps/ResolveRelease.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:shortSha\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Deploy/Pipeline/Steps/ResolveRelease.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\ResolveRelease\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/ResolveRelease.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\RestartStack\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RestartStack.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\RestorePins\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RestorePins.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$previousRelease\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RestoreRelease.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$release\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RestoreRelease.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$strategy\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RestoreRelease.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\RestoreRelease\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RestoreRelease.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\RollBack\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RollBack.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\RollServices\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RollServices.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$command\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Deploy/Pipeline/Steps/RunHooks.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$continue_on_error\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RunHooks.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RunHooks.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$run_in\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RunHooks.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$service\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Deploy/Pipeline/Steps/RunHooks.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$timeout\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RunHooks.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\RunHooks\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RunHooks.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\RunMigrations\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/RunMigrations.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$content\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/SyncEnvFiles.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Deploy/Pipeline/Steps/SyncEnvFiles.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\SyncEnvFiles\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/SyncEnvFiles.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$deployment\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/UndoConversion.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/UndoConversion.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Deploy/Pipeline/Steps/UndoConversion.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\UndoConversion\:\:converted\(\) should return array\{App\\Models\\Release, bool\} but returns array\{Illuminate\\Database\\Eloquent\\Model, bool\}\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Deploy/Pipeline/Steps/UndoConversion.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\UndoConversion\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/UndoConversion.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\UploadRelease\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/UploadRelease.php
+
+		-
+			message: '#^Method App\\Deploy\\Pipeline\\Steps\\WritePins\:\:run\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Deploy/Pipeline/Steps/WritePins.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>reason" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Deploy/Pipeline/WaitingForCi.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Console/Git.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$slug\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Livewire/Console/Git.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:canRollBackTo\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Console/Git.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:active\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Console/Git.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Console/Tail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/Console/Tail.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Livewire/Console/Tail.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Dashboard.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/Dashboard.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Dashboard.php
+
+		-
+			message: '#^Parameter \#1 \$project of static method App\\Support\\Drift\:\:for\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Dashboard.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$archived_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$current_release_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$github_owner\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$github_repo\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$project\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ssh_alias\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:canRollBackTo\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:hasGitHub\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:steps\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Method App\\Livewire\\Deployments\\Show\:\:convertedRelease\(\) should return App\\Models\\Release\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Method App\\Livewire\\Deployments\\Show\:\:rollbackTarget\(\) should return App\\Models\\Release\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Parameter \#1 \$target of callable App\\Actions\\Deployments\\StartDeployment expects App\\Models\\Target, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Livewire/Deployments/Show.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\Convert\:\:\$target\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Livewire/Projects/Convert.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\DeployDialog\:\:\$ci\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Projects/DeployDialog.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\DeployDialog\:\:\$commits\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Projects/DeployDialog.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\DeployDialog\:\:\$project\.$#'
+			identifier: property.notFound
+			count: 10
+			path: app/Livewire/Projects/DeployDialog.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\DeployDialog\:\:\$resolution\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Projects/DeployDialog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/Projects/DeployDialog.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Projects/DeployDialog.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\Environment\:\:\$file\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Livewire/Projects/Environment.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\Environment\:\:\$project\.$#'
+			identifier: property.notFound
+			count: 13
+			path: app/Livewire/Projects/Environment.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\Environment\:\:\$targets\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Livewire/Projects/Environment.php
+
+		-
+			message: '#^Parameter \#1 \$credential of static method App\\Platform\\GitHub\\GitHubClient\:\:for\(\) expects App\\Models\\Credential, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Projects/Environment.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\Hooks\:\:\$project\.$#'
+			identifier: property.notFound
+			count: 11
+			path: app/Livewire/Projects/Hooks.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\Import\:\:\$githubRepositories\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Livewire/Projects/Import.php
+
+		-
+			message: '#^Offset ''branch'' on array\{owner\: string, repo\: string, remote\: string\|null, transport\: string, private\?\: bool, default_branch\?\: string\}\|null on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/Projects/Import.php
+
+		-
+			message: '#^Parameter \#2 \$targets of static method App\\Support\\GreenBuild\:\:for\(\) expects iterable\<App\\Models\\Target\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Projects/Index.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\Releases\:\:\$project\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Livewire/Projects/Releases.php
+
+		-
+			message: '#^Parameter \#1 \$target of method App\\Livewire\\Projects\\Releases\:\:startRun\(\) expects App\\Models\\Target, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Livewire/Projects/Releases.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:active\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Projects/Show.php
+
+		-
+			message: '#^Offset ''enabled'' on array\{key\: string, enabled\: bool\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/Projects/Show.php
+
+		-
+			message: '#^Parameter \#1 \$credential of static method App\\Platform\\GitHub\\GitHubClient\:\:for\(\) expects App\\Models\\Credential, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Projects/Show.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Projects\\Targets\:\:\$project\.$#'
+			identifier: property.notFound
+			count: 9
+			path: app/Livewire/Projects/Targets.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:diskFor\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Projects/Targets.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Servers\\Create\:\:\$hosts\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Livewire/Servers/Create.php
+
+		-
+			message: '#^Access to an undefined property App\\Livewire\\Servers\\Folders\:\:\$server\.$#'
+			identifier: property.notFound
+			count: 7
+			path: app/Livewire/Servers/Folders.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Servers/Folders.php
+
+		-
+			message: '#^Parameter \#1 \$mapping of callable App\\Actions\\Folders\\StartFolderSync expects App\\Models\\FolderMapping, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Servers/Folders.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$captured_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Servers/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$stacks\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Livewire/Servers/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:diskFor\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Servers/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:active\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: app/Livewire/Servers/Show.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Support\\HigherOrderCollectionProxy\<string, Illuminate\\Database\\Eloquent\\Model, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\>\>\:\:memoryUsedPercent\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Servers/Show.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>stacks" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Livewire/Servers/Show.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$finished_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$kind\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$slug\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Parameter \#1 \$release of static method App\\Mcp\\Describe\:\:release\(\) expects App\\Models\\Release, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Parameter \#1 \$time of static method App\\Mcp\\Describe\:\:time\(\) expects Illuminate\\Support\\Carbon\|null, Carbon\\Carbon given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Parameter \#1 \$time of static method App\\Mcp\\Describe\:\:time\(\) expects Illuminate\\Support\\Carbon\|null, Carbon\\Carbon\|null given\.$#'
+			identifier: argument.type
+			count: 8
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Parameter \#2 \$project of static method App\\Mcp\\Describe\:\:release\(\) expects App\\Models\\Project, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Enums\\EnvTag\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Enums\\ServerStatus\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Using nullsafe property access on non\-nullable type App\\Enums\\TargetHealth\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Mcp/Describe.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$slug\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Mcp/Find.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:active\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Mcp/Find.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Mcp/Tools/Deploy.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<string, mixed\>, Closure\(App\\Models\\DeploymentStep\)\: array\<string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Mcp/Tools/GetDeployment.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:active\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Mcp/Tools/GetProject.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: non\-empty\-array\<string, mixed\>, Closure\(App\\Models\\Release\)\: non\-empty\-array\<string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Mcp/Tools/GetProject.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:active\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Mcp/Tools/GetServer.php
+
+		-
+			message: '#^Parameter \#1 \$snapshot of static method App\\Mcp\\Describe\:\:snapshot\(\) expects App\\Models\\ServerSnapshot\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Mcp/Tools/GetServer.php
+
+		-
+			message: '#^Parameter \#1 \$time of static method App\\Mcp\\Describe\:\:time\(\) expects Illuminate\\Support\\Carbon\|null, Carbon\\Carbon given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Mcp/Tools/ListAudit.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<string, mixed\>, Closure\(App\\Models\\Target\)\: array\<string, mixed\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Mcp/Tools/ListProjects.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$captured_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Mcp/Tools/ListServers.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$cpu_usage\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Mcp/Tools/ListServers.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:memoryUsedPercent\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Mcp/Tools/ListServers.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Server\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Mcp/Tools/ListServers.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>commit" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Mcp/Tools/PlanDeploy.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Mcp/Tools/Rollback.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 7
+			path: app/Mcp/Tools/Rollback.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:canRollBackTo\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Mcp/Tools/Rollback.php
+
+		-
+			message: '#^Method App\\Models\\Deployment\:\:logLines\(\) should return Illuminate\\Support\\Collection\<int, object\{seq\: int, step_key\: string\|null, stream\: string, line\: string, logged_at\: string\}\> but returns Illuminate\\Support\\Collection\<int, stdClass\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Models/Deployment.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$default_deploy_path\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/Target.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$versionable\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Models/Target.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:inReleasesFolder\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Models/Target.php
+
+		-
+			message: '#^Offset ''type'' on array\{path\: string, type\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Platform/Detection/GitHubFiles.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Support\\Carbon\:\:forViewer\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Platform/GitHub/GitHubException.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$ssh_alias\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Platform/Sync/RsyncCommand.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Support/Alert.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 3
+			path: app/Support/Alert.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Audit.php
+
+		-
+			message: '#^Parameter \#1 \$credential of static method App\\Platform\\GitHub\\GitHubClient\:\:for\(\) expects App\\Models\\Credential, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Support/BranchCommits.php
+
+		-
+			message: '#^Offset ''alias'' does not exist on array\{owner\: string, repo\: string, remote\: string\|null, transport\: ''alias'', private\?\: bool, default_branch\?\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: app/Support/DetectionReport.php
+
+		-
+			message: '#^Offset ''branch'' does not exist on array\{owner\: string, repo\: string, remote\: string\|null, transport\: string, private\?\: bool, default_branch\?\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: app/Support/DetectionReport.php
+
+		-
+			message: '#^Offset ''ci'' on array\{owner\: string, repo\: string, remote\: string\|null, transport\: string, private\?\: bool, default_branch\?\: string\} in isset\(\) does not exist\.$#'
+			identifier: isset.offset
+			count: 1
+			path: app/Support/DetectionReport.php
+
+		-
+			message: '#^Offset ''ci'' on array\{owner\: string, repo\: string, remote\: string\|null, transport\: string, private\?\: bool, default_branch\?\: string\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/DetectionReport.php
+
+		-
+			message: '#^Offset ''commits'' on array\{owner\: string, repo\: string, remote\: string\|null, transport\: string, private\?\: bool, default_branch\?\: string\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/DetectionReport.php
+
+		-
+			message: '#^Offset ''head'' on array\{owner\: string, repo\: string, remote\: string\|null, transport\: string, private\?\: bool, default_branch\?\: string\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/DetectionReport.php
+
+		-
+			message: '#^Offset ''name'' on null on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/DetectionReport.php
+
+		-
+			message: '#^Offset ''number'' on null on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/DetectionReport.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 2
+			path: app/Support/DetectionReport.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between null and null will always evaluate to false\.$#'
+			identifier: notIdentical.alwaysFalse
+			count: 2
+			path: app/Support/DetectionReport.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between \*NEVER\* and App\\Enums\\CiState\:\:Failing will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Support/DetectionReport.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isReserved\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Support/FolderMappingRules.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/GreenBuild.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Support/GreenBuild.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>value" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Support/Settings.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\View\\ViewFinderInterface\:\:getHints\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Support/Ui.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\View\\ViewFinderInterface\:\:getPaths\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Support/Ui.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\View\\ViewFinderInterface\:\:prependLocation\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Support/Ui.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\View\\ViewFinderInterface\:\:setPaths\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Support/Ui.php
+
+		-
+			message: '#^Parameter \#2 \$instance of method Illuminate\\Container\\Container\:\:instance\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Support/Ui.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>ui" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Support/Ui.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_message\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$commit_sha\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$health\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$slug\.$#'
+			identifier: property.notFound
+			count: 20
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:active\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:canRollBackTo\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:isActive\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:shortSha\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:active\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<array\{value\: string, label\: string, hint\?\: string, tone\?\: string\}\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Target\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Terminal/Shell.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Terminal/Shell.php

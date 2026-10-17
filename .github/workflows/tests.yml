@@ -1,0 +1,113 @@
+# Formatting (pint), static analysis (phpstan) and the Pest suite, on every push
+# and pull request. It mirrors how the tests run locally (make test, in the PHP
+# image): the same PHP extensions and command-line tools, PostgreSQL 18, and the
+# ssh-integration group left out, since that one needs the sandbox sshd
+# (make sandbox).
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: deployme
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: deployme_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U deployme -d deployme_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      # Not used by the tests themselves (cache, queue and sessions are in
+      # memory), but a job that names the redis-deploys or redis-probes queue
+      # connection opens it when it isn't faked.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    # phpunit.xml sets APP_ENV, the cache, queue, session and broadcast drivers
+    # and the database name; <env> there doesn't override what is already in the
+    # environment, so the values below are the ones that count.
+    env:
+      TZ: Europe/Kyiv
+      APP_ENV: testing
+      # A throwaway key (32 bytes of "a"), only for this job.
+      APP_KEY: base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: deployme_test
+      DB_USERNAME: deployme
+      DB_PASSWORD: secret
+      REDIS_HOST: 127.0.0.1
+      QUEUE_CONNECTION: sync
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      BROADCAST_CONNECTION: "null"
+
+    defaults:
+      run:
+        working-directory: src/api
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # The scripts the deploy tests run use bash, ssh, rsync, git, curl and
+      # zstd; the runner image has most of them, this makes sure of the rest.
+      - name: Command-line tools
+        working-directory: .
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bash curl git jq openssh-client postgresql-client rsync tar zstd
+
+      # What the PHP image has outside PHP: the git askpass helper, and the
+      # directory ssh keeps its compiled config in (a tmpfs there).
+      - name: Host paths
+        working-directory: .
+        run: |
+          sudo install -m 0755 core/local/php/git-askpass /usr/local/bin/deployme-git-askpass
+          sudo install -d -m 0700 -o "$(id -un)" -g "$(id -gn)" /run/deployme
+          mkdir -p src/api/bootstrap/cache src/api/storage/framework/{cache,sessions,testing,views} src/api/storage/logs
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: "8.5"
+          extensions: bcmath, ctype, curl, dom, fileinfo, intl, mbstring, openssl, pcntl, pdo_pgsql, pgsql, redis, sockets, tokenizer, xml, zip
+          ini-values: date.timezone=Europe/Kyiv, memory_limit=1G
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Formatting (pint)
+        run: vendor/bin/pint --test
+
+      - name: Static analysis (phpstan)
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+      - name: Tests (Pest)
+        run: php artisan test --exclude-group=ssh-integration

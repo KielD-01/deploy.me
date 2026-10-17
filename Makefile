@@ -93,6 +93,11 @@ sandbox: .env ## Start the local SSH sandbox server (alias "sandbox" in Add serv
 test-ssh: .env ## Run the SSH integration tests against the sandbox
 	$(WEB) php artisan test --group=ssh-integration
 
+.PHONY: lint
+lint: .env ## Check formatting (pint) and static analysis (phpstan)
+	$(WEB) vendor/bin/pint --test
+	$(WEB) vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
 migrate: .env ## Run migrations
 	$(WEB) php artisan migrate
 
