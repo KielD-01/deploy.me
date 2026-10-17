@@ -53,6 +53,9 @@ jobs:
     # environment, so the values below are the ones that count.
     env:
       TZ: Europe/Kyiv
+      # Pest cuts its lines at the terminal's width (80 without one): a failure's
+      # reason would otherwise end in an ellipsis in the log.
+      COLUMNS: "220"
       APP_ENV: testing
       # A throwaway key (32 bytes of "a"), only for this job.
       APP_KEY: base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=

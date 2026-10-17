@@ -54,8 +54,8 @@ use RuntimeException;
  *   php artisan db:seed --class=DemoSeeder
  *
  * Only on an empty database: it refuses where servers or projects exist. The
- * projects live in DEMO_HOME/Projects (/Users/demo by default), which has to
- * be in DEPLOYME_PROJECT_ROOTS, with DEPLOYME_HOST_HOME=DEMO_HOME.
+ * projects live in the host home's Projects folder (DEPLOYME_HOST_HOME, or
+ * DEMO_HOME to seed somewhere else), which has to be in DEPLOYME_PROJECT_ROOTS.
  */
 class DemoSeeder extends Seeder
 {
@@ -80,7 +80,10 @@ class DemoSeeder extends Seeder
             throw new RuntimeException('DemoSeeder only fills an empty database.');
         }
 
-        $this->home = rtrim((string) env('DEMO_HOME', '/Users/demo'), '/');
+        // The demo home is the host home (DEPLOYME_HOST_HOME, or DEMO_HOME for
+        // a seed on the side): the projects go in its Projects folder, which
+        // has to be one of the project roots.
+        $this->home = rtrim((string) (env('DEMO_HOME') ?: config('deployme.host_home') ?: '/Users/demo'), '/');
         if (! in_array("{$this->home}/Projects", config('deployme.project_roots'), true)) {
             throw new RuntimeException("Put {$this->home}/Projects in DEPLOYME_PROJECT_ROOTS first.");
         }

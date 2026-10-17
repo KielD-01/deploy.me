@@ -10,7 +10,8 @@ use Database\Seeders\DemoSeeder;
 // The demo the gallery's screenshots come from: it has to keep running
 // through deploy.me's own code as that changes.
 it('seeds the demo: servers, projects and a week of runs', function () {
-    config(['deployme.project_roots' => ['/Users/demo/Projects'], 'deployme.host_home' => '/Users/demo']);
+    $home = sys_get_temp_dir().'/deployme-demo-'.bin2hex(random_bytes(4));
+    config(['deployme.project_roots' => ["{$home}/Projects"], 'deployme.host_home' => $home]);
 
     $this->seed(DemoSeeder::class);
 

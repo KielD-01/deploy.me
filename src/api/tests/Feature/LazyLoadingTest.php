@@ -47,7 +47,8 @@ it('lists projects without hydrating their detection', function () {
 // on the demo's data (three servers, three projects, a week of runs) rather
 // than on the one-row fixtures most tests use.
 it('renders every page on the demo data without a lazy load', function (string $theme) {
-    config(['deployme.project_roots' => ['/Users/demo/Projects'], 'deployme.host_home' => '/Users/demo']);
+    $home = sys_get_temp_dir().'/deployme-demo-'.bin2hex(random_bytes(4));
+    config(['deployme.project_roots' => ["{$home}/Projects"], 'deployme.host_home' => $home]);
     $this->seed(DemoSeeder::class);
     // The seeder signs its user out when it is done.
     $this->actingAs($this->user);
