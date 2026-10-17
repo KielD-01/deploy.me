@@ -161,7 +161,7 @@ final class Shell
         $targets = Target::query()->active()
             ->whereHas('project', fn ($query) => $query->whereNull('archived_at'))
             ->whereHas('server', fn ($query) => $query->whereNull('archived_at'))
-            ->with(['project', 'server', 'currentRelease', 'latestDeployment', 'healthChecks' => fn ($query) => $query->latest('checked_at')->limit(30)])
+            ->with(['project', 'server', 'currentRelease', 'latestDeployment', 'healthChecks' => fn ($query) => $query->latest('checked_at')->limit(16)])
             ->get()
             ->sortBy(fn (Target $target) => $target->project->name.'@'.$target->server->name);
 
@@ -192,7 +192,7 @@ final class Shell
         $failing = $targets->where('health', TargetHealth::Unhealthy)->count();
 
         return (new Output)
-            ->table(['', 'TARGET', 'LIVE', 'HEALTH (OLDEST → NEWEST)', 'LAST RUN'], $rows)
+            ->table(['', 'TARGET', 'LIVE', 'HEALTH', 'LAST RUN'], $rows)
             ->line([' '.$targets->count().' targets · '.$running.' running · '.$failing.' failing', 't-mute']);
     }
 
@@ -319,7 +319,7 @@ final class Shell
             $out = (new Output)->box('plan', [
                 [[$project->slug.' → '.$target->server->slug, 't-b'], ['   '.$live.' → ', 't-mute'], [$to, 't-run']],
                 [['strategy  ', 't-mute'], [$plan['strategy'] ?? ($plan['waits_for'] ? 'waits for '.$plan['waits_for'] : 'none applies'), $plan['strategy'] ? '' : 't-warn']],
-                [['why       ', 't-mute'], [mb_strimwidth((string) $plan['reason'], 0, 64, '…'), 't-faint']],
+                [['why       ', 't-mute'], [(string) $plan['reason'], 't-faint']],
                 [['migrate   ', 't-mute'], [$migrates ? (isset($flags['skip-migrations']) ? 'skipped' : 'yes'.($backup ? ', pg_dump first' : ', no backup')) : 'no', $migrates ? 't-warn' : 't-mute']],
                 [['safety    ', 't-mute'], [($project->auto_rollback ? 'auto-rollback on' : 'auto-rollback off').' · lock on '.$target->path, 't-mute']],
             ]);

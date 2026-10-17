@@ -1,7 +1,7 @@
 {{-- A shell pane (App\Livewire\Console\Shell). The prompt is Alpine (consoleShell): history on ↑↓,
      Tab to complete, ↑↓ and Enter to pick when a command asks. --}}
 <div class="h-full flex flex-col outline-none" x-data="consoleShell" tabindex="-1" x-on:click="focus()" x-on:keydown="pickKey($event)">
-    <div class="term term-wrap flex-1 overflow-y-auto" x-ref="screen">
+    <div class="term-screen flex-1 overflow-y-auto" x-ref="screen">
         @foreach ($screen as $entry)
             @if ($entry['prompt'] !== null)
                 <span class="block"><span class="t-ok">deploy@local</span><span class="t-mute">:</span><span class="t-run">~</span><span class="t-mute">$ </span>{{ $entry['prompt'] }}</span>

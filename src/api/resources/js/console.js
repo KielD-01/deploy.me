@@ -24,7 +24,11 @@ export const tmuxKeys = (windows) => ({
         if (!this.prefix) return;
 
         this.prefix = false;
-        const key = event.key;
+        // The physical key decides for the shifted ones, so % and " work on any layout.
+        let key = event.key;
+        if (event.shiftKey && event.code === 'Digit5') key = '%';
+        if (event.shiftKey && event.code === 'Quote') key = '"';
+        if (event.shiftKey && /^Digit\d$/.test(event.code) && key !== '%') return;
         const send = (action, extra = {}) => window.dispatchEvent(new CustomEvent('tmux', { detail: { action, ...extra } }));
 
         if (/^[0-9]$/.test(key) && windows[Number(key)]) {
@@ -70,10 +74,14 @@ export const tmuxSession = () => ({
 
     handle({ action, dir }) {
         const panes = this.panes();
-        if (!panes.includes(this.active)) this.active = panes[0];
+        if (!panes.includes(this.active)) this.active = panes[0] ?? null;
 
         if (action === 'split') this.$wire.split(this.active, dir);
-        if (action === 'close' && panes.length > 1) this.$wire.close(this.active);
+        if (action === 'close' && panes.length > 1) {
+            const closing = this.active;
+            this.active = panes.find((pane) => pane !== closing);
+            this.$wire.close(closing);
+        }
         if (action === 'zoom') this.zoom(this.active);
         if (action === 'next') this.active = panes[(panes.indexOf(this.active) + 1) % panes.length];
         if (action === 'layout') this.$wire.load(['ops', 'deploy', 'watch'][++this.layoutIndex % 3]);

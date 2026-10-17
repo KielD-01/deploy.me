@@ -80,21 +80,43 @@ final class Output
     }
 
     /**
-     * A box drawn with box-drawing characters, a title in its top border.
+     * A box drawn with box-drawing characters, a title in its top border. It
+     * stays narrow enough for a split pane: rows longer than that are cut.
      *
      * @param  list<list<array{0: string, 1: string}>>  $rows
      */
-    public function box(string $title, array $rows): self
+    public function box(string $title, array $rows, int $max = 58): self
     {
+        $rows = array_map(fn (array $row) => self::crop($row, $max), $rows);
         $width = max(mb_strlen($title) + 4, ...array_map(fn (array $row) => array_sum(array_map(fn ($segment) => mb_strlen($segment[0]), $row)), $rows ?: [[]]));
-        $this->line(['  ┌─ '.$title.' '.str_repeat('─', max(0, $width - mb_strlen($title) - 2)).'┐', 't-mute']);
+        $this->line(['┌─ '.$title.' '.str_repeat('─', max(0, $width - mb_strlen($title) - 2)).'┐', 't-mute']);
 
         foreach ($rows as $row) {
             $used = array_sum(array_map(fn ($segment) => mb_strlen($segment[0]), $row));
-            $this->lines[] = [['  │ ', 't-mute'], ...$row, [str_repeat(' ', max(0, $width - $used)).' │', 't-mute']];
+            $this->lines[] = [['│ ', 't-mute'], ...$row, [str_repeat(' ', max(0, $width - $used)).' │', 't-mute']];
         }
 
-        return $this->line(['  └'.str_repeat('─', $width + 2).'┘', 't-mute']);
+        return $this->line(['└'.str_repeat('─', $width + 2).'┘', 't-mute']);
+    }
+
+    /**
+     * @param  list<array{0: string, 1: string}>  $row
+     * @return list<array{0: string, 1: string}>
+     */
+    private static function crop(array $row, int $max): array
+    {
+        $left = $max;
+        $cropped = [];
+
+        foreach ($row as [$text, $tone]) {
+            if ($left <= 0) {
+                break;
+            }
+            $cropped[] = [mb_strlen($text) > $left ? mb_substr($text, 0, $left - 1).'…' : $text, $tone];
+            $left -= mb_strlen($text);
+        }
+
+        return $cropped;
     }
 
     private static function pad(string $text, int $width): string

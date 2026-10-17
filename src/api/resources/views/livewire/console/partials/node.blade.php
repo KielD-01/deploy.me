@@ -10,7 +10,7 @@
                 <button type="button" wire:click="split(@js($node['id']), 'col')" title="Split down (⌃b &quot;)" aria-label="Split down">"</button>
                 <button type="button" x-on:click="zoom(@js($node['id']))" title="Zoom (⌃b z)" aria-label="Zoom">z</button>
                 @unless ($only)
-                    <button type="button" wire:click="close(@js($node['id']))" title="Close (⌃b x)" aria-label="Close">x</button>
+                    <button type="button" x-on:click.stop="active = null; $wire.close(@js($node['id']))" title="Close (⌃b x)" aria-label="Close">x</button>
                 @endunless
             </span>
         </div>

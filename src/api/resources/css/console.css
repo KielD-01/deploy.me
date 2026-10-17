@@ -192,6 +192,20 @@
         color: var(--color-base-content);
     }
 
+    /* A shell's screen: each printed line keeps its spaces, the template's don't count. */
+    .term-screen {
+        padding: 8px 12px;
+        line-height: 1.65;
+        white-space: normal;
+        color: var(--color-base-content);
+    }
+
+    .term-screen > .block,
+    .term-screen > span.block {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
     .term-wrap {
         white-space: pre-wrap;
         overflow-wrap: anywhere;
