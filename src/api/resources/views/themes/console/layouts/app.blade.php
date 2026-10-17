@@ -68,7 +68,7 @@
     <footer class="tmux-status" aria-label="Session">
         <span class="is-session">deploy.me</span>
         @foreach ($windows as $index => [$route, $pattern, $label])
-            <a href="{{ route($route) }}" wire:navigate @class(['is-current' => $current === $index])>{{ $index }}:{{ $label }}{{ $current === $index ? '*' : '' }}</a>
+            <a href="{{ route($route) }}" wire:navigate title="F{{ $index + 1 }} · ⌃b {{ $index }}" @class(['is-current' => $current === $index])>{{ $index }}:{{ $label }}{{ $current === $index ? '*' : '' }}</a>
         @endforeach
         <span class="ml-auto flex gap-3">
             @if ($failing > 0)<span class="t-err">● {{ $failing }} failing</span>@endif
@@ -94,7 +94,7 @@
         <div>
             <div class="tmux-title"><b>⌃b ?</b><span>keys · the prefix is ⌃b, like tmux · esc closes</span></div>
             <pre class="term"><span class="t-b">panes</span>    <span class="t-run">%</span> split right   <span class="t-run">"</span> split down   <span class="t-run">o</span> next   <span class="t-run">z</span> zoom   <span class="t-run">x</span> close
-<span class="t-b">windows</span>  <span class="t-run">0-5</span> go   <span class="t-run">n p</span> next/prev   <span class="t-run">w</span> tree
+<span class="t-b">windows</span>  <span class="t-run">0-5</span> go   <span class="t-run">n p</span> next/prev   <span class="t-run">w</span> tree   <span class="t-mute">or</span> <span class="t-run">F1-F6</span> <span class="t-mute">without ⌃b</span>
 <span class="t-b">layouts</span>  <span class="t-run">L</span> next saved layout (ops, deploy, watch)
 <span class="t-b">shell</span>    <span class="t-run">/</span> focus the shell · type <span class="t-b">help</span> for its commands
 <span class="t-b">mouse</span>    <span class="t-mute">drag a border to resize · click a pane to focus · everything works without the keys too</span></pre>

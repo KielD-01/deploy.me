@@ -17,6 +17,15 @@ export const tmuxKeys = (windows) => ({
             this.timer = setTimeout(() => (this.prefix = false), 1500);
             return;
         }
+        // F1–F6 go straight to a window, no prefix (on a Mac keyboard that may take fn).
+        const fkey = /^F(\d)$/.exec(event.key);
+        if (fkey && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && windows[Number(fkey[1]) - 1]) {
+            event.preventDefault();
+            this.prefix = false;
+            this.overlay = null;
+            window.Livewire.navigate(windows[Number(fkey[1]) - 1]);
+            return;
+        }
         if (event.key === 'Escape' && this.overlay) {
             this.overlay = null;
             return;
