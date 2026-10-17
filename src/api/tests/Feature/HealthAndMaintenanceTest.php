@@ -30,7 +30,9 @@ use App\Platform\Ssh\SshClient;
 use App\Platform\Ssh\SshResult;
 use App\Platform\Ssh\Testing\FakeSshClient;
 use App\Support\Settings;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -196,6 +198,30 @@ it('moves old logs into archives and still serves them', function () {
         Livewire::test(RunPage::class, ['deployment' => $run->refresh()])->assertSee('This run’s log was archived.');
     } finally {
         @unlink(LogArchive::path($run->id));
+    }
+});
+
+it('archives every old log in one night, however many there are', function () {
+    $storage = sys_get_temp_dir().'/deployme-archives-'.bin2hex(random_bytes(4));
+    $this->app->useStoragePath($storage);
+    $target = demoTarget();
+    $finished = now()->subDays(20);
+
+    // More runs than one page of the walk through them.
+    $ids = collect(range(1, 1200))->map(fn () => DB::table('deployments')->insertGetId([
+        'target_id' => $target->id, 'project_id' => $target->project_id, 'server_id' => $target->server_id,
+        'kind' => DeploymentKind::Deploy->value, 'status' => DeploymentStatus::Succeeded->value, 'trigger' => 'manual',
+        'finished_at' => $finished, 'created_at' => $finished, 'updated_at' => $finished,
+    ]));
+    DB::table('deployment_logs')->insert($ids->map(fn (int $id) => [
+        'deployment_id' => $id, 'seq' => 1, 'stream' => 'out', 'line' => '✓ done', 'logged_at' => $finished,
+    ])->all());
+
+    try {
+        expect(app(PruneOldData::class)()['archived'])->toBe(1200)
+            ->and(DB::table('deployment_logs')->count())->toBe(0);
+    } finally {
+        File::deleteDirectory($storage);
     }
 });
 

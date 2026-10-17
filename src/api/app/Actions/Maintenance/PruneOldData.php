@@ -32,8 +32,9 @@ class PruneOldData
             ->whereNotIn('status', DeploymentStatus::ACTIVE)
             ->where('finished_at', '<', now()->subDays(Settings::int('log_retention_days')))
             ->whereExists(fn ($query) => $query->select(DB::raw(1))->from('deployment_logs')->whereColumn('deployment_logs.deployment_id', 'deployments.id'))
-            ->orderBy('id')
-            ->each(function (Deployment $deployment) use (&$archived): void {
+            // By id, not by page: an archived run no longer matches, and paging
+            // by offset would skip as many runs as it had just archived.
+            ->eachById(function (Deployment $deployment) use (&$archived): void {
                 if (LogArchive::write($deployment)) {
                     DB::table('deployment_logs')->where('deployment_id', $deployment->id)->delete();
                     $archived++;
