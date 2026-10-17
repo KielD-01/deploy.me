@@ -186,6 +186,39 @@ it('runs a failed deploy again, or picks it up from the step that failed', funct
     expect(Deployment::query()->latest('id')->first()->options)->toBe(['backup' => true, 'commit' => str_repeat('b', 40)]);
 });
 
+it('asks before a single key starts a run on the server', function () {
+    // The tag of the button a page key clicks.
+    $button = function (string $html, string $key): string {
+        preg_match('/<button[^>]*data-key="'.preg_quote($key, '/').'"[^>]*>/', $html, $match);
+
+        return $match[0] ?? '';
+    };
+    $target = demoTarget();
+    $release = Release::factory()->create(['target_id' => $target->id, 'name' => '20260902-100000', 'status' => ReleaseStatus::Failed]);
+    $failed = Deployment::factory()->create([
+        'target_id' => $target->id, 'kind' => DeploymentKind::Deploy, 'status' => DeploymentStatus::Failed,
+        'strategy' => 'push_archive', 'commit_sha' => str_repeat('b', 40), 'release_id' => $release->id,
+    ]);
+    foreach (['resolve' => 'succeeded', 'upload' => 'failed', 'unlock' => 'succeeded'] as $key => $status) {
+        $failed->steps()->create(['key' => $key, 'label' => ucfirst($key), 'position' => $failed->steps()->count(), 'status' => $status]);
+    }
+    $waiting = Deployment::factory()->create([
+        'target_id' => Target::factory()->create(['project_id' => $target->project_id])->id, 'status' => DeploymentStatus::WaitingCi,
+        'strategy_trace' => [
+            ['key' => 'ghcr_image', 'label' => 'GHCR image', 'state' => 'pending', 'reason' => 'CI is still running.'],
+            ['key' => 'push_archive', 'label' => 'Push archive', 'state' => 'applicable', 'reason' => 'The commit, as an archive.'],
+        ],
+    ]);
+    inConsole();
+
+    $html = Livewire::test(RunPage::class, ['deployment' => $failed])->html();
+    expect($button($html, 'R'))->toContain('wire:click="retryFrom"')->toContain('wire:confirm=')
+        ->and($button($html, 'r'))->toContain('wire:click="retry"')->toContain('wire:confirm=');
+
+    expect($button(Livewire::test(RunPage::class, ['deployment' => $waiting])->html(), 'n'))
+        ->toContain('wire:click="deployNow"')->toContain('wire:confirm=');
+});
+
 it('rolls back to the release a deploy replaced', function () {
     $target = demoTarget();
     $previous = Release::factory()->create(['target_id' => $target->id, 'name' => '20260901-100000']);

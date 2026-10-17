@@ -55,7 +55,8 @@
             <nav class="con-keys" aria-label="Keys">
                 @if ($deployment->isActive())
                     @if ($fallback)
-                        <button type="button" class="con-key is-go" data-key="n" wire:click="deployNow"><kbd>n</kbd> deploy now with {{ Str::lower($fallback->label()) }}</button>
+                        <button type="button" class="con-key is-go" data-key="n" wire:click="deployNow"
+                                wire:confirm="Deploy to {{ $server->name }} now with {{ Str::lower($fallback->label()) }}, without waiting for CI?"><kbd>n</kbd> deploy now with {{ Str::lower($fallback->label()) }}</button>
                     @endif
                     <button type="button" class="con-key is-danger" data-key="c" wire:click="cancel" @disabled($deployment->cancel_requested_at)
                             wire:confirm="Cancel this run? It stops at its next check and gives the folder’s lock back.">
@@ -63,13 +64,14 @@
                     </button>
                 @else
                     @if ($resume)
+                        {{-- One key starts a run on the server: it asks first, like every key that does. --}}
                         <button type="button" class="con-key is-go" data-key="R" wire:click="retryFrom"
-                                @if ($resume->switchesBack) wire:confirm="Switch {{ $server->name }} to release {{ $release?->name }} again, and retry from {{ Str::lcfirst($resume->label) }}?" @endif>
+                                wire:confirm="{{ $resume->switchesBack ? "Switch {$server->name} to release {$release?->name} again, and retry from ".Str::lcfirst($resume->label).'?' : "Retry on {$server->name} from ".Str::lcfirst($resume->label).'?' }}">
                             <kbd>R</kbd> retry from {{ Str::lcfirst($resume->label) }}
                         </button>
                     @endif
                     @if ($canRetry)
-                        <button type="button" class="con-key" data-key="r" wire:click="retry"><kbd>r</kbd> {{ $again }}</button>
+                        <button type="button" class="con-key" data-key="r" wire:click="retry" wire:confirm="{{ Str::ucfirst($again) }} on {{ $server->name }}?"><kbd>r</kbd> {{ $again }}</button>
                     @endif
                     @if ($rollbackTo)
                         <button type="button" class="con-key" data-key="b" wire:click="rollBack"
