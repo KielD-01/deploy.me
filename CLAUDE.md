@@ -78,8 +78,10 @@ doesn't wait for `make migrate`.
 
 - **Sign-in is a passkey or a password** (Fortify passkeys → `laravel/passkeys`, browser
   side `@laravel/passkeys` in `resources/js/passkeys.js`). One account; no email resets.
-  While none exists the sign-in page offers `/setup` (`SetupController`, under a cache lock,
-  off with `DEPLOYME_WEB_SETUP=false`), which creates it and goes on like an enroll link.
+  While none exists, `make setup` (so `make init`) prints the first enroll link. The sign-in
+  page can offer `/setup` instead (`SetupController`, under a cache lock), which creates the
+  account and hands it an enroll link — but only with `DEPLOYME_WEB_SETUP=true`: off by
+  default, since anything that reaches the web container could claim the account first.
   `deployme:enroll` prints a one-time link (`App\Auth\EnrollmentLinks`) that
   signs in and counts as a confirmation; Settings → Account then registers a passkey or sets
   a password. Password sign-in accepts only a password its owner chose
@@ -342,8 +344,10 @@ doesn't wait for `make migrate`.
     edited in Settings → Alerts with a test message. Nothing there may fail what it
     reports on: every call is wrapped in `rescue(…, report: false)` and `Alert::send()`
     logs and swallows whatever Telegram says.
-  - The dashboard compares each target's live commit with its branch head (`Drift`: the
-    local repo, the GitHub mirror, or the last CI run). `GreenBuild` is the cheaper
+  - The dashboard shows how far each target's live commit is behind its branch head. `Drift`
+    measures it (the local repo, the GitHub mirror, or the last CI run) in the `RefreshDrift`
+    job, every minute and after a CI poll finds something new, and the result is kept on the
+    target (`drift_*` columns), so no page spawns git. `GreenBuild` is the cheaper
     question the projects list and the project page ask: has CI passed on a commit no
     server here runs yet?
 - **Audit log** (`app/Support/Audit`, `app/Models/AuditEntry`, `app/Livewire/Audit`): who

@@ -62,13 +62,14 @@ two stack modes, are in **[install.md](install.md)**.
 
 deploy.me has one account per machine. There are two ways to create it:
 
-- **In the browser.** While there's no account, https://deployme.localhost offers
-  **Create your account**: your name and email, then the next step.
-- **In a terminal.** `make enroll` prints a one-time link that works once, for 15 minutes.
+- **In a terminal.** `make setup` (part of `make init` and `bin/install`) prints a one-time
+  link that works once, for 15 minutes; `make enroll` prints a new one whenever you need it.
+- **In the browser.** With `DEPLOYME_WEB_SETUP=true` in `src/api/.env`, while there's no
+  account, https://deployme.localhost offers **Create your account**: your name and email,
+  then the link that signs you in. It's off by default, because until the account exists
+  anything that can reach the web container could claim it before you do.
 
 Once the account exists, the browser page is gone and nobody can create another.
-`bin/install` uses the terminal way. To allow only that way, put `DEPLOYME_WEB_SETUP=false`
-in `src/api/.env`: then nothing on your machine can claim the account before you do.
 
 Either way, you then choose how you'll sign in:
 
