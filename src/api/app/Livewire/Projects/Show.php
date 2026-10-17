@@ -10,6 +10,7 @@ use App\Enums\Activation;
 use App\Enums\AuditAction;
 use App\Enums\ProjectSource;
 use App\Jobs\PollCiStatus;
+use App\Livewire\Concerns\ConfirmsIdentity;
 use App\Models\AuditEntry;
 use App\Models\Credential;
 use App\Models\Project;
@@ -31,6 +32,8 @@ use Livewire\Component;
 
 class Show extends Component
 {
+    use ConfirmsIdentity;
+
     public const TABS = ['targets' => 'Targets', 'releases' => 'Releases', 'environment' => 'Environment', 'hooks' => 'Hooks', 'settings' => 'Settings'];
 
     public Project $project;
@@ -245,6 +248,23 @@ class Show extends Component
             return;
         }
 
+        // What runs on the server as the ssh user, at the next deploy or
+        // health check: changing it asks for a passkey, like a token does.
+        $commands = [
+            'health_command' => trim($this->healthCommand) !== '' ? trim($this->healthCommand) : null,
+            'activation' => $this->activation,
+            'activation_script' => $this->activationScript !== '' ? $this->activationScript : null,
+        ];
+        $stored = [
+            'health_command' => $this->project->health_command,
+            'activation' => $this->project->activation->value,
+            'activation_script' => $this->project->activation_script,
+        ];
+
+        if ($commands !== $stored && ! $this->confirmIdentity(route('projects.show', ['project' => $this->project, 'tab' => 'settings']))) {
+            return;
+        }
+
         $branchChanged = $this->branch !== $this->project->branch;
 
         $this->project->fill([
@@ -265,12 +285,12 @@ class Show extends Component
             'wait_for_ci' => $this->waitForCi,
             'auto_deploy' => $this->autoDeploy,
             'health_url' => $this->healthUrl !== '' ? $this->healthUrl : null,
-            'health_command' => trim($this->healthCommand) !== '' ? trim($this->healthCommand) : null,
+            'health_command' => $commands['health_command'],
             'health_timeout' => (int) $this->healthTimeout,
             'auto_rollback' => $this->autoRollback,
             'blue_green' => $this->blueGreen,
-            'activation' => $this->activation,
-            'activation_script' => $this->activationScript !== '' ? $this->activationScript : null,
+            'activation' => $commands['activation'],
+            'activation_script' => $commands['activation_script'],
             'credential_id' => $credential?->id,
         ]);
 

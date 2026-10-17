@@ -5,6 +5,7 @@ namespace App\Livewire\Projects;
 use App\Deploy\Pipeline\Steps\RunMigrations;
 use App\Enums\HookPhase;
 use App\Enums\HookRunIn;
+use App\Livewire\Concerns\ConfirmsIdentity;
 use App\Models\Project;
 use App\Models\ProjectHook;
 use App\Support\HookPresets;
@@ -21,6 +22,8 @@ use Livewire\Component;
  */
 class Hooks extends Component
 {
+    use ConfirmsIdentity;
+
     #[Locked]
     public int $projectId;
 
@@ -143,8 +146,18 @@ class Hooks extends Component
             'continue_on_error' => $this->continueOnError,
         ];
 
-        if ($this->editing !== null) {
-            $this->project->hooks()->findOrFail($this->editing)->update($attributes);
+        // A hook runs on the server as the ssh user: what it runs, and where,
+        // changes only with a passkey.
+        $hook = $this->editing !== null ? $this->project->hooks()->findOrFail($this->editing) : null;
+        $runs = fn (array $hook) => [$hook['command'], $hook['run_in'] instanceof HookRunIn ? $hook['run_in']->value : $hook['run_in'], $hook['service']];
+
+        if (($hook === null || $runs($hook->only('command', 'run_in', 'service')) !== $runs($attributes))
+            && ! $this->confirmIdentity(route('projects.show', ['project' => $this->project, 'tab' => 'hooks']))) {
+            return;
+        }
+
+        if ($hook !== null) {
+            $hook->update($attributes);
             $this->notice = "Saved {$this->hookName}.";
         } else {
             $this->project->hooks()->create([...$attributes, 'position' => $this->nextPosition(HookPhase::from($this->formPhase))]);

