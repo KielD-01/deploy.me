@@ -3,6 +3,7 @@
 use App\Deploy\Pipeline\Steps\RecreateServices;
 use App\Deploy\Pipeline\StepTimeout;
 use App\Jobs\RunDeployment;
+use App\Jobs\SyncFolder;
 use App\Models\Project;
 use App\Support\QueueTimeouts;
 
@@ -41,4 +42,16 @@ it('keeps every deploy step inside the deploy job’s budget', function () {
         // Nothing a project's own settings reach stretches past the budget.
         ->and(StepTimeout::cap(99_999))->toBe(StepTimeout::MAX)
         ->and(RecreateServices::timeout($slowToStop))->toBe(StepTimeout::MAX);
+});
+
+it('gives folder syncs a worker of their own, so a long sync never holds up a deploy', function () {
+    preg_match_all('/queue:work (\S+) --queue=(\S+)/', (string) file_get_contents(supervisorQueuesConf()), $matches, PREG_SET_ORDER);
+    $served = collect($matches)->flatMap(fn (array $m) => array_map(fn (string $queue) => "{$m[1]}/{$queue}", explode(',', $m[2])))->all();
+    $queueOf = fn (object $job) => "{$job->connection}/{$job->queue}";
+
+    $sync = new SyncFolder(1);
+    $deploy = new RunDeployment(1);
+
+    expect($served)->toContain($queueOf($sync), $queueOf($deploy))
+        ->and($queueOf($sync))->not->toBe($queueOf($deploy));
 });

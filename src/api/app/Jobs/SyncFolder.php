@@ -10,8 +10,9 @@ use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
 /**
- * Runs one folder sync on the deploys worker: long transfers fit its timeout,
- * and it mounts the project folders read-write.
+ * Runs one folder sync on the syncs worker (the deploys connection, which
+ * mounts the project folders read-write, with a queue of its own): a long
+ * transfer never takes a deploy's worker.
  */
 class SyncFolder implements ShouldQueue
 {
@@ -19,12 +20,12 @@ class SyncFolder implements ShouldQueue
 
     public int $tries = 1;
 
-    // Below the deploys worker's --timeout=3600.
+    // Below the syncs worker's --timeout=3600.
     public int $timeout = 3500;
 
     public function __construct(public int $runId)
     {
-        $this->onConnection('redis-deploys')->onQueue('deploys');
+        $this->onConnection('redis-deploys')->onQueue('syncs');
     }
 
     public function handle(RunFolderSync $sync): void

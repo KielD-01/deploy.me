@@ -60,7 +60,7 @@ return [
 
     'sync' => [
         'rsync_binary' => env('DEPLOYME_RSYNC_BINARY', 'rsync'),
-        // Below the deploys worker's --timeout, which runs syncs too.
+        // Below the syncs worker's --timeout.
         'timeout' => 3300,
         // How often a running sync checks for "Cancel" (ms).
         'poll_ms' => 200,

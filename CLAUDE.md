@@ -281,7 +281,8 @@ doesn't wait for `make migrate`.
 - **Folder mappings** (`app/Actions/Folders`, `app/Platform/Sync`, `app/Livewire/Servers/Folders`):
   a folder on the Mac synced one way (push or pull) with a folder on a server, by rsync
   over the compiled ssh config.
-  - `StartFolderSync` queues `SyncFolder` on `redis-deploys`, since only the worker mounts
+  - `StartFolderSync` queues `SyncFolder` on `redis-deploys` (queue `syncs`, a worker of its own, so
+    a long sync never holds up a deploy), since only the worker mounts
     the project folders read-write. A partial unique index allows one active run per
     mapping. `RunFolderSync` runs rsync and reads its `--itemize-changes` output
     (`RsyncOutput`).
