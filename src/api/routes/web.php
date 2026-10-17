@@ -23,6 +23,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/deployments/{deployment}/log.txt', DeploymentLogController::class)->name('deployments.log');
     Route::livewire('/audit', Livewire\Audit\Index::class)->name('audit');
     Route::livewire('/settings', Livewire\Settings\Index::class)->name('settings');
+
+    // Every daisyUI component in the deploy.me theme, for checking it against
+    // design/canvas. Local only: its layout still shows the targets' counts.
+    if (app()->isLocal()) {
+        Route::livewire('/_kit', Livewire\Kit::class)->name('kit');
+    }
 });
 
 // First run in the browser, while no account exists (SetupController::available()).
@@ -36,9 +42,3 @@ Route::get('/enroll/{token}', EnrollController::class)
     ->middleware(['web', 'throttle:10,1'])
     ->where('token', '[A-Za-z0-9]{48}')
     ->name('enroll');
-
-// Every daisyUI component in the deploy.me theme, for checking it against
-// design/canvas. Local only, and it shows no data.
-if (app()->isLocal()) {
-    Route::livewire('/_kit', Livewire\Kit::class)->name('kit');
-}
