@@ -35,12 +35,12 @@ final class RollBack implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        $previous = $context->memo['previous'] ?? null;
-        $asked = ($context->memo['cancelled'] ?? false)
-            || (($context->memo['failed'] ?? false) && $context->project->auto_rollback);
+        $previous = $context->previous;
+        $asked = $context->cancelled
+            || ($context->failed && $context->project->auto_rollback);
 
         return $asked
-            && ($context->memo['live'] ?? false)
+            && $context->live
             && $previous instanceof Release
             && $previous->canRollBackTo($context->project);
     }
@@ -48,7 +48,7 @@ final class RollBack implements Step
     public function run(DeployContext $context): ?string
     {
         /** @var Release $previous */
-        $previous = $context->memo['previous'];
+        $previous = $context->previous;
 
         if ($context->layout->versionable) {
             Activate::switchTo($context, $previous);
@@ -57,7 +57,7 @@ final class RollBack implements Step
             $done = ['images → '.RestorePins::write($context, $previous)];
         }
 
-        $context->memo['rolled_back'] = $previous;
+        $context->rolledBack = $previous;
 
         if ($context->layout->versionable && Activate::usesScript($context)) {
             $done[] = Activate::runScript($context, $previous);

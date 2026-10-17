@@ -58,11 +58,11 @@ final class PickRelease implements Step
             'strategy' => $release->strategy?->value,
         ])->save();
 
-        $context->memo['release'] = $release;
-        $context->memo['previous'] = $current;
+        $context->release = $release;
+        $context->previous = $current;
         // The images this release ran may have to be pulled again, which for
         // ghcr.io means logging in first.
-        $context->memo['strategy'] = $release->strategy;
+        $context->strategy = $release->strategy;
 
         return ($release->inReleasesFolder() ? "releases/{$release->name}" : $release->name)
             .($release->shortSha() !== null ? ' · '.$release->shortSha() : '');

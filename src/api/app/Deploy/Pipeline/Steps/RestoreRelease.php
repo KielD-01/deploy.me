@@ -70,11 +70,11 @@ final class RestoreRelease implements AlwaysRuns, Step
             'commit_message' => $release->commit_message,
         ])->save();
 
-        $context->memo['release'] = $release;
-        $context->memo['previous'] = $previous;
-        $context->memo['strategy'] = $strategy;
-        $context->memo['live'] = $current === $release->id;
+        $context->release = $release;
+        $context->previous = $previous;
+        $context->strategy = $strategy;
+        $context->live = $current === $release->id;
 
-        return "releases/{$release->name}".($release->shortSha() !== null ? ' · '.$release->shortSha() : '').($context->memo['live'] ? ' · still live' : '');
+        return "releases/{$release->name}".($release->shortSha() !== null ? ' · '.$release->shortSha() : '').($context->live ? ' · still live' : '');
     }
 }

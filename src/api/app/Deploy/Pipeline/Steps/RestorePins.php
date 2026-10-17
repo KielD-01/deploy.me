@@ -32,7 +32,7 @@ final class RestorePins implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        $release = $context->memo['release'] ?? null;
+        $release = $context->release;
 
         return $context->deployment->kind === DeploymentKind::Rollback
             && ! $context->layout->versionable
@@ -44,7 +44,7 @@ final class RestorePins implements Step
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
 
         return self::write($context, $release);
     }

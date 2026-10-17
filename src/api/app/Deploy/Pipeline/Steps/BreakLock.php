@@ -43,7 +43,7 @@ final class BreakLock implements Step
 
         $broken = $run->marker('broken') === '1';
         $holder = (string) $run->marker('previous');
-        $context->memo['broken'] = ['broken' => $broken, 'holder' => $holder];
+        $context->brokenLock = ['broken' => $broken, 'holder' => $holder];
 
         $said = match (true) {
             ! $broken => 'there was no lock',

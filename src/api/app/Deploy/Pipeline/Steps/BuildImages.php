@@ -35,14 +35,14 @@ final class BuildImages implements Step
     public function shouldRun(DeployContext $context): bool
     {
         return Compose::builtin($context->project)
-            && ($context->memo['release'] ?? null) instanceof Release
-            && in_array($context->memo['strategy'] ?? null, self::STRATEGIES, true);
+            && $context->release instanceof Release
+            && in_array($context->strategy, self::STRATEGIES, true);
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
 
         $vars = Compose::vars($context->project, $release->path, 'build');
         $override = ServerBuild::override($context->project, $release);

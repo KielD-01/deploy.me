@@ -2,11 +2,14 @@
 
 namespace App\Deploy;
 
+use App\Deploy\Conversion\Conversion;
 use App\Deploy\Logging\StepLogger;
 use App\Deploy\Pipeline\DeploymentCancelled;
 use App\Deploy\Pipeline\StepTimeout;
+use App\Enums\DeliveryStrategyKey;
 use App\Models\Deployment;
 use App\Models\Project;
+use App\Models\Release;
 use App\Models\Server;
 use App\Models\Target;
 use App\Platform\Ssh\Exceptions\SshException;
@@ -25,10 +28,63 @@ final class DeployContext
     // A running deploy reports at least this often, even while a command is silent.
     private const HEARTBEAT_EVERY = 10.0;
 
+    // What steps leave for later steps and for the runner.
+
+    // The release this run deploys, switches to, adopts or converts, and the
+    // one that was live before it.
+    public ?Release $release = null;
+
+    public ?Release $previous = null;
+
+    public ?DeliveryStrategyKey $strategy = null;
+
+    // The run holds the folder's lock.
+    public bool $lease = false;
+
+    // The new release (or the folder's new files) went live.
+    public bool $live = false;
+
+    // Where the deploy's own ghcr.io login is on the server, while it's there.
+    public ?string $registryConfig = null;
+
+    // The services a blue/green roll replaced; recreating leaves them be.
+    /** @var list<string> */
+    public array $rolled = [];
+
+    // What the health gate said.
+    public bool $healthy = false;
+
+    public bool $unhealthy = false;
+
+    // A conversion: its plan, whether items started moving, whether the
+    // stack was restarted from the release, and whether it was all put back.
+    public ?Conversion $conversion = null;
+
+    public bool $moving = false;
+
+    public bool $restarted = false;
+
+    public bool $undone = false;
+
+    // The converted release an undo run takes back.
+    public ?Release $undoing = null;
+
+    /** @var array{broken: bool, holder: string}|null */
+    public ?array $brokenLock = null;
+
+    // Set by the runner before the cleanup steps: every main step ran, or
+    // the run failed, or it was cancelled. A switch back sets rolledBack.
+    public bool $completed = false;
+
+    public bool $failed = false;
+
+    public bool $cancelled = false;
+
+    public ?Release $rolledBack = null;
+
     /**
-     * What steps leave for later steps and for the runner: the lease, the
-     * release (a Release), the one it replaces (previous), whether the new
-     * files are live, whether the run switched back.
+     * Pre-flight's note of what an earlier deployment left in the folder
+     * ('foreign'), until it has a property of its own.
      *
      * @var array<string, mixed>
      */

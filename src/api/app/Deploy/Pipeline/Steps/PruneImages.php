@@ -37,7 +37,7 @@ final class PruneImages implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        $release = $context->memo['release'] ?? null;
+        $release = $context->release;
 
         return Compose::builtin($context->project)
             && $release instanceof Release
@@ -47,8 +47,8 @@ final class PruneImages implements Step
     public function run(DeployContext $context): ?string
     {
         /** @var Release $live */
-        $live = $context->memo['release'];
-        $previous = $context->memo['previous'] ?? null;
+        $live = $context->release;
+        $previous = $context->previous;
 
         $pinned = $context->target->releases()->whereNotNull('image_pins')->reorder('name', 'desc')->get();
         $keep = self::keeping($context, $pinned, $live, $previous instanceof Release ? $previous : null);

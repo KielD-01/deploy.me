@@ -30,22 +30,22 @@ final class RecreateServices implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        return Compose::builtin($context->project) && ($context->memo['release'] ?? null) instanceof Release;
+        return Compose::builtin($context->project) && $context->release instanceof Release;
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
 
         self::recreate($context, $release);
-        $context->memo['live'] = true;
+        $context->live = true;
 
         $services = self::services($context);
 
         return match (true) {
             $services !== [] => implode(', ', $services),
-            ($context->memo['rolled'] ?? []) !== [] => 'nothing else to recreate',
+            $context->rolled !== [] => 'nothing else to recreate',
             default => 'every service',
         };
     }
@@ -65,7 +65,7 @@ final class RecreateServices implements Step
      */
     private static function services(DeployContext $context): array
     {
-        return array_values(array_diff($context->project->app_services ?? [], $context->memo['rolled'] ?? []));
+        return array_values(array_diff($context->project->app_services ?? [], $context->rolled));
     }
 
     /**

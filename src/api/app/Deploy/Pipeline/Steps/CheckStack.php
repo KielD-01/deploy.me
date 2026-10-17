@@ -31,13 +31,13 @@ final class CheckStack implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        return Compose::builtin($context->project) && ($context->memo['release'] ?? null) instanceof Release;
+        return Compose::builtin($context->project) && $context->release instanceof Release;
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
 
         $run = $context->script('deploy-compose', Compose::vars($context->project, $release->path, 'config'), timeout: StepTimeout::CHECK)
             ->throwIfFailed('Compose can’t read the stack from the new release.');

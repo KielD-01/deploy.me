@@ -32,14 +32,14 @@ final class RollServices implements Step
     {
         return Compose::builtin($context->project)
             && $context->project->blue_green
-            && ($context->memo['release'] ?? null) instanceof Release
+            && $context->release instanceof Release
             && Compose::rollable($context->project) !== [];
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
         $services = Compose::rollable($context->project);
         $color = self::nextColor($context, $release);
         $wait = max(10, (int) $context->project->health_timeout);
@@ -54,8 +54,8 @@ final class RollServices implements Step
         // The new containers take the traffic from here. A service this release's
         // compose file doesn't have was left to the recreate step.
         $rolled = $run->marker('rolled');
-        $context->memo['live'] = true;
-        $context->memo['rolled'] = $rolled === null ? $services : array_values(array_filter(explode(',', $rolled)));
+        $context->live = true;
+        $context->rolled = $rolled === null ? $services : array_values(array_filter(explode(',', $rolled)));
         $release->update(['color' => $color]);
 
         return sprintf('%s · %s started, %s retired', $color, $run->marker('started'), $run->marker('retired'));

@@ -29,18 +29,18 @@ final class MoveIntoRelease implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        return ($context->memo['release'] ?? null) instanceof Release && ($context->memo['conversion'] ?? null) instanceof Conversion;
+        return $context->release instanceof Release && $context->conversion instanceof Conversion;
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
         /** @var Conversion $conversion */
-        $conversion = $context->memo['conversion'];
+        $conversion = $context->conversion;
 
         // From here on, a failure puts the old layout back.
-        $context->memo['moving'] = true;
+        $context->moving = true;
 
         $run = $context->script('deploy-convert', $conversion->vars($context, $release->name, 'move'), timeout: StepTimeout::TRANSFER)
             ->throwIfFailed('Moving the files failed.');

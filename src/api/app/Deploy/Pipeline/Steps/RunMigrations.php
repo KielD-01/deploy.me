@@ -39,7 +39,7 @@ final class RunMigrations implements Step
     public static function applies(DeployContext $context): bool
     {
         return self::availableFor($context->project)
-            && ($context->memo['release'] ?? null) instanceof Release
+            && $context->release instanceof Release
             && ! ($context->deployment->options['skip_migrations'] ?? false);
     }
 
@@ -56,7 +56,7 @@ final class RunMigrations implements Step
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
         $service = (string) $context->project->migrate_service;
 
         $run = $context->script('deploy-compose', Compose::vars($context->project, $release->path, 'run', [$service], self::commandFor($context->project, $service)), timeout: StepTimeout::LONG)

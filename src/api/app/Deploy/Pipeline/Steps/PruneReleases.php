@@ -34,14 +34,14 @@ final class PruneReleases implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        return $context->layout->versionable && ($context->memo['release'] ?? null) instanceof Release;
+        return $context->layout->versionable && $context->release instanceof Release;
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $live */
-        $live = $context->memo['release'];
-        $previous = $context->memo['previous'] ?? null;
+        $live = $context->release;
+        $previous = $context->previous;
 
         $onDisk = $context->target->releases()
             ->where('layout', Release::IN_RELEASES)

@@ -81,9 +81,9 @@ final class InspectExisting implements Step
             'commit_message' => $release->commit_message,
         ])->save();
 
-        $context->memo['release'] = $release;
-        $context->memo['previous'] = $previous;
-        $context->memo['live'] = true;
+        $context->release = $release;
+        $context->previous = $previous;
+        $context->live = true;
 
         $found = array_filter([
             $commit !== null

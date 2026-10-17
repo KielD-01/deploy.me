@@ -29,23 +29,23 @@ final class PullImages implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        return ($context->memo['strategy'] ?? null) === DeliveryStrategyKey::GhcrImage
+        return $context->strategy === DeliveryStrategyKey::GhcrImage
             && Compose::builtin($context->project)
-            && ($context->memo['release'] ?? null) instanceof Release;
+            && $context->release instanceof Release;
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
         $services = $context->project->app_services ?? [];
 
         $context->script('deploy-compose', [
             ...Compose::vars($context->project, $release->path, 'pull', $services),
-            'DOCKER_CONFIG_DIR' => (string) ($context->memo['registry_config'] ?? ''),
+            'DOCKER_CONFIG_DIR' => (string) $context->registryConfig,
         ], timeout: StepTimeout::LONG)->throwIfFailed('Pulling the images failed.');
 
-        unset($context->memo['registry_config']);
+        $context->registryConfig = null;
 
         return $services !== [] ? implode(', ', $services) : 'every service';
     }

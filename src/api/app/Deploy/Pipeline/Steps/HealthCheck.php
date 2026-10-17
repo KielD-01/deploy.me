@@ -37,7 +37,7 @@ final class HealthCheck implements Step
     {
         return (string) $context->project->health_url !== ''
             || (string) $context->project->health_command !== ''
-            || (Compose::builtin($context->project) && ($context->memo['release'] ?? null) instanceof Release);
+            || (Compose::builtin($context->project) && $context->release instanceof Release);
     }
 
     public function run(DeployContext $context): ?string
@@ -45,7 +45,7 @@ final class HealthCheck implements Step
         $timeout = max(10, (int) $context->project->health_timeout);
         $done = [];
 
-        $release = $context->memo['release'] ?? null;
+        $release = $context->release;
         if (Compose::builtin($context->project) && $release instanceof Release) {
             $done[] = self::waitForServices($context, $release, $timeout);
         }
@@ -54,7 +54,7 @@ final class HealthCheck implements Step
             $run = $context->script('deploy-health', ['URL' => $url, 'TIMEOUT' => $timeout, 'INTERVAL' => 3], timeout: StepTimeout::cap($timeout + 30));
 
             if ($run->result->exitCode === 30) {
-                $context->memo['unhealthy'] = true;
+                $context->unhealthy = true;
 
                 throw new StepFailed("Health check failed after {$timeout} s: {$url} gave {$run->marker('last')}.", 30);
             }
@@ -67,7 +67,7 @@ final class HealthCheck implements Step
             $done[] = self::runCommand($context, $command, $release instanceof Release ? $release : null, $timeout);
         }
 
-        $context->memo['healthy'] = true;
+        $context->healthy = true;
 
         return implode(' · ', $done);
     }
@@ -95,7 +95,7 @@ final class HealthCheck implements Step
         }
 
         if (! $run->ok()) {
-            $context->memo['unhealthy'] = true;
+            $context->unhealthy = true;
 
             throw new StepFailed("The project’s health command failed with exit code {$run->result->exitCode}.", $run->result->exitCode);
         }
@@ -115,7 +115,7 @@ final class HealthCheck implements Step
         ], timeout: StepTimeout::cap($timeout + 30));
 
         if ($run->result->exitCode === 30) {
-            $context->memo['unhealthy'] = true;
+            $context->unhealthy = true;
 
             throw new StepFailed("Health check failed after {$timeout} s: ".($run->marker('waiting') ?: 'the services didn’t come up').'.', 30);
         }

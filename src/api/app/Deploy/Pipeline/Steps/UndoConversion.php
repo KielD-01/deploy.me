@@ -38,19 +38,19 @@ final class UndoConversion implements Step
             return true;
         }
 
-        return ($context->memo['moving'] ?? false) && ! ($context->memo['completed'] ?? false);
+        return $context->moving && ! $context->completed;
     }
 
     public function run(DeployContext $context): ?string
     {
         [$release, $restarted] = $context->deployment->kind === DeploymentKind::UndoConvert
             ? $this->converted($context)
-            : [$context->memo['release'], (bool) ($context->memo['restarted'] ?? false)];
+            : [$context->release, $context->restarted];
 
         $run = $context->script('deploy-convert', Conversion::bare($context->layout->root, $release->name, 'undo'), timeout: StepTimeout::TRANSFER)
             ->throwIfFailed('Couldn’t put the old layout back.');
 
-        $context->memo['undone'] = true;
+        $context->undone = true;
         $back = (int) $run->marker('back');
         $done = ["{$back} ".Str::plural('item', $back).' back'];
 
@@ -82,7 +82,7 @@ final class UndoConversion implements Step
             throw new StepFailed("Release {$release->name} isn’t live any more, so the conversion can’t be undone.");
         }
 
-        $context->memo['undoing'] = $release;
+        $context->undoing = $release;
 
         return [$release, (bool) ($release->deployment->options['conversion']['restart'] ?? false)];
     }

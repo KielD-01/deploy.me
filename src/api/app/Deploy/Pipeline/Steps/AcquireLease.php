@@ -55,7 +55,7 @@ final class AcquireLease implements AlwaysRuns, Step
         }
 
         $run->throwIfFailed('Couldn’t lock the folder.');
-        $context->memo['lease'] = true;
+        $context->lease = true;
 
         return match (true) {
             $run->marker('lease') === 'taken_over' && $orphan !== null => "took over the lock #{$orphan->id} left behind ({$this->why($orphan)})",

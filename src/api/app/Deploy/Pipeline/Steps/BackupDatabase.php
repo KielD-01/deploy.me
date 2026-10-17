@@ -90,7 +90,7 @@ final class BackupDatabase implements Step
         $run->throwIfFailed('The database backup failed, so nothing was migrated.');
 
         $file = (string) $run->marker('file');
-        $release = $context->memo['release'] ?? null;
+        $release = $context->release;
         if ($release instanceof Release) {
             $release->update(['backup' => $file]);
         }

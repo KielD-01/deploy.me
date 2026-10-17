@@ -58,8 +58,8 @@ final class RecordState implements Step
             return null;
         }
 
-        $release = $context->memo['release'] ?? null;
-        $previous = $context->memo['previous'] ?? null;
+        $release = $context->release;
+        $previous = $context->previous;
         $state['current'] = $release instanceof Release ? [
             'release' => $release->name,
             'layout' => $release->layout,

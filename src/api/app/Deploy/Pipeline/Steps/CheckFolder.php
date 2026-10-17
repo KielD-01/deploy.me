@@ -59,9 +59,9 @@ final class CheckFolder implements Step
             'commit_message' => $conversion->message,
         ])->save();
 
-        $context->memo['release'] = $release;
-        $context->memo['previous'] = $previous;
-        $context->memo['conversion'] = $conversion;
+        $context->release = $release;
+        $context->previous = $previous;
+        $context->conversion = $conversion;
 
         $moving = count(array_filter($conversion->items, fn (array $item) => ! str_contains($item['path'], '/')));
 

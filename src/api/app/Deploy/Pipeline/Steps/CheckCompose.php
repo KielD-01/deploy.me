@@ -32,16 +32,16 @@ final class CheckCompose implements Step
     public function shouldRun(DeployContext $context): bool
     {
         return Compose::builtin($context->project)
-            && ($context->memo['release'] ?? null) instanceof Release
-            && ($context->memo['conversion'] ?? null) instanceof Conversion;
+            && $context->release instanceof Release
+            && $context->conversion instanceof Conversion;
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
         /** @var Conversion $conversion */
-        $conversion = $context->memo['conversion'];
+        $conversion = $context->conversion;
 
         $run = $context->script('deploy-convert', $conversion->vars($context, $release->name, 'compose'), timeout: StepTimeout::CHECK)
             ->throwIfFailed('Compose can’t read the stack from the release.');

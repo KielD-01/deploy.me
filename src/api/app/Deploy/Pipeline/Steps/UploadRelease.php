@@ -34,15 +34,15 @@ final class UploadRelease implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        return ($context->memo['release'] ?? null) instanceof Release;
+        return $context->release instanceof Release;
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
         /** @var DeliveryStrategyKey $strategy */
-        $strategy = $context->memo['strategy'];
+        $strategy = $context->strategy;
 
         if ($strategy === DeliveryStrategyKey::ServerGit) {
             return $this->fetchOnServer($context, $release);
@@ -58,7 +58,7 @@ final class UploadRelease implements Step
             $context->deployment->forceFill(['commit_sha' => $source->commit, 'commit_message' => $message])->save();
         }
 
-        $previous = $context->memo['previous'] ?? null;
+        $previous = $context->previous;
         $inPlace = ! $context->layout->versionable;
 
         // In place, the files land in a folder of their own first, linked to the
@@ -92,7 +92,7 @@ final class UploadRelease implements Step
     private function intoPlace(DeployContext $context, Release $release, DeliveryStrategyKey $strategy): string
     {
         // From here on the project folder changes: it's the switch.
-        $context->memo['live'] = true;
+        $context->live = true;
 
         $run = $context->script('deploy-sync-in-place', [
             'TARGET' => $context->layout->root,

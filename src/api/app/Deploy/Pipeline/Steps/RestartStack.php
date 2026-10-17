@@ -29,10 +29,10 @@ final class RestartStack implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        $conversion = $context->memo['conversion'] ?? null;
+        $conversion = $context->conversion;
 
         return Compose::builtin($context->project)
-            && ($context->memo['release'] ?? null) instanceof Release
+            && $context->release instanceof Release
             && $conversion instanceof Conversion
             && $conversion->restart;
     }
@@ -40,9 +40,9 @@ final class RestartStack implements Step
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
 
-        $context->memo['restarted'] = true;
+        $context->restarted = true;
         RecreateServices::recreate($context, $release);
         $health = (new HealthCheck)->run($context);
 

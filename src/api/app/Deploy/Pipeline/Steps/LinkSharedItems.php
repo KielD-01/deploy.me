@@ -29,17 +29,17 @@ final class LinkSharedItems implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        $conversion = $context->memo['conversion'] ?? null;
+        $conversion = $context->conversion;
 
-        return ($context->memo['release'] ?? null) instanceof Release && $conversion instanceof Conversion && $conversion->shared() !== [];
+        return $context->release instanceof Release && $conversion instanceof Conversion && $conversion->shared() !== [];
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
         /** @var Conversion $conversion */
-        $conversion = $context->memo['conversion'];
+        $conversion = $context->conversion;
 
         $context->script('deploy-convert', $conversion->vars($context, $release->name, 'link'), timeout: StepTimeout::MEDIUM)
             ->throwIfFailed('Couldn’t link the shared files.');

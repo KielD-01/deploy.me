@@ -45,8 +45,9 @@ function modeTarget(bool $versionable, bool $dockerized): Target
 
 /**
  * The steps a run would really do: the pipeline the factory builds, minus the
- * ones that skip themselves. The memo stands in for the steps that fill it —
- * the release, the strategy, and the pins WritePins would have written.
+ * ones that skip themselves. The context is set as the steps that fill it
+ * would leave it — the release, the strategy, and the pins WritePins would
+ * have written.
  *
  * @return list<string>
  */
@@ -68,9 +69,9 @@ function stepsThatRun(Target $target, DeploymentKind $kind, ?DeliveryStrategyKey
     $release->update(['image_pins' => $pins ?: null]);
 
     $context = DeployContext::for($deployment, new FakeSshClient);
-    $context->memo['release'] = $release;
-    $context->memo['previous'] = null;
-    $context->memo['strategy'] = $strategy;
+    $context->release = $release;
+    $context->previous = null;
+    $context->strategy = $strategy;
 
     $main = app(PipelineFactory::class)->for($deployment)['main'];
 

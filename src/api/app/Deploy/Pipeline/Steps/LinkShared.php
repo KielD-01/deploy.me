@@ -29,14 +29,14 @@ final class LinkShared implements Step
     public function shouldRun(DeployContext $context): bool
     {
         return $context->layout->versionable
-            && ($context->memo['release'] ?? null) instanceof Release
+            && $context->release instanceof Release
             && ($context->project->sharedPaths() !== [] || $context->project->envFiles()->exists());
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
         $dirs = $context->project->sharedPaths();
         $files = Project::normalizePaths($context->project->envFiles()->pluck('path')->all());
 

@@ -41,14 +41,14 @@ final class RunHooks implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        return ($context->memo['release'] ?? null) instanceof Release
+        return $context->release instanceof Release
             && $context->project->hooks()->where('phase', $this->phase->value)->exists();
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
         $ran = 0;
         $failed = 0;
 

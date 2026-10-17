@@ -38,8 +38,8 @@ final class WritePins implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        $release = $context->memo['release'] ?? null;
-        $strategy = $context->memo['strategy'] ?? null;
+        $release = $context->release;
+        $strategy = $context->strategy;
 
         if (! $release instanceof Release) {
             return false;
@@ -52,9 +52,9 @@ final class WritePins implements Step
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
 
-        $pins = ($context->memo['strategy'] ?? null) === DeliveryStrategyKey::GhcrImage
+        $pins = $context->strategy === DeliveryStrategyKey::GhcrImage
             ? ($release->commit_sha !== null ? ImagePlan::for($context->project, $release->commit_sha)?->pins : null)
             : self::builtPins($context->project, $release);
 

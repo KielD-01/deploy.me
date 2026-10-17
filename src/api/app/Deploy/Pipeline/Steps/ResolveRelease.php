@@ -110,9 +110,9 @@ final class ResolveRelease implements Step
 
         $deployment->forceFill(['release_id' => $release->id, 'previous_release_id' => $previous?->id])->save();
 
-        $context->memo['release'] = $release;
-        $context->memo['previous'] = $previous;
-        $context->memo['strategy'] = $resolution->strategy;
+        $context->release = $release;
+        $context->previous = $previous;
+        $context->strategy = $resolution->strategy;
 
         return $resolution->strategy->label().($release->shortSha() !== null ? ' · '.$release->shortSha() : '');
     }

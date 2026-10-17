@@ -27,14 +27,14 @@ final class ReleaseLease implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        return ! empty($context->memo['lease']);
+        return $context->lease;
     }
 
     public function run(DeployContext $context): ?string
     {
-        if (isset($context->memo['registry_config'])) {
-            $context->script('deploy-forget-login', ['DIR' => (string) $context->memo['registry_config']], timeout: StepTimeout::QUICK);
-            unset($context->memo['registry_config']);
+        if ($context->registryConfig !== null) {
+            $context->script('deploy-forget-login', ['DIR' => $context->registryConfig], timeout: StepTimeout::QUICK);
+            $context->registryConfig = null;
         }
 
         $context->script('deploy-unlock', [

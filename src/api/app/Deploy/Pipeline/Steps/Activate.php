@@ -32,24 +32,24 @@ final class Activate implements Step
 
     public function shouldRun(DeployContext $context): bool
     {
-        return ($context->memo['release'] ?? null) instanceof Release
+        return $context->release instanceof Release
             && ($context->layout->versionable || (! $this->switchOnly && self::usesScript($context)));
     }
 
     public function run(DeployContext $context): ?string
     {
         /** @var Release $release */
-        $release = $context->memo['release'];
+        $release = $context->release;
         $done = [];
 
         if ($context->layout->versionable) {
             self::switchTo($context, $release);
-            $context->memo['live'] = true;
+            $context->live = true;
             $done[] = "current → releases/{$release->name}";
         }
 
         if (! $this->switchOnly && self::usesScript($context)) {
-            $context->memo['live'] = true;
+            $context->live = true;
             $done[] = self::runScript($context, $release);
         }
 
@@ -72,7 +72,7 @@ final class Activate implements Step
             'COMMIT' => (string) $release->commit_sha,
             'TARGET' => $context->layout->root,
             // The deploy's registry login, so the script's own pulls work.
-            'DOCKER_CONFIG_DIR' => (string) ($context->memo['registry_config'] ?? ''),
+            'DOCKER_CONFIG_DIR' => (string) $context->registryConfig,
         ], timeout: StepTimeout::LONG)->throwIfFailed("{$script} failed.");
 
         return "ran {$script}";

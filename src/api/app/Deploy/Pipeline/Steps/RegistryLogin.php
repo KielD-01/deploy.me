@@ -45,7 +45,7 @@ final class RegistryLogin implements AlwaysRuns, Step
 
         // A rollback resolves no strategy, but the project's own deploy script
         // pulls the release's images again.
-        return ($context->memo['strategy'] ?? null) === DeliveryStrategyKey::GhcrImage
+        return $context->strategy === DeliveryStrategyKey::GhcrImage
             || ($context->deployment->kind === DeploymentKind::Rollback
                 && $project->activation === Activation::Script
                 && collect($project->strategies())->contains(fn (array $strategy) => $strategy['key'] === DeliveryStrategyKey::GhcrImage && $strategy['enabled']));
@@ -67,7 +67,7 @@ final class RegistryLogin implements AlwaysRuns, Step
             'DIR' => $dir,
         ], timeout: StepTimeout::SHORT)->throwIfFailed('ghcr.io refused the login. The token needs read:packages.');
 
-        $context->memo['registry_config'] = $dir;
+        $context->registryConfig = $dir;
 
         return "as {$credential->login}";
     }

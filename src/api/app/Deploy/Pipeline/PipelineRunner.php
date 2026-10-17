@@ -82,26 +82,47 @@ class PipelineRunner
             $context->log->note("{$deployment->kind->label()} {$context->project->name} on {$context->server->name}, in {$context->layout->root}");
         }
 
+        $ended = $this->runMain($context, $pipeline['main'], $firstAttempt);
+
+        // Paused to wait for CI: it's picked up again later.
+        if ($ended === null) {
+            return;
+        }
+
+        [$status, $outcome] = $ended;
+
+        $this->runCleanup($context, $pipeline['cleanup'], $status);
+        $this->settleOutcome($context, $status, $outcome);
+    }
+
+    /**
+     * The main steps in order, until one fails or the run is cancelled.
+     * Says how they ended, or null when the run paused to wait for CI.
+     *
+     * @param  list<Step>  $steps
+     * @return array{0: DeploymentStatus, 1: ?string}|null
+     */
+    private function runMain(DeployContext $context, array $steps, bool $firstAttempt): ?array
+    {
+        $deployment = $context->deployment;
+
         // A retry starts at the step the run it retries stopped at. Before it,
         // only what every run needs runs again (the AlwaysRuns steps).
         $resuming = $deployment->resume_from !== null;
         $doneThere = $resuming ? DeploymentStep::query()->where('deployment_id', $deployment->retry_of_id)->get()->keyBy('key') : collect();
 
         if ($resuming && $firstAttempt) {
-            $from = collect($pipeline['main'])->first(fn (Step $step) => $step->key() === $deployment->resume_from)?->label() ?? $deployment->resume_from;
+            $from = collect($steps)->first(fn (Step $step) => $step->key() === $deployment->resume_from)?->label() ?? $deployment->resume_from;
             $context->log->note("Retrying #{$deployment->retry_of_id} from “{$from}”: what came before it was done there.");
         }
 
-        $status = DeploymentStatus::Succeeded;
-        $outcome = null;
-
         try {
-            foreach ($pipeline['main'] as $step) {
+            foreach ($steps as $step) {
                 $this->checkCancelled($context, $step);
 
                 // A release that isn't live any more is switched to again,
                 // and what comes after the switch runs again with it.
-                if ($resuming && ($step->key() === $deployment->resume_from || ($step instanceof Activate && ! ($context->memo['live'] ?? false)))) {
+                if ($resuming && ($step->key() === $deployment->resume_from || ($step instanceof Activate && ! $context->live))) {
                     $resuming = false;
                 }
 
@@ -115,35 +136,44 @@ class PipelineRunner
             }
 
             // Every main step ran: nothing for a cleanup step to take back.
-            $context->memo['completed'] = true;
+            $context->completed = true;
+
+            return [DeploymentStatus::Succeeded, null];
         } catch (WaitingForCi $e) {
             $this->wait($context, $e);
 
-            return;
+            return null;
         } catch (DeploymentCancelled) {
-            $status = DeploymentStatus::Cancelled;
-            $outcome = 'Cancelled before it finished.';
+            return [DeploymentStatus::Cancelled, 'Cancelled before it finished.'];
         } catch (StepFailed $e) {
-            $status = DeploymentStatus::Failed;
-            $outcome = $e->getMessage();
+            return [DeploymentStatus::Failed, $e->getMessage()];
         } catch (SshException $e) {
-            $status = DeploymentStatus::Failed;
-            $outcome = $e->userMessage();
+            return [DeploymentStatus::Failed, $e->userMessage()];
         } catch (Throwable $e) {
             report($e);
-            $status = DeploymentStatus::Failed;
-            $outcome = 'deploy.me ran into an error: '.$e->getMessage();
-        }
 
+            return [DeploymentStatus::Failed, 'deploy.me ran into an error: '.$e->getMessage()];
+        }
+    }
+
+    /**
+     * The cleanup steps, whatever happened: they give the lock back and
+     * switch back when the main steps failed or were cancelled. One that
+     * fails is noted and the rest still run.
+     *
+     * @param  list<Step>  $steps
+     */
+    private function runCleanup(DeployContext $context, array $steps, DeploymentStatus $status): void
+    {
         // What the cleanup steps go by: switching back follows a failure or a cancel.
-        $context->memo['failed'] = $status === DeploymentStatus::Failed;
-        $context->memo['cancelled'] = $status === DeploymentStatus::Cancelled;
+        $context->failed = $status === DeploymentStatus::Failed;
+        $context->cancelled = $status === DeploymentStatus::Cancelled;
 
         // A cancel doesn't reach the cleanup: it gives the lock back and puts
         // the live release back, and stopping that halfway is the damage.
         $context->shield();
 
-        foreach ($pipeline['cleanup'] as $step) {
+        foreach ($steps as $step) {
             try {
                 $this->runStep($context, $step);
             } catch (Throwable $e) {
@@ -152,20 +182,30 @@ class PipelineRunner
         }
 
         // Steps the failure or cancel never reached.
-        $deployment->steps()->where('status', StepStatus::Pending)->update(['status' => StepStatus::Skipped]);
+        $context->deployment->steps()->where('status', StepStatus::Pending)->update(['status' => StepStatus::Skipped]);
+    }
 
-        $switchedBack = $context->memo['rolled_back'] ?? null;
+    /**
+     * How the run ended, all told: a switch back makes a failure a rollback,
+     * the release and the target follow, and the outcome goes to the log and
+     * onto the run.
+     */
+    private function settleOutcome(DeployContext $context, DeploymentStatus $status, ?string $outcome): void
+    {
+        $deployment = $context->deployment;
+        $switchedBack = $context->rolledBack;
+
         if ($switchedBack instanceof Release) {
             // A cancelled run stays cancelled: switching back is part of stopping it.
             $status = $status === DeploymentStatus::Cancelled ? $status : DeploymentStatus::RolledBack;
             $outcome = rtrim((string) $outcome, '. ').". Switched back to release {$switchedBack->name}, which is live again.";
-        } elseif ($status === DeploymentStatus::Cancelled && ($context->memo['live'] ?? false)
+        } elseif ($status === DeploymentStatus::Cancelled && $context->live
             && in_array($deployment->kind, [DeploymentKind::Deploy, DeploymentKind::Redeploy, DeploymentKind::Rollback], true)) {
             $outcome = rtrim((string) $outcome, '. ').'. It had gone live already, and there’s no earlier release on the server to switch back to.';
         }
 
         // A conversion that stopped halfway put every item back.
-        if (($context->memo['undone'] ?? false) && $context->deployment->kind === DeploymentKind::Convert) {
+        if ($context->undone && $deployment->kind === DeploymentKind::Convert) {
             $outcome = rtrim((string) $outcome, '. ').'. Every item is back where it was.';
         }
 
@@ -312,21 +352,21 @@ class PipelineRunner
             return;
         }
 
-        $release = $context->memo['release'] ?? null;
+        $release = $context->release;
 
         if (! $release instanceof Release) {
             return;
         }
 
         $target = $context->target;
-        $previous = $context->memo['previous'] ?? null;
+        $previous = $context->previous;
         $previousId = $previous instanceof Release ? $previous->id : null;
-        $switchedBack = isset($context->memo['rolled_back']) || ($context->memo['undone'] ?? false);
-        $wentLive = $status === DeploymentStatus::Succeeded || (($context->memo['live'] ?? false) && ! $switchedBack);
+        $switchedBack = $context->rolledBack !== null || $context->undone;
+        $wentLive = $status === DeploymentStatus::Succeeded || ($context->live && ! $switchedBack);
 
         $health = match (true) {
-            $context->memo['healthy'] ?? false => TargetHealth::Healthy,
-            ($context->memo['unhealthy'] ?? false) && ! $switchedBack => TargetHealth::Unhealthy,
+            $context->healthy => TargetHealth::Healthy,
+            $context->unhealthy && ! $switchedBack => TargetHealth::Unhealthy,
             default => null,
         };
 
@@ -387,7 +427,7 @@ class PipelineRunner
         }
 
         if ($kind === DeploymentKind::Unlock) {
-            ['broken' => $broken, 'holder' => $holder] = $context->memo['broken'] ?? ['broken' => false, 'holder' => ''];
+            ['broken' => $broken, 'holder' => $holder] = $context->brokenLock ?? ['broken' => false, 'holder' => ''];
 
             return match (true) {
                 ! $broken => "{$context->layout->root} wasn’t locked.",
@@ -396,7 +436,7 @@ class PipelineRunner
             };
         }
 
-        $release = $context->memo['release'] ?? null;
+        $release = $context->release;
 
         if (! $release instanceof Release) {
             return 'Done.';
@@ -452,7 +492,7 @@ class PipelineRunner
      */
     private function settleUndo(DeployContext $context, DeploymentStatus $status): void
     {
-        $release = $context->memo['undoing'] ?? null;
+        $release = $context->undoing;
 
         if ($status !== DeploymentStatus::Succeeded || ! $release instanceof Release) {
             return;
