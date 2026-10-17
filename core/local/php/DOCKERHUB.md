@@ -43,9 +43,13 @@ deploy.me's own `Dockerfile` adds them.
 ## Use
 
 ```bash
-git clone https://github.com/KielD-01/deploy.me.git
-cd deploy.me
-bin/install
+# macOS, Linux, WSL2
+curl -fsSL https://raw.githubusercontent.com/KielD-01/deploy.me/main/install.sh | bash
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 | iex
 ```
 
 Building on top of it yourself:

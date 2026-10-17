@@ -155,7 +155,14 @@ PostgreSQL, Valkey and HTTPS edge, unless you already run a shared stack it can 
 #### 🍎 macOS · 🐧 Linux
 
 You need Docker Desktop or OrbStack on macOS, or Docker Engine with the Compose plugin on
-Linux. Then:
+Linux. Then run this one line:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KielD-01/deploy.me/main/install.sh | bash
+```
+
+It clones deploy.me into `~/deploy.me` and runs `bin/install`. Read
+[`install.sh`](install.sh) first if you like. To do the same by hand:
 
 ```bash
 git clone https://github.com/KielD-01/deploy.me.git

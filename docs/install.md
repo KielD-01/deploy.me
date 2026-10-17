@@ -6,7 +6,7 @@ deploy.me runs in Docker on your own machine, the same way on all three systems:
 |---|---|---|---|
 | **Docker** | Docker Desktop or OrbStack | Docker Engine + the Compose plugin (or Docker Desktop) | Docker Desktop with the WSL2 backend |
 | **Where it runs** | your Mac | your machine | a WSL2 distribution (Ubuntu) |
-| **Install** | `bin/install` | `bin/install` | `bin\install.ps1` in PowerShell |
+| **Install** | `curl … install.sh \| bash` | `curl … install.sh \| bash` | `irm … install.ps1 \| iex` in PowerShell |
 | **Containers run as** | root (Docker maps ownership) | your user's UID | your WSL user's UID |
 | **Local CA trusted in** | the login keychain | the system store + NSS (Chrome) | WSL **and** Windows (Edge, Chrome) |
 | **Nightly backup** | launchd | systemd user timer, or cron | systemd in WSL, or cron |
@@ -50,10 +50,11 @@ account.
 3. Then:
 
 ```bash
-git clone https://github.com/KielD-01/deploy.me.git
-cd deploy.me
-bin/install
+curl -fsSL https://raw.githubusercontent.com/KielD-01/deploy.me/main/install.sh | bash
 ```
+
+To do it by hand instead, run `git clone https://github.com/KielD-01/deploy.me.git`, then
+`cd deploy.me` and `bin/install`.
 
 macOS asks for your password once, to trust the local CA in your login keychain. For
 Firefox, import `.deployme/caddy-root.crt` under Settings → Privacy & Security →
@@ -74,10 +75,12 @@ Tested with Ubuntu, Debian and Fedora. Any distribution with Docker Engine works
 3. Then:
 
 ```bash
-git clone https://github.com/KielD-01/deploy.me.git
-cd deploy.me
-bin/install
+curl -fsSL https://raw.githubusercontent.com/KielD-01/deploy.me/main/install.sh | bash
 ```
+
+To pass options, put them after `bash -s --`, for example
+`… | bash -s -- --stack standalone --roots ~/code`. `DEPLOYME_DIR=~/somewhere` changes where
+it's cloned (default `~/deploy.me`); run it again to update.
 
 Notes:
 
@@ -118,8 +121,9 @@ The script:
 - clones deploy.me into `~/deploy.me` *inside WSL*;
 - runs `bin/install` there.
 
-Prefer to do it by hand? Open Ubuntu and follow the [Linux](#-linux) steps. Docker is
-already there through Docker Desktop.
+Prefer to do it by hand? Open Ubuntu and run the same one line as on Linux
+(`curl -fsSL https://raw.githubusercontent.com/KielD-01/deploy.me/main/install.sh | bash`), or follow the [Linux](#-linux) steps. Docker is already there through Docker
+Desktop.
 
 Notes:
 

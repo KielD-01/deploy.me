@@ -31,12 +31,11 @@ macOS, Linux and Windows (inside WSL2), and brings its own PostgreSQL, Valkey an
 edge, unless you already run a shared stack it can join.
 
 ```bash
-git clone https://github.com/KielD-01/deploy.me.git
-cd deploy.me
-bin/install
+curl -fsSL https://raw.githubusercontent.com/KielD-01/deploy.me/main/install.sh | bash
 ```
 
-On Windows, run this in PowerShell instead:
+That clones deploy.me into `~/deploy.me` and runs `bin/install` there. On Windows, run this
+in PowerShell instead:
 `irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 | iex`.
 
 `bin/install` works through these steps:

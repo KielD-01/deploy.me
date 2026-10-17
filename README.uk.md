@@ -55,7 +55,13 @@ PostgreSQL, Valkey та HTTPS-edge, якщо у вас ще немає спіл�
 #### 🍎 macOS · 🐧 Linux
 
 Потрібен Docker Desktop або OrbStack на macOS, чи Docker Engine із плагіном Compose на
-Linux. Далі:
+Linux. Далі одна команда:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KielD-01/deploy.me/main/install.sh | bash
+```
+
+Вона клонує deploy.me у `~/deploy.me` і запускає `bin/install`. Те саме вручну:
 
 ```bash
 git clone https://github.com/KielD-01/deploy.me.git
