@@ -78,7 +78,10 @@ it('says which key file is too readable, without failing the run over it', funct
         // One expectation per line: each matches a single write.
         ->expectsOutputToContain("! box: the keys ssh would offer are private — {$key} is 644, ssh wants 600")
         ->assertSuccessful();
-});
+})->skip(
+    fn () => function_exists('posix_geteuid') && posix_geteuid() === 0,
+    'root can read any key file, so ssh has nothing to complain about (the PHP image runs as root)',
+);
 
 it('says when a server’s host key is trusted nowhere', function () {
     Server::factory()->create(['ssh_alias' => 'box']);

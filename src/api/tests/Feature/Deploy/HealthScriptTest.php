@@ -23,11 +23,31 @@ afterEach(function () {
     $this->server?->stop();
 });
 
+// php -S takes a moment to listen: wait for the port instead of guessing how long.
+function waitForPort(int $port, float $seconds = 5.0): void
+{
+    $until = microtime(true) + $seconds;
+
+    do {
+        $socket = @fsockopen('127.0.0.1', $port, $errno, $error, 0.2);
+
+        if ($socket !== false) {
+            fclose($socket);
+
+            return;
+        }
+
+        usleep(50_000);
+    } while (microtime(true) < $until);
+
+    throw new RuntimeException("Nothing listens on 127.0.0.1:{$port} after {$seconds} seconds.");
+}
+
 function healthOf(object $test, int $appStatus): ProcessResult
 {
     $test->server = Process::env(['APP_STATUS' => (string) $appStatus])
         ->path($test->web)->start(['php', '-S', "127.0.0.1:{$test->port}", 'router.php']);
-    usleep(300_000);
+    waitForPort($test->port);
 
     return Process::input(RemoteScript::file('deploy-health', [
         'URL' => "http://demo.test:{$test->port}/up", 'TIMEOUT' => 0, 'INTERVAL' => 0,
