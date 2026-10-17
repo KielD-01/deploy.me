@@ -12,7 +12,7 @@ mkdir -p -- "$TARGET/.deploy/runs" "$TARGET/.deploy/incoming"
 
 if command -v flock >/dev/null 2>&1; then
   exec 9<"$TARGET/.deploy"
-  flock -w 30 9 || { echo "✗ Something else kept $TARGET/.deploy busy for 30 s"; exit 21; }
+  flock -w 20 9 || { echo "✗ Something else kept $TARGET/.deploy busy for 20 s"; exit 21; }
 fi
 
 if mkdir -- "$lock" 2>/dev/null; then
