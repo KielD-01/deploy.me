@@ -32,7 +32,9 @@ export const tmuxKeys = (windows) => ({
         }
         if (!this.prefix) return;
 
+        // The key after the prefix is tmux's, even one it has no use for: a page's own keys never see it.
         this.prefix = false;
+        event.preventDefault();
         // The physical key decides for the shifted ones, so % and " work on any layout.
         let key = event.key;
         if (event.shiftKey && event.code === 'Digit5') key = '%';
@@ -58,6 +60,24 @@ export const tmuxKeys = (windows) => ({
             event.preventDefault();
             send({ z: 'zoom', o: 'next', x: 'close', L: 'layout', '/': 'shell' }[key]);
         }
+    },
+});
+
+// A page's own keys, one letter each, shown beside what they do: the key
+// clicks the element marked data-key="<letter>" (so a wire:confirm still
+// asks). Never while typing, never with ⌃/⌘/⌥, never after the tmux prefix.
+export const pageKeys = () => ({
+    key(event) {
+        if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+        const target = event.target;
+        if (target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
+        if (document.querySelector('.modal-open, [role="dialog"]:not([x-cloak]):not([style*="display: none"])')) return;
+
+        const control = [...this.$root.querySelectorAll('[data-key]')].find((element) => element.dataset.key === event.key);
+        if (!control || control.disabled) return;
+        event.preventDefault();
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(control.tagName)) control.focus();
+        else control.click();
     },
 });
 

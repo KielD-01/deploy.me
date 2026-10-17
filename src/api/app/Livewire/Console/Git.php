@@ -15,7 +15,9 @@ use Livewire\Component;
 /**
  * A git pane: a project's branch as `git log --graph`, each commit tagged
  * with where it's live, the releases made from it and the runs deploying it.
- * Without a project named it shows the one deployed most recently.
+ * Without a project named it shows the one deployed most recently. On the
+ * Console theme's project page ($page) it's the page's main pane: more
+ * commits, CI on the commit it ran for, and a deploy button on each.
  */
 class Git extends Component
 {
@@ -25,10 +27,13 @@ class Git extends Component
 
     public ?int $projectId = null;
 
-    public function mount(?string $pane = null, ?string $arg = null): void
+    public bool $page = false;
+
+    public function mount(?string $pane = null, ?string $arg = null, bool $page = false): void
     {
         $this->pane = $pane;
         $this->arg = $arg;
+        $this->page = $page;
         $this->projectId = $arg !== null
             ? Project::query()->active()->where('slug', $arg)->value('id')
             : (Deployment::query()->whereHas('project', fn ($query) => $query->whereNull('archived_at'))->latest('id')->value('project_id')
@@ -38,13 +43,18 @@ class Git extends Component
     #[On('echo-private:deployments,.updated')]
     public function refresh(): void {}
 
+    // The page's CI check and settings save land here too.
+    #[On('echo-private:projects,.ci.updated')]
+    public function refreshCi(): void {}
+
     public function render(): View
     {
         $project = $this->projectId !== null ? Project::query()->find($this->projectId) : null;
         $tags = [];
+        $targets = collect();
 
         if ($project !== null) {
-            $targets = $project->targets()->active()->with(['server', 'currentRelease'])->get();
+            $targets = $project->targets()->active()->with(['server', 'currentRelease', 'previousRelease'])->get();
 
             foreach ($targets as $target) {
                 /** @var Target $target */
@@ -53,12 +63,19 @@ class Git extends Component
                 }
             }
 
+            // Where a rollback of each target would go.
+            $rollbackTo = $this->page ? $targets
+                ->filter(fn (Target $target) => $target->previousRelease?->canRollBackTo($project))
+                ->mapWithKeys(fn (Target $target) => [$target->previous_release_id => $target->server->slug])
+                : collect();
+
             Release::query()->whereIn('target_id', $targets->modelKeys())->whereNotNull('commit_sha')->latest('id')->limit(30)->get()
-                ->each(function (Release $release) use (&$tags, $targets) {
+                ->each(function (Release $release) use (&$tags, $targets, $rollbackTo) {
                     if ($targets->contains('current_release_id', $release->id)) {
                         return;
                     }
-                    $tags[$release->commit_sha][] = [$release->name, $release->status->value === 'failed' ? 't-warn' : 't-v'];
+                    $back = $rollbackTo->get($release->id);
+                    $tags[$release->commit_sha][] = [$release->name.($back !== null ? ' · ↺ '.$back.' rolls back here' : ''), $release->status->value === 'failed' ? 't-warn' : 't-v'];
                 });
 
             Deployment::query()->where('project_id', $project->id)->whereIn('status', DeploymentStatus::ACTIVE)->whereNotNull('commit_sha')->with('server')->get()
@@ -67,10 +84,11 @@ class Git extends Component
                 });
         }
 
-        return view('livewire.console.git', [
+        return view($this->page ? 'livewire.console.git-page' : 'livewire.console.git', [
             'project' => $project,
-            'commits' => $project !== null ? BranchCommits::recent($project, 14) : [],
+            'commits' => $project !== null ? BranchCommits::recent($project, $this->page ? 30 : 14) : [],
             'tags' => $tags,
+            'targets' => $targets,
         ]);
     }
 }

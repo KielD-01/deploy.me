@@ -1,6 +1,6 @@
 import './echo';
 import deployLog from './deploy-log';
-import { consoleShell, tmuxKeys, tmuxSession } from './console';
+import { consoleShell, pageKeys, tmuxKeys, tmuxSession } from './console';
 import { needsConfirmation, passkeyErrorMessage, registerPasskey } from './passkeys';
 
 const confirmUrl = '/user/confirm-password';
@@ -13,8 +13,9 @@ document.addEventListener('alpine:init', () => {
     // Run page: the live deploy log.
     Alpine.data('deployLog', deployLog);
 
-    // The Console theme: tmux's keys, the session's panes, a shell pane's prompt.
+    // The Console theme: tmux's keys, the session's panes, a shell pane's prompt, a page's keys.
     Alpine.data('tmuxKeys', tmuxKeys);
+    Alpine.data('pageKeys', pageKeys);
     Alpine.data('tmuxSession', tmuxSession);
     Alpine.data('consoleShell', consoleShell);
 

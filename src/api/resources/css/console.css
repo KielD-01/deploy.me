@@ -263,6 +263,428 @@
         border: 1px solid var(--color-primary);
     }
 
+    /*
+     * The theme's own pages (themes/console/livewire: the run, a server, a
+     * project) fill their pane edge to edge: a prompt-style header with the
+     * page's keys, then terminal panes titled on their border.
+     */
+    html[data-ui='console'] .tmux-page:has(> .con-page) {
+        padding: 0;
+        gap: 0;
+    }
+
+    html[data-ui='console'] .tmux-page:has(> .con-page.is-fill) {
+        height: 100%;
+    }
+
+    .con-page {
+        display: flex;
+        flex-direction: column;
+        min-height: 100%;
+    }
+
+    .con-page.is-fill {
+        height: 100%;
+        min-height: 0;
+    }
+
+    .con-prompt {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 14px;
+        padding: 6px 14px;
+        border-bottom: 1px solid var(--dm-line);
+        background: var(--color-base-100);
+    }
+
+    .con-prompt .t-cursor {
+        display: inline-block;
+        width: 7px;
+        height: 14px;
+        margin-left: 3px;
+        vertical-align: -2px;
+        background: var(--color-primary);
+    }
+
+    .con-keys {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 2px 12px;
+        margin-left: auto;
+        color: var(--dm-muted);
+    }
+
+    /* A page's key: what it does, its letter in a box. Mouse and keyboard both work. */
+    .con-key {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--dm-muted);
+        white-space: nowrap;
+    }
+
+    .con-key:hover {
+        color: var(--color-base-content);
+    }
+
+    .con-key:disabled {
+        opacity: 0.45;
+        cursor: default;
+    }
+
+    .con-key.is-on,
+    .con-key.is-on kbd {
+        color: var(--color-primary);
+        border-color: var(--color-primary);
+    }
+
+    .con-key.is-danger:not(:disabled) {
+        color: var(--color-error);
+    }
+
+    .con-key.is-go:not(:disabled) {
+        color: var(--color-primary);
+    }
+
+    .con-key kbd {
+        display: inline-block;
+        min-width: 16px;
+        padding: 0 4px;
+        border: 1px solid var(--dm-line-strong);
+        border-radius: 2px;
+        font: inherit;
+        font-size: 11px;
+        line-height: 16px;
+        text-align: center;
+        color: var(--dm-muted);
+    }
+
+    .con-key.is-danger:not(:disabled) kbd {
+        border-color: color-mix(in oklab, var(--color-error) 60%, transparent);
+        color: var(--color-error);
+    }
+
+    .con-key.is-go:not(:disabled) kbd {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+    }
+
+    /* A terminal button inside a pane: [ label ]. */
+    .con-act {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 7px;
+        border: 1px solid var(--dm-line-strong);
+        border-radius: 2px;
+        line-height: 18px;
+        color: var(--color-base-content);
+        white-space: nowrap;
+    }
+
+    .con-act:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+    }
+
+    .con-act.is-danger {
+        border-color: color-mix(in oklab, var(--color-error) 50%, transparent);
+        color: var(--color-error);
+    }
+
+    .con-act:disabled {
+        opacity: 0.45;
+        pointer-events: none;
+    }
+
+    /* Panes inside a page, titled on their top border like the canvas. */
+    .con-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+        gap: 22px 14px;
+        padding: 22px 14px 16px;
+        align-content: start;
+    }
+
+    .con-wide {
+        grid-column: 1 / -1;
+    }
+
+    .con-box {
+        position: relative;
+        min-width: 0;
+        padding: 14px 12px 10px;
+        border: 1px solid var(--dm-line-strong);
+        border-radius: 2px;
+    }
+
+    .con-box-t {
+        position: absolute;
+        top: -9px;
+        left: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        max-width: calc(100% - 20px);
+        padding: 0 6px;
+        overflow: hidden;
+        font-size: 11px;
+        line-height: 18px;
+        white-space: nowrap;
+        color: var(--dm-muted);
+        background: var(--color-base-200);
+    }
+
+    .con-box-t b {
+        color: var(--color-base-content);
+        font-weight: 600;
+    }
+
+    .con-box-t button,
+    .con-box-t a {
+        color: var(--dm-muted);
+    }
+
+    .con-box-t button:hover,
+    .con-box-t a:hover,
+    .con-box-t .is-on {
+        color: var(--color-primary);
+    }
+
+    .con-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .con-table th {
+        padding: 2px 8px 6px 0;
+        font-weight: 500;
+        text-align: left;
+        color: var(--dm-muted);
+        white-space: nowrap;
+    }
+
+    .con-table td {
+        padding: 2px 8px 2px 0;
+        vertical-align: top;
+    }
+
+    .con-table td.tabular-nums {
+        white-space: nowrap;
+    }
+
+    .con-table tr.is-sel td {
+        background: var(--color-base-100);
+    }
+
+    /* tmux-ish tabs under the prompt: one per view of the page. */
+    .con-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0;
+        border-bottom: 1px solid var(--dm-line);
+        background: var(--color-base-100);
+        font-size: 12px;
+    }
+
+    .con-tabs button {
+        padding: 1px 12px;
+        color: var(--dm-muted);
+        white-space: nowrap;
+    }
+
+    .con-tabs button:hover {
+        color: var(--color-base-content);
+    }
+
+    .con-tabs button[aria-selected='true'] {
+        background: color-mix(in oklab, var(--color-primary) 18%, transparent);
+        color: var(--color-primary);
+        font-weight: 700;
+    }
+
+    .con-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 2px 10px;
+        padding: 3px 14px;
+    }
+
+    /* The run: a segmented progress line, steps that fold, the log inside them. */
+    .con-progress {
+        display: flex;
+        gap: 3px;
+        height: 5px;
+    }
+
+    .con-progress > span {
+        min-width: 4px;
+        background: var(--color-base-300);
+    }
+
+    .con-term {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 4px 0 18px;
+        line-height: 1.75;
+    }
+
+    .con-term .log-line {
+        padding: 0 14px 0 30px;
+        gap: 12px;
+    }
+
+    .con-term .log-time {
+        color: var(--dm-subtle);
+        opacity: 1;
+    }
+
+    .con-term .log-sys {
+        color: var(--color-base-content);
+    }
+
+    .con-term .log-err {
+        color: var(--color-error);
+    }
+
+    .con-fold > summary {
+        display: flex;
+        gap: 10px;
+        padding: 0 14px;
+        list-style: none;
+        cursor: pointer;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .con-fold > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .con-fold > summary:hover {
+        background: var(--color-base-100);
+    }
+
+    .con-fold > summary .con-caret::before {
+        content: '▸';
+    }
+
+    .con-fold[open] > summary .con-caret::before {
+        content: '▾';
+    }
+
+    .con-fold > summary.is-running {
+        background: color-mix(in oklab, var(--color-primary) 9%, transparent);
+    }
+
+    .con-fold > summary.is-failed {
+        background: color-mix(in oklab, var(--color-error) 9%, transparent);
+    }
+
+    .con-fold > summary.is-quiet {
+        font-weight: 400;
+        cursor: default;
+    }
+
+    .con-fold > summary .con-fill {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .con-filter {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+        color: var(--dm-muted);
+    }
+
+    .con-filter input {
+        width: 14ch;
+        border: 0;
+        border-bottom: 1px solid var(--dm-line-strong);
+        outline: 0;
+        background: transparent;
+        color: var(--color-base-content);
+        font: inherit;
+    }
+
+    .con-filter input:focus {
+        border-color: var(--color-primary);
+    }
+
+    /* htop: meters and bars keep their characters' widths. */
+    .con-meter {
+        display: flex;
+        gap: 8px;
+        white-space: pre;
+        overflow: hidden;
+    }
+
+    /* On a narrow pane the bar gives way, never the figure beside it. */
+    .con-meter > :nth-child(2) {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .con-meter > :last-child {
+        flex: none;
+        margin-left: auto;
+    }
+
+    .con-meter > :first-child {
+        width: 5ch;
+        flex: none;
+        color: var(--dm-muted);
+        overflow: hidden;
+        text-overflow: clip;
+    }
+
+    .con-spark {
+        display: flex;
+        align-items: flex-end;
+        gap: 1px;
+    }
+
+    .con-spark > span {
+        flex: 1;
+        min-height: 1px;
+    }
+
+    /* git log --graph */
+    .con-commit {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 3px 12px;
+    }
+
+    .con-commit.is-sel {
+        background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+        box-shadow: inset 2px 0 0 var(--color-primary);
+    }
+
+    .con-commit .con-node {
+        width: 1.5ch;
+        flex: none;
+        text-align: center;
+        font-weight: 700;
+    }
+
+    /* A form shown as a config file: key = value, the value editable. */
+    html[data-ui='console'] .con-conf .input,
+    html[data-ui='console'] .con-conf .select,
+    html[data-ui='console'] .con-conf .textarea {
+        font-family: inherit;
+    }
+
     /* The base pages inside a pane: flat, square, monospace. */
     html[data-ui='console'] .card,
     html[data-ui='console'] .alert,
