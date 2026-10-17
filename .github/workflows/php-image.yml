@@ -29,9 +29,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    # Only the public repository publishes; a fork or a mirror skips it.
+  # Only the public repository publishes, and only once it has the Docker Hub
+  # credentials; a fork, a mirror or a repository without them skips quietly.
+  check:
     if: github.repository == 'KielD-01/deploy.me'
+    runs-on: ubuntu-24.04
+    outputs:
+      ready: ${{ steps.secrets.outputs.ready }}
+    steps:
+      - id: secrets
+        env:
+          USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -n "$USERNAME" ] && [ -n "$TOKEN" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Add the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets to publish the PHP base image."
+          fi
+
+  build:
+    needs: check
+    if: needs.check.outputs.ready == 'true'
     strategy:
       fail-fast: true
       matrix:
