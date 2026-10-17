@@ -104,3 +104,11 @@ it('checks each GitHub token’s expiry and scopes', function () {
         ->expectsOutputToContain('! GitHub token for fine-one can read repositories and packages — fine-grained: check its repository and package permissions on GitHub')
         ->assertFailed();
 });
+
+it('says the scheduler hasn’t beaten yet, rather than how long ago 1970 was', function () {
+    Cache::forget('deployme:scheduler:heartbeat');
+
+    $this->artisan('deployme:doctor')
+        ->expectsOutputToContain('no heartbeat yet')
+        ->assertFailed();
+});

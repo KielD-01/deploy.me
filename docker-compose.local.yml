@@ -1,10 +1,16 @@
-# deploy.me — local stack.
+# deploy.me — local stack, the same on macOS, Linux and Windows (WSL2).
 #
-# Uses the shared ~/Personal/infra stack over proxy-network: Postgres as
-# `postgres`, Valkey as `redis`, and the caddy-docker-proxy edge via labels.
-# Nothing is published on the host; the app lives at https://deployme.localhost.
+# Postgres answers as `postgres`, Valkey as `redis`, and a caddy-docker-proxy
+# edge routes https://deployme.localhost by the labels below. Where those come
+# from is the stack mode `bin/configure` writes into ./.env (COMPOSE_FILE):
 #
-#   make init      # first run: database, image, assets, setup
+#   shared       an existing stack on the external network (~/Personal/infra)
+#   standalone   deploy.me's own, from compose.standalone.yml
+#
+# This machine's mounts (project roots, the ssh-agent socket) are in the
+# generated compose.host.yml. Nothing here is published on the host.
+#
+#   bin/install    # or: make init — configure, database, image, assets, setup
 #   make up | down | logs s=deployme-worker
 
 name: deployme
@@ -13,25 +19,35 @@ x-php: &php
   build:
     context: .
     dockerfile: core/local/php/Dockerfile
+    args:
+      DEPLOYME_UID: ${DEPLOYME_UID:-0}
+      DEPLOYME_GID: ${DEPLOYME_GID:-0}
   image: deployme-php:local
   working_dir: /app
+  # Root on macOS (Docker Desktop and OrbStack map file ownership). On Linux and
+  # WSL2 the host user's ids, so files written into src/api and the project
+  # roots stay the user's, and ssh accepts a ~/.ssh/config that user owns.
+  user: "${DEPLOYME_UID:-0}:${DEPLOYME_GID:-0}"
   # tini reaps ssh ControlPersist masters that outlive their parent.
   init: true
   environment: &php-env
-    TZ: Europe/Kyiv
+    TZ: ${DEPLOYME_TZ:-UTC}
+    # compose.host.yml mounts the host's agent here when there is one.
     SSH_AUTH_SOCK: /run/host-services/ssh-auth.sock
     DEPLOYME_HOST_HOME: ${HOME:?HOME is not set}
     DEPLOYME_HOST_USER: ${USER:?USER is not set}
-    DEPLOYME_PROJECT_ROOTS: ${HOME}/Personal:${HOME}/Claude:${HOME}/Projects:${HOME}/Cursor
+    DEPLOYME_PROJECT_ROOTS: ${DEPLOYME_PROJECT_ROOTS:-}
   tmpfs:
-    - /run/deployme:mode=0700,size=16m
+    - /run/deployme:mode=0700,size=16m,uid=${DEPLOYME_UID:-0},gid=${DEPLOYME_GID:-0}
   security_opt:
     - no-new-privileges:true
   networks: [proxy-network, internal]
   restart: unless-stopped
 
 networks:
+  # The edge's network: the shared stack's, or compose.standalone.yml's own.
   proxy-network:
+    name: ${DEPLOYME_NETWORK:-proxy-network}
     external: true
   internal:
     driver: bridge
@@ -50,15 +66,11 @@ services:
       DEPLOYME_ROLE: web
     volumes:
       - ./src/api:/app
-      # ~ in ssh config resolves to /root; absolute /Users/... paths resolve too.
+      # ~ in ssh config resolves to /root (the container user's home either
+      # way); absolute /Users/… or /home/… paths resolve too.
       - ${HOME}/.ssh:/root/.ssh:ro
       - ${HOME}/.ssh:${HOME}/.ssh:ro
-      - /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock
-      # Project roots at identical paths: git worktrees store absolute paths.
-      - ${HOME}/Personal:${HOME}/Personal:ro
-      - ${HOME}/Claude:${HOME}/Claude:ro
-      - ${HOME}/Projects:${HOME}/Projects:ro
-      - ${HOME}/Cursor:${HOME}/Cursor:ro
+      # The project roots (read-only here) and the agent: compose.host.yml.
     labels:
       caddy: deployme.localhost
       caddy.tls: internal
@@ -96,12 +108,8 @@ services:
       - ./src/api:/app
       - ${HOME}/.ssh:/root/.ssh:ro
       - ${HOME}/.ssh:${HOME}/.ssh:ro
-      - /run/host-services/ssh-auth.sock:/run/host-services/ssh-auth.sock
-      # Read-write: the worker pushes to GitHub from local repos.
-      - ${HOME}/Personal:${HOME}/Personal
-      - ${HOME}/Claude:${HOME}/Claude
-      - ${HOME}/Projects:${HOME}/Projects
-      - ${HOME}/Cursor:${HOME}/Cursor
+      # The project roots, read-write: the worker pushes to GitHub from local
+      # repos (compose.host.yml).
     labels:
       com.panel.group: deployme
       com.panel.type: worker

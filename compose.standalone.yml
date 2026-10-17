@@ -1,0 +1,96 @@
+# deploy.me — its own Postgres, Valkey and edge, for a machine without a shared
+# stack. `bin/configure --stack standalone` adds this file to COMPOSE_FILE in
+# ./.env; on a machine that has the shared stack (~/Personal/infra) it is never
+# used, so nothing there is duplicated.
+#
+# The app finds them by the same names as on the shared stack: Postgres as
+# `postgres`, Valkey as `redis`, and caddy-docker-proxy routing by labels. Only
+# the edge is published, on 127.0.0.1:80 and :443; its local CA is in the
+# caddy data volume (`bin/trust-ca` installs it on this machine).
+
+networks:
+  proxy-network:
+    name: ${DEPLOYME_NETWORK:-deployme-edge}
+    external: false
+
+volumes:
+  postgres_data:
+  valkey_data:
+  caddy_data:
+  caddy_config:
+
+services:
+  deployme-postgres:
+    image: postgres:18-alpine
+    container_name: deployme-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DEPLOYME_POSTGRES_PASSWORD:?run bin/configure first}
+      POSTGRES_DB: postgres
+      TZ: ${DEPLOYME_TZ:-UTC}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    networks:
+      proxy-network:
+        aliases: [postgres]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    labels:
+      com.panel.group: deployme
+      com.panel.type: postgres
+
+  deployme-valkey:
+    image: valkey/valkey:8-alpine
+    container_name: deployme-valkey
+    command: ["valkey-server", "--save", "60", "1", "--appendonly", "no"]
+    volumes:
+      - valkey_data:/data
+    networks:
+      proxy-network:
+        aliases: [redis, valkey]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    labels:
+      com.panel.group: deployme
+      com.panel.type: valkey
+
+  deployme-caddy:
+    image: lucaslorentz/caddy-docker-proxy:2.9-alpine
+    container_name: deployme-caddy
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    environment:
+      CADDY_INGRESS_NETWORKS: ${DEPLOYME_NETWORK:-deployme-edge}
+    volumes:
+      # Read-only: it only reads the labels.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # The local CA and its certificates: keep it, or browsers distrust a new one.
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [proxy-network]
+    restart: unless-stopped
+    labels:
+      com.panel.group: deployme
+      com.panel.type: edge
+
+  # The app waits for its database and cache rather than racing them.
+  deployme-web:
+    depends_on:
+      deployme-postgres: { condition: service_healthy }
+      deployme-valkey: { condition: service_healthy }
+  deployme-worker:
+    depends_on:
+      deployme-postgres: { condition: service_healthy }
+      deployme-valkey: { condition: service_healthy }
+  deployme-reverb:
+    depends_on:
+      deployme-valkey: { condition: service_healthy }

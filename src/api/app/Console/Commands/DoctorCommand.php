@@ -44,7 +44,14 @@ class DoctorCommand extends Command
         }
 
         $this->check('The scheduler ran in the last 3 minutes', function () {
-            $age = now()->getTimestamp() - (int) Cache::get('deployme:scheduler:heartbeat', 0);
+            $beat = Cache::get('deployme:scheduler:heartbeat');
+
+            if ($beat === null) {
+                // Right after the worker starts, the first heartbeat is under a minute away.
+                return 'no heartbeat yet: it beats once a minute, so check again in a minute (make workers says whether it runs)';
+            }
+
+            $age = now()->getTimestamp() - (int) $beat;
 
             return $age < 180 ?: "last heartbeat {$age}s ago";
         });

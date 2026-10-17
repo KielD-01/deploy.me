@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Trust the edge's local CA, so https://deployme.localhost opens without a
+# warning. Caddy issues the site's certificate from its own root; this copies
+# that root out of the edge container and adds it where this machine looks:
+#
+#   macOS    your login keychain (asks for your password)
+#   Linux    the system store (sudo), and your browsers' NSS store if certutil is there
+#   WSL2     the Linux store above, and Windows' current-user store for the
+#            browsers on Windows (Windows asks to confirm)
+#
+#   bin/trust-ca            install it
+#   bin/trust-ca --print    only copy it out and say where it is
+set -euo pipefail
+. "$(dirname "$0")/lib.sh"
+cd "$DEPLOYME_ROOT"
+
+os=$(deployme_os)
+edge=$(deployme_edge_container)
+ca=$(deployme_ca_file)
+
+# The edge creates its CA with the first site it serves: wait a moment for it.
+for _ in $(seq 1 30); do
+    docker exec "$edge" test -f /data/caddy/pki/authorities/local/root.crt 2>/dev/null && break
+    sleep 1
+done
+docker exec "$edge" test -f /data/caddy/pki/authorities/local/root.crt 2>/dev/null \
+    || deployme_die "$edge has no local CA yet. Is the stack up (make up), and has https://deployme.localhost been asked for once?"
+
+mkdir -p "$(dirname "$ca")"
+docker exec "$edge" cat /data/caddy/pki/authorities/local/root.crt > "$ca.new"
+if [ -f "$ca" ] && cmp -s "$ca" "$ca.new"; then rm -f "$ca.new"; else mv "$ca.new" "$ca"; fi
+deployme_ok "The edge's root certificate is in $ca"
+
+[ "${1:-}" = --print ] && exit 0
+
+case "$os" in
+    macos)
+        deployme_say "Adding it to your login keychain (macOS may ask for your password)"
+        security add-trusted-cert -r trustRoot -k "$HOME/Library/Keychains/login.keychain-db" "$ca"
+        deployme_ok "Trusted in the login keychain. Firefox: Settings → Privacy & Security → Certificates → Import, or set security.enterprise_roots.enabled."
+        ;;
+    linux|wsl)
+        deployme_say "Adding it to the system's certificates (sudo)"
+        if [ -d /usr/local/share/ca-certificates ] && command -v update-ca-certificates >/dev/null; then
+            sudo cp "$ca" /usr/local/share/ca-certificates/deployme-caddy-local.crt
+            sudo update-ca-certificates >/dev/null
+        elif command -v trust >/dev/null; then
+            sudo trust anchor --store "$ca"
+        else
+            deployme_warn "Couldn't tell how this distribution trusts certificates: add $ca to its CA store by hand."
+        fi
+        # Chrome, Chromium and Firefox on Linux read NSS, not the system store.
+        if command -v certutil >/dev/null; then
+            mkdir -p "$HOME/.pki/nssdb"
+            [ -f "$HOME/.pki/nssdb/cert9.db" ] || certutil -d "sql:$HOME/.pki/nssdb" -N --empty-password
+            certutil -d "sql:$HOME/.pki/nssdb" -D -n "deploy.me local CA" 2>/dev/null || true
+            certutil -d "sql:$HOME/.pki/nssdb" -A -t "C,," -n "deploy.me local CA" -i "$ca"
+            deployme_ok "Trusted for Chrome/Chromium (NSS)"
+        elif [ "$os" = linux ]; then
+            deployme_warn "For Chrome/Firefox on Linux, install certutil (libnss3-tools) and run bin/trust-ca again."
+        fi
+        if [ "$os" = wsl ] && command -v powershell.exe >/dev/null; then
+            deployme_say "Adding it to Windows' current-user root store (Windows asks to confirm)"
+            win_tmp=$(wslpath -u "$(powershell.exe -NoProfile -Command '[IO.Path]::GetTempPath()' | tr -d '\r')")
+            cp "$ca" "$win_tmp/deployme-caddy-local.crt"
+            powershell.exe -NoProfile -Command "Import-Certificate -FilePath \"\$env:TEMP\\deployme-caddy-local.crt\" -CertStoreLocation Cert:\\CurrentUser\\Root | Out-Null"
+            rm -f "$win_tmp/deployme-caddy-local.crt"
+            deployme_ok "Trusted on Windows: Edge and Chrome there use it"
+        fi
+        deployme_ok "Trusted. Restart the browser if it was open."
+        ;;
+    *) deployme_die "Trust $ca by hand on this system." ;;
+esac

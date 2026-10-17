@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
-# Host-side health check for deploy.me and the shared infra it depends on.
-# Read-only. Ends by running `php artisan deployme:doctor` inside the worker.
+# Host-side health check for deploy.me and the infra it depends on (the shared
+# stack, or its own: ./.env says which). Read-only. Ends by running
+# `php artisan deployme:doctor` inside the worker.
 #
 #   bin/doctor.sh      (or: make doctor)
 set -uo pipefail
-cd "$(dirname "$0")/.."
+. "$(dirname "$0")/lib.sh"
+cd "$DEPLOYME_ROOT" || exit 1
 
-INFRA="${INFRA_DIR:-$HOME/Personal/infra}"
-CA="$INFRA/caddy-local-root.crt"
+STACK=$(deployme_stack)
+NETWORK=$(deployme_env DEPLOYME_NETWORK); NETWORK=${NETWORK:-proxy-network}
+PG=$(deployme_pg_container)
+EDGE=$(deployme_edge_container)
+CACHE=$(deployme_cache_container)
+CA=$(deployme_ca_file)
 URL=https://deployme.localhost
 failures=0
 
@@ -15,10 +21,11 @@ pass() { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 fail() { printf '  \033[31m✗\033[0m %s\n' "$1"; failures=$((failures + 1)); }
 check() { local label=$1; shift; if "$@" >/dev/null 2>&1; then pass "$label"; else fail "$label"; fi; }
 running() { [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = true ]; }
-loopback_only() { ! { docker port caddy; docker port postgres; docker port valkey; } 2>/dev/null | grep -Eq '0\.0\.0\.0|\[::\]'; }
+loopback_only() { ! { docker port "$EDGE"; docker port "$PG"; docker port "$CACHE"; } 2>/dev/null | grep -Eq '0\.0\.0\.0|\[::\]'; }
+ca_present() { [ -s "$CA" ] || bin/trust-ca --print; }
 alias_owner_ok() {
   # No foreign container may hold a deployme-* name on proxy-network.
-  docker network inspect proxy-network -f '{{range .Containers}}{{.Name}} {{end}}' | tr ' ' '\n' \
+  docker network inspect "$NETWORK" -f '{{range .Containers}}{{.Name}} {{end}}' | tr ' ' '\n' \
     | grep -E '^deployme-' | while read -r name; do
         [ "$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$name")" = deployme ] || exit 1
       done
@@ -37,11 +44,12 @@ ws_upgrade() {
   [ "$code" = 101 ]
 }
 
-echo "Shared infra"
-check "proxy-network exists" docker network inspect proxy-network
-for c in postgres valkey caddy; do check "$c is running" running "$c"; done
+echo "Infra ($STACK stack, $(deployme_os))"
+check "$NETWORK network exists" docker network inspect "$NETWORK"
+for c in "$PG" "$CACHE" "$EDGE"; do check "$c is running" running "$c"; done
 check "infra ports are bound to 127.0.0.1 only" loopback_only
-check "role deployme exists" sh -c "docker exec postgres psql -U postgres -tAc \"select 1 from pg_roles where rolname = 'deployme'\" | grep -q 1"
+check "role deployme exists" sh -c "docker exec $PG psql -U postgres -tAc \"select 1 from pg_roles where rolname = 'deployme'\" | grep -q 1"
+check "the edge's local CA is on this machine ($CA)" ca_present
 
 echo "deploy.me"
 for c in deployme-web deployme-worker deployme-reverb; do check "$c is running" running "$c"; done

@@ -49,16 +49,22 @@
 
 ## 🚀 Швидкий старт
 
-> [!IMPORTANT]
-> deploy.me працює поруч зі **спільним локальним стеком**: PostgreSQL, Valkey (як `redis`) і
-> caddy-docker-proxy у зовнішній Docker-мережі `proxy-network`. Подробиці — у
-> [посібнику](docs/usage.md#1--install).
+Потрібен лише Docker. deploy.me однаково працює на macOS, Linux і Windows і приносить власні
+PostgreSQL, Valkey та HTTPS-edge, якщо у вас ще немає спільного стеку.
 
-```bash
-git clone https://github.com/KielD-01/deploy.me.git && cd deploy.me
-make init     # база, образ, контейнери, асети, ключі, міграції, doctor
-make enroll   # одноразове посилання: відкрийте його і зареєструйте passkey
-```
+| 🍎 macOS · 🐧 Linux | 🪟 Windows (WSL2 + Docker Desktop), у PowerShell |
+|---|---|
+| `git clone https://github.com/KielD-01/deploy.me.git && cd deploy.me && bin/install` | `irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 \| iex` |
+
+`bin/install` робить усе за один раз:
+
+- перевіряє потрібні інструменти;
+- описує вашу машину в `.env`;
+- збирає й запускає стек;
+- додає локальний CA до довірених у браузерах;
+- друкує одноразове посилання для реєстрації passkey.
+
+Особливості кожної ОС і розв'язання проблем описано в **[docs/install.md](docs/install.md)**.
 
 Далі на **https://deployme.localhost**:
 

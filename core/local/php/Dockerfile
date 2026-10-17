@@ -9,7 +9,7 @@
 FROM dunglas/frankenphp:1-php8.5
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    TZ=Europe/Kyiv \
+    TZ=UTC \
     COMPOSER_ALLOW_SUPERUSER=1
 
 #   pcntl            queue worker signals
@@ -46,6 +46,19 @@ COPY core/local/php/supervisor/ /etc/supervisor/
 COPY core/local/php/git-askpass /usr/local/bin/deployme-git-askpass
 COPY core/local/php/entrypoint.sh /usr/local/bin/deployme-entrypoint
 RUN chmod 0755 /usr/local/bin/deployme-git-askpass /usr/local/bin/deployme-entrypoint
+
+# The user the containers run as. 0 (root) on macOS; on Linux and WSL2 the host
+# user's ids (compose passes DEPLOYME_UID/GID from ./.env), so bind-mounted files
+# keep their owner and ssh accepts the ~/.ssh/config that user owns. Its home is
+# /root either way, where compose mounts ~/.ssh. FrankenPHP's /data and /config
+# and PHP's session folder must be writable by it too.
+ARG DEPLOYME_UID=0
+ARG DEPLOYME_GID=0
+RUN if [ "$DEPLOYME_UID" != 0 ]; then \
+      getent group "$DEPLOYME_GID" >/dev/null || groupadd -g "$DEPLOYME_GID" deployme; \
+      useradd -o -u "$DEPLOYME_UID" -g "$DEPLOYME_GID" -d /root -M -s /bin/bash deployme; \
+      chown -R "$DEPLOYME_UID:$DEPLOYME_GID" /root /data /config; \
+    fi
 
 WORKDIR /app
 

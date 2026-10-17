@@ -21,6 +21,7 @@
   <b>🇬🇧 English</b> · <a href="README.uk.md">🇺🇦 Українська</a>
   <br><br>
   <a href="#-quick-start">Quick start</a> ·
+  <a href="docs/install.md">Install</a> ·
   <a href="docs/usage.md">User guide</a> ·
   <a href="docs/mcp.md">MCP for AI agents</a> ·
   <a href="#️-architecture">Architecture</a> ·
@@ -148,18 +149,60 @@ deletes), 🔑 **passkey-only sign-in**, and 💾 nightly **backups** of deploy.
 
 ## 🚀 Quick start
 
-> [!IMPORTANT]
-> deploy.me is built to run beside a **shared local stack**: PostgreSQL, Valkey (as `redis`)
-> and [caddy-docker-proxy](https://github.com/lucaslorentz/caddy-docker-proxy) on an
-> external Docker network called `proxy-network`, with Caddy's local CA trusted. It ships
-> no database, cache or proxy of its own. The [user guide](docs/usage.md#1--install) lists
-> everything it expects.
+All you need is Docker. deploy.me runs the same way on all three systems and brings its own
+PostgreSQL, Valkey and HTTPS edge, unless you already run a shared stack it can join.
+
+<table>
+<tr>
+<th width="33%">🍎 macOS</th>
+<th width="33%">🐧 Linux</th>
+<th width="33%">🪟 Windows</th>
+</tr>
+<tr>
+<td valign="top">
+
+Docker Desktop or OrbStack, then:
 
 ```bash
-git clone https://github.com/KielD-01/deploy.me.git && cd deploy.me
-make init     # database, image, containers, assets, keys, migrations, doctor
-make enroll   # prints a one-time link: open it and register your passkey
+git clone https://github.com/KielD-01/deploy.me.git
+cd deploy.me
+bin/install
 ```
+
+</td>
+<td valign="top">
+
+Docker Engine + Compose, then:
+
+```bash
+git clone https://github.com/KielD-01/deploy.me.git
+cd deploy.me
+bin/install
+```
+
+</td>
+<td valign="top">
+
+WSL2 + Docker Desktop, then in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 | iex
+```
+
+</td>
+</tr>
+</table>
+
+`bin/install` does everything in one go:
+
+- checks the tools it needs;
+- describes your machine in `.env` (`bin/configure`);
+- builds and starts the stack;
+- trusts the local CA in your browsers (macOS keychain, Linux NSS, Windows' store);
+- prints a one-time link that registers your **passkey**.
+
+The per-OS notes, the two stack modes and troubleshooting are in
+**[docs/install.md](docs/install.md)**.
 
 Open **https://deployme.localhost**, then:
 

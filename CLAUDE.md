@@ -17,14 +17,26 @@ and health checks on queue workers run by supervisor.
   `resources/views/layouts/app.blade.php`, daisyUI 5 theme in `resources/css/app.css`
   (tokens from a sibling project's design system), icons via `<x-icon name="…" />`.
 - `docs/` — the user guide (`usage.md`) and the MCP guide (`mcp.md`).
-- `bin/` — `db-create.sh` (shared Postgres role + DBs), `doctor.sh` (host-side checks),
+- `bin/install` (and `bin/install.ps1` for Windows → WSL2) runs the guided install;
+  `bin/configure` writes `.env` (COMPOSE_FILE, stack mode, DEPLOYME_UID/GID, TZ, project
+  roots) and `compose.host.yml` (root and ssh-agent mounts); `bin/trust-ca` trusts the edge's
+  CA per OS; `bin/lib.sh` is what they share. Stack modes: `shared` (the external
+  proxy-network stack, this machine) or `standalone` (`compose.standalone.yml`:
+  deployme-postgres/-valkey/-caddy with the aliases postgres/redis). On Linux/WSL the
+  containers run as the host UID (the image's `deployme` user, home /root); on macOS as root.
+  `docs/install.md` is the per-OS guide.
+- `bin/` — `db-create.sh` (the role + DBs, either stack), `doctor.sh` (host-side checks),
   `backup.sh` (the database and APP_KEY into `~/Backups/deployme`, nightly through a
-  LaunchAgent: everything else can be rebuilt from git and the servers).
-- `docker-compose.local.yml`, `Makefile` (`make help`).
+  LaunchAgent on macOS, a systemd user timer or cron on Linux/WSL: everything else can be
+  rebuilt from git and the servers).
+- `docker-compose.local.yml` (+ `compose.standalone.yml`, generated `compose.host.yml`),
+  `Makefile` (`make help`).
 
 ## Running
 
 ```bash
+bin/install    # guided first run on macOS/Linux/WSL2 (configure, init, trust-ca, enroll)
+make configure # re-describe this machine (.env, compose.host.yml)
 make init      # first run: database, image, containers, assets, setup, doctor
 make enroll    # one-time link to register a passkey (first run, or a lost passkey)
 make up        # start · make down · make logs s=deployme-worker
@@ -317,8 +329,10 @@ App: https://deployme.localhost (shared Caddy edge, `tls internal`).
 
 ## Conventions
 
-- Follows `~/Personal/infra/PROJECT_CONVENTION.md`: no own postgres/redis/caddy; every
-  service is prefixed `deployme-` (bare names collide on `proxy-network`).
+- On this machine it follows `~/Personal/infra/PROJECT_CONVENTION.md` (shared stack, no own
+  postgres/redis/caddy). `compose.standalone.yml` exists only for other people's machines
+  and is never in COMPOSE_FILE here. Every service is prefixed `deployme-` (bare names
+  collide on `proxy-network`).
 - Queues: `redis` (interactive, default), `redis-deploys`, `redis-probes`. Keep each
   connection's `retry_after` above its worker `--timeout`
   (`tests/Feature/QueueConfigTest.php` enforces it). Deploys get two hours:

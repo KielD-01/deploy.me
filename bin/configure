@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# Describe this machine to docker compose: writes ./.env (stack mode, user ids,
+# timezone, project roots) and ./compose.host.yml (the mounts only this machine
+# has). Safe to run again: it keeps the database password it generated and
+# rewrites the rest. macOS, Linux and Windows (inside WSL2).
+#
+#   bin/configure                         detect everything, ask nothing
+#   bin/configure --stack standalone      deploy.me's own Postgres, Valkey and edge
+#   bin/configure --stack shared          the shared stack on proxy-network
+#   bin/configure --roots ~/code:~/work   the folders projects are imported from
+#   bin/configure --uid 0                 run the containers as root anyway
+set -euo pipefail
+. "$(dirname "$0")/lib.sh"
+cd "$DEPLOYME_ROOT"
+
+stack=""
+roots=""
+uid=""
+gid=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --stack) stack=${2:?--stack needs shared or standalone}; shift 2 ;;
+        --stack=*) stack=${1#*=}; shift ;;
+        --roots) roots=${2:?--roots needs a list}; shift 2 ;;
+        --roots=*) roots=${1#*=}; shift ;;
+        --uid) uid=${2:?}; gid=${uid}; shift 2 ;;
+        --uid=*) uid=${1#*=}; gid=$uid; shift ;;
+        -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) deployme_die "Unknown option $1 (see bin/configure --help)" ;;
+    esac
+done
+
+os=$(deployme_os)
+[ "$os" = unknown ] && deployme_die "Run this on macOS, Linux, or inside WSL2 on Windows (see docs/install.md)."
+docker info >/dev/null 2>&1 || deployme_die "Docker isn't running, or this user can't reach it (docker info failed)."
+
+# Shared when the infra stack is already here; otherwise deploy.me brings its own.
+if [ -z "$stack" ]; then
+    stack=$(deployme_env DEPLOYME_STACK)
+fi
+if [ -z "$stack" ]; then
+    if docker network inspect proxy-network >/dev/null 2>&1 && docker inspect postgres >/dev/null 2>&1 && docker inspect caddy >/dev/null 2>&1; then
+        stack=shared
+    else
+        stack=standalone
+    fi
+fi
+case "$stack" in shared|standalone) ;; *) deployme_die "--stack is shared or standalone, not $stack" ;; esac
+
+# Root where Docker maps file ownership for us (Docker Desktop, OrbStack on a
+# Mac); the host user's ids where bind mounts keep the real owner.
+if [ -z "$uid" ]; then
+    if [ "$os" = macos ]; then uid=0; gid=0; else uid=$(id -u); gid=$(id -g); fi
+fi
+
+tz=""
+if [ "$os" = macos ]; then
+    tz=$(readlink /etc/localtime 2>/dev/null | sed 's#.*/zoneinfo/##' || true)
+else
+    tz=$(timedatectl show -p Timezone --value 2>/dev/null || true)
+    [ -n "$tz" ] || tz=$(cat /etc/timezone 2>/dev/null || true)
+    [ -n "$tz" ] || tz=$(readlink /etc/localtime 2>/dev/null | sed 's#.*/zoneinfo/##' || true)
+fi
+# Debian's tzdata no longer ships the old names macOS still reports.
+case "$tz" in
+    Europe/Kiev) tz=Europe/Kyiv ;;
+    Asia/Calcutta) tz=Asia/Kolkata ;;
+    Asia/Saigon) tz=Asia/Ho_Chi_Minh ;;
+    Asia/Katmandu) tz=Asia/Kathmandu ;;
+    Asia/Rangoon) tz=Asia/Yangon ;;
+    Europe/Uzhgorod|Europe/Zaporozhye) tz=Europe/Kyiv ;;
+esac
+tz=${tz:-UTC}
+
+# The folders projects are imported from, mounted at the same paths inside the
+# containers (git worktrees record absolute paths). Default: the usual ones that
+# exist, else ~/Projects.
+if [ -z "$roots" ]; then
+    roots=$(deployme_env DEPLOYME_PROJECT_ROOTS)
+fi
+if [ -z "$roots" ]; then
+    for dir in Personal Claude Projects Cursor code src dev work; do
+        [ -d "$HOME/$dir" ] && roots="${roots:+$roots:}$HOME/$dir"
+    done
+fi
+if [ -z "$roots" ]; then
+    mkdir -p "$HOME/Projects"
+    roots="$HOME/Projects"
+fi
+clean_roots=""
+IFS=: read -r -a root_list <<< "$roots"
+for root in "${root_list[@]}"; do
+    root=${root/#\~/$HOME}
+    [ -n "$root" ] || continue
+    case "$root" in /*) ;; *) deployme_die "Project roots must be absolute paths: $root" ;; esac
+    case "$root" in *[[:space:]]*) deployme_die "A project root can't contain spaces: $root" ;; esac
+    if [ ! -d "$root" ]; then deployme_warn "$root doesn't exist yet, so it's created"; mkdir -p "$root"; fi
+    clean_roots="${clean_roots:+$clean_roots:}${root%/}"
+done
+roots=$clean_roots
+
+# The ssh-agent the containers may use (optional: key files work without one).
+agent=""
+if [ "$os" = macos ]; then
+    # Docker Desktop and OrbStack forward the host's agent at this path.
+    agent=/run/host-services/ssh-auth.sock
+elif [ -n "${SSH_AUTH_SOCK:-}" ] && [ -S "${SSH_AUTH_SOCK}" ]; then
+    agent=$SSH_AUTH_SOCK
+fi
+
+password=$(deployme_env DEPLOYME_POSTGRES_PASSWORD)
+if [ "$stack" = standalone ] && [ -z "$password" ]; then
+    password=$(openssl rand -hex 24 2>/dev/null || head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
+fi
+
+if [ "$stack" = standalone ]; then
+    files=docker-compose.local.yml:compose.standalone.yml:compose.host.yml
+    network=deployme-edge
+else
+    files=docker-compose.local.yml:compose.host.yml
+    network=proxy-network
+fi
+
+cat > .env <<ENV
+# Written by bin/configure for this machine ($os). Run it again to change
+# anything here; it keeps the database password and rewrites the rest.
+COMPOSE_FILE=$files
+COMPOSE_PATH_SEPARATOR=:
+DEPLOYME_STACK=$stack
+DEPLOYME_OS=$os
+DEPLOYME_NETWORK=$network
+DEPLOYME_UID=$uid
+DEPLOYME_GID=$gid
+DEPLOYME_TZ=$tz
+DEPLOYME_PROJECT_ROOTS=$roots
+ENV
+[ -n "$password" ] && echo "DEPLOYME_POSTGRES_PASSWORD=$password" >> .env
+chmod 600 .env
+
+{
+    echo "# Written by bin/configure: the mounts only this machine has. Run it again"
+    echo "# after adding a project root, or when your ssh-agent socket moves."
+    echo "services:"
+    for service in deployme-web deployme-worker; do
+        echo "  $service:"
+        echo "    volumes:"
+        IFS=: read -r -a root_list <<< "$roots"
+        for root in "${root_list[@]}"; do
+            # Read-only in the web container; the worker pushes from local repos.
+            if [ "$service" = deployme-web ]; then echo "      - \"$root:$root:ro\""; else echo "      - \"$root:$root\""; fi
+        done
+        [ -n "$agent" ] && echo "      - \"$agent:/run/host-services/ssh-auth.sock\""
+    done
+} > compose.host.yml
+
+deployme_say "Configured deploy.me for $os"
+deployme_ok "stack: $stack$([ "$stack" = standalone ] && echo ' (its own Postgres, Valkey and edge)' || echo ' (the shared stack on proxy-network)')"
+deployme_ok "containers run as $([ "$uid" = 0 ] && echo root || echo "uid $uid:$gid")"
+deployme_ok "timezone: $tz"
+deployme_ok "project roots: ${roots//:/, }"
+if [ -n "$agent" ]; then deployme_ok "ssh-agent: $agent"; else deployme_warn "no ssh-agent socket: deploy.me uses the IdentityFile keys in ~/.ssh/config"; fi
+[ -f "$HOME/.ssh/config" ] || deployme_warn "$HOME/.ssh/config is missing: add your servers as Host entries before adding them to deploy.me"

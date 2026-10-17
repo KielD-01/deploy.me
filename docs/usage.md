@@ -26,33 +26,37 @@ chapter stands on its own, so skip to the one you need.
 
 ## 1. 🧱 Install
 
-**You need:**
-
-| | |
-|---|---|
-| 🐳 **Docker Desktop** | with Compose v2 |
-| 🧩 **A shared local stack** | PostgreSQL, Valkey (as `redis`) and [caddy-docker-proxy](https://github.com/lucaslorentz/caddy-docker-proxy) on an external Docker network called `proxy-network`, with Caddy's local CA trusted. deploy.me ships no database, cache or proxy of its own. |
-| 🔑 **`~/.ssh/config`** | Every server you deploy to as a `Host` entry with an `IdentityFile` |
-| 📁 **Project roots** | Your projects under `~/Personal`, `~/Claude`, `~/Projects` or `~/Cursor`. They're mounted at the same paths inside the containers (`DEPLOYME_PROJECT_ROOTS`) |
-
-**Then:**
+You need **Docker** and your servers in **`~/.ssh/config`**. deploy.me runs the same way on
+macOS, Linux and Windows (inside WSL2), and brings its own PostgreSQL, Valkey and HTTPS
+edge, unless you already run a shared stack it can join.
 
 ```bash
 git clone https://github.com/KielD-01/deploy.me.git
 cd deploy.me
-make init
+bin/install
 ```
 
-`make init` creates `src/api/.env`, the `deployme` role and its databases, builds the PHP
-image, starts the stack, builds the assets, generates keys and migrates. It finishes with
-`make doctor`, which checks everything from the database to your SSH aliases.
+On Windows, run this in PowerShell instead:
+`irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 | iex`.
+
+`bin/install` works through these steps:
+
+1. It checks the tools it needs.
+2. `bin/configure` writes `.env` and `compose.host.yml` for this machine: the stack mode,
+   the user the containers run as, your timezone, your project roots and your ssh-agent.
+3. `bin/db-create.sh` creates `src/api/.env` and the `deployme` role and databases.
+4. It builds the image, starts the stack and builds the assets.
+5. `deployme:setup` generates `APP_KEY` and the Reverb credentials, and migrates.
+6. `bin/trust-ca` trusts the edge's local CA in your browsers.
+7. `make doctor` checks everything.
+8. It prints your passkey link.
+
+Each OS has its own notes: Linux UIDs, WSL and your Windows `.ssh`, Firefox. Those, and the
+two stack modes, are in **[install.md](install.md)**.
 
 > [!WARNING]
 > **Back up `APP_KEY`** from `src/api/.env` and keep it in a password manager. GitHub tokens
 > and env files are encrypted with it, and they can't be read without it.
-
-If `deployme:setup` says it generated Reverb credentials, run `make restart` once so every
-container picks them up.
 
 ## 2. 🔑 Sign in with a passkey
 
@@ -259,14 +263,14 @@ nightly prune may delete.
 ## 15. 💾 Back up deploy.me itself
 
 ```bash
-make backup-install   # nightly at 03:20 (LaunchAgent)
+make backup-install   # nightly at 03:20 (launchd · systemd timer · cron)
 make backup           # now
 make backup-status    # when it last ran, what's kept
 ```
 
 This writes a `pg_dump` of the `deployme` database and a copy of `src/api/.env` (with
 `APP_KEY`) into `~/Backups/deployme`, keeping the last 14. The dumps (never the key) are
-also copied to iCloud Drive when it's there. Everything else can be rebuilt from git and
+also copied to iCloud Drive on a Mac that has it, or to `DEPLOYME_OFFSITE_DIR` if you set it. Everything else can be rebuilt from git and
 the servers.
 
 ## 16. 🤖 Let an AI agent help
@@ -292,7 +296,7 @@ every server alias (`ssh -G`, key file permissions, host key) and the GitHub tok
 
 | Symptom | Where to look |
 |---|---|
-| The page doesn't load | `make ps`. Is the shared Caddy running on `proxy-network`? Is the local CA trusted? |
+| The page doesn't load | `make ps`. Is the edge running (`deployme-caddy`, or the shared `caddy`)? Is the local CA trusted (`bin/trust-ca`)? |
 | Live logs don't update | `make logs s=deployme-reverb`. `make doctor` checks websockets through the edge |
 | A run sits in **Queued** | `make workers`. The `redis-deploys` worker runs deploys |
 | A run shows **Stalled** | The worker stopped reporting. Check `make logs s=deployme-worker`, then retry |

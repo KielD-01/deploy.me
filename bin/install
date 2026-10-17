@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+# deploy.me's guided install, for macOS, Linux and Windows (run it inside WSL2;
+# bin/install.ps1 gets you there from PowerShell). It checks what it needs,
+# describes this machine (bin/configure), builds and starts the stack, trusts
+# the local CA and prints the link that registers your passkey.
+#
+#   bin/install                          detect everything
+#   bin/install --stack standalone       deploy.me's own Postgres, Valkey and edge
+#   bin/install --roots ~/code:~/work    where your projects are
+#   bin/install --no-trust               leave the CA to you (bin/trust-ca later)
+#
+# Anything after the options it knows goes to bin/configure.
+set -euo pipefail
+. "$(dirname "$0")/lib.sh"
+cd "$DEPLOYME_ROOT"
+
+trust=1
+configure_args=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --no-trust) trust=0; shift ;;
+        -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) configure_args+=("$1"); shift ;;
+    esac
+done
+
+os=$(deployme_os)
+deployme_say "Installing deploy.me on $os"
+
+# --- What it needs ------------------------------------------------------------
+missing=()
+for tool in docker git make openssl curl; do
+    command -v "$tool" >/dev/null || missing+=("$tool")
+done
+if [ ${#missing[@]} -gt 0 ]; then
+    tools=$(printf '%s\n' "${missing[@]}" | grep -vx docker | tr '\n' ' ' || true)
+    apt=""
+    [ -n "$tools" ] && apt="sudo apt install ${tools}(or your distribution's equivalent). "
+    case "$os" in
+        macos) hint="xcode-select --install gives git and make; Docker comes with Docker Desktop or OrbStack." ;;
+        wsl) hint="${apt}Docker comes from Docker Desktop's WSL integration." ;;
+        linux) hint="${apt}Docker: https://docs.docker.com/engine/install/" ;;
+        *) hint="" ;;
+    esac
+    deployme_die "Missing: ${missing[*]}. $hint"
+fi
+docker compose version >/dev/null 2>&1 || deployme_die "Docker Compose v2 is missing (the 'docker compose' plugin)."
+if ! docker info >/dev/null 2>&1; then
+    case "$os" in
+        wsl) deployme_die "Docker isn't reachable from WSL. Start Docker Desktop and turn on Settings → Resources → WSL integration for this distribution." ;;
+        linux) deployme_die "Docker isn't reachable. Start it (sudo systemctl start docker) and add yourself to the docker group (sudo usermod -aG docker \$USER, then log in again)." ;;
+        *) deployme_die "Docker isn't running. Start Docker Desktop or OrbStack." ;;
+    esac
+fi
+deployme_ok "docker $(docker version -f '{{.Server.Version}}' 2>/dev/null), compose $(docker compose version --short 2>/dev/null)"
+
+# A checkout on the Windows drive is slow and loses file modes: keep it in WSL.
+if [ "$os" = wsl ]; then
+    case "$DEPLOYME_ROOT" in
+        /mnt/*) deployme_die "This checkout is on the Windows drive ($DEPLOYME_ROOT). Clone it inside WSL instead, e.g. ~/deploy.me." ;;
+    esac
+fi
+
+# --- SSH ----------------------------------------------------------------------
+# Servers come from ~/.ssh/config. In WSL that's Linux's ~/.ssh, not Windows':
+# offer to copy Windows' over, with the modes ssh insists on.
+if [ "$os" = wsl ] && [ ! -f "$HOME/.ssh/config" ]; then
+    win_home=$(wslpath -u "$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')" 2>/dev/null || true)
+    if [ -n "$win_home" ] && [ -f "$win_home/.ssh/config" ]; then
+        deployme_warn "Your servers are in Windows' $win_home/.ssh, which WSL doesn't use."
+        if [ -t 0 ]; then
+            read -r -p "  Copy it to ~/.ssh in WSL? [Y/n] " answer
+            if [ "${answer:-y}" != n ] && [ "${answer:-y}" != N ]; then
+                mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+                cp -n "$win_home/.ssh/"* "$HOME/.ssh/" 2>/dev/null || true
+                chmod 600 "$HOME/.ssh/"* 2>/dev/null || true
+                chmod 644 "$HOME/.ssh/"*.pub 2>/dev/null || true
+                # Windows paths in IdentityFile lines don't exist here.
+                grep -qiE 'IdentityFile[[:space:]]+"?[A-Za-z]:' "$HOME/.ssh/config" \
+                    && deployme_warn "$HOME/.ssh/config names Windows paths in IdentityFile: change them to ~/.ssh/… "
+                deployme_ok "Copied to ~/.ssh"
+            fi
+        fi
+    fi
+fi
+[ -f "$HOME/.ssh/config" ] || deployme_warn "No ~/.ssh/config yet. deploy.me lists your servers from its Host entries; add them any time."
+
+# --- Configure, build, start --------------------------------------------------
+bin/configure "${configure_args[@]+"${configure_args[@]}"}"
+
+if [ "$(deployme_stack)" = standalone ]; then
+    for port in 80 443; do
+        if ! docker ps --format '{{.Names}} {{.Ports}}' | grep -v '^deployme-caddy ' | grep -q "127.0.0.1:$port->\|0.0.0.0:$port->\|:::$port->"; then
+            continue
+        fi
+        deployme_die "Port $port is already published by another container: the edge needs 127.0.0.1:80 and :443."
+    done
+fi
+
+deployme_say "Building and starting (the first build takes a few minutes)"
+make db-create build up assets setup
+# setup may have generated the Reverb credentials: every container reads them at start.
+make restart
+
+if [ "$trust" = 1 ]; then
+    deployme_say "Trusting the local CA"
+    # Asking once makes the edge issue the site's certificate (and its CA).
+    curl -sk -o /dev/null --max-time 10 https://deployme.localhost/up || true
+    bin/trust-ca || deployme_warn "Trust it later with: bin/trust-ca"
+fi
+
+deployme_say "Checking everything"
+bin/doctor.sh || deployme_warn "Some checks failed: see above, and docs/install.md#troubleshooting"
+
+deployme_say "Register your passkey"
+make enroll
+
+cat <<DONE
+
+  deploy.me is running at https://deployme.localhost
+  Open the link above, register a passkey, then add a server.
+
+  make help      every command      docs/install.md   this machine's notes
+  make doctor    check everything   docs/usage.md     the user guide
+DONE
