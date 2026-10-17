@@ -186,7 +186,8 @@ fi
 
 for pattern in "deployme-*.sql.gz" "env-*"; do
     # shellcheck disable=SC2012
-    ls -1t "$dest"/$pattern 2>/dev/null | tail -n "+$((keep + 1))" | while read -r old; do rm -f -- "$old"; done
+    # Nothing to match (no key copied yet) isn't a failure: || true, under pipefail.
+    { ls -1t "$dest"/$pattern 2>/dev/null || true; } | tail -n "+$((keep + 1))" | while read -r old; do rm -f -- "$old"; done
 done
 
 # A copy that survives this machine. The dumps go, the key does not: together
