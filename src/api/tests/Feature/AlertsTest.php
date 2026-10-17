@@ -72,3 +72,28 @@ it('swallows a refusal rather than failing what it reports on', function () {
 
     expect(Alert::send('anything'))->toBeFalse();
 });
+
+it('asks for a passkey before alerts go to another chat, or stop', function () {
+    alertsConfigured();
+    $this->actingAs(App\Models\User::factory()->create());
+
+    // Whoever sets the chat reads every failure the runs report.
+    Livewire\Livewire::test(App\Livewire\Settings\Index::class)
+        ->set('telegramChatId', '9999')
+        ->call('saveAlerts')
+        ->assertRedirect(route('password.confirm'));
+    Livewire\Livewire::test(App\Livewire\Settings\Index::class)
+        ->call('forgetAlerts')
+        ->assertRedirect(route('password.confirm'));
+
+    expect(Settings::string('telegram_chat_id'))->toBe('4242')
+        ->and(Settings::string('telegram_bot_token'))->toBe('123456:test-token');
+
+    session(['auth.password_confirmed_at' => time()]);
+    Livewire\Livewire::test(App\Livewire\Settings\Index::class)
+        ->set('telegramChatId', '9999')
+        ->call('saveAlerts')
+        ->assertHasNoErrors();
+
+    expect(Settings::string('telegram_chat_id'))->toBe('9999');
+});

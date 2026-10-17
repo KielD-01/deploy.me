@@ -119,6 +119,12 @@ class Index extends Component
     {
         $this->reset('notice', 'problem');
 
+        // The chat gets every failure the runs report: changing where they go
+        // is as sensitive as a GitHub token.
+        if (! $this->confirmIdentity(route('settings', ['tab' => 'alerts']))) {
+            return;
+        }
+
         $this->validate([
             'telegramToken' => ['nullable', 'string', 'max:200', 'regex:/^\d+:[A-Za-z0-9_-]+$/'],
             'telegramChatId' => ['nullable', 'string', 'max:100', 'regex:/^(-?\d+|@[A-Za-z0-9_]+)$/'],
@@ -160,6 +166,10 @@ class Index extends Component
     public function forgetAlerts(): void
     {
         $this->reset('notice', 'problem');
+
+        if (! $this->confirmIdentity(route('settings', ['tab' => 'alerts']))) {
+            return;
+        }
 
         Settings::setString('telegram_bot_token', '');
         Settings::setString('telegram_chat_id', '');
