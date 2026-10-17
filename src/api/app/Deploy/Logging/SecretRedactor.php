@@ -34,8 +34,12 @@ final class SecretRedactor
         }
 
         return (string) preg_replace(
-            ['/\bgh[pousr]_[A-Za-z0-9]{20,}/', '/\bgithub_pat_[A-Za-z0-9_]{20,}/', '~(https?://)[^@/\s]+@~i'],
-            [self::MASK, self::MASK, '$1'],
+            [
+                '/\bgh[pousr]_[A-Za-z0-9]{20,}/', '/\bgithub_pat_[A-Za-z0-9_]{20,}/', '~(https?://)[^@/\s]+@~i',
+                // postgres://app:password@…, redis://default:password@…
+                '~\b([a-z][a-z0-9+.-]*://[^:@/\s]*):[^@/\s]+@~i',
+            ],
+            [self::MASK, self::MASK, '$1', '$1:'.self::MASK.'@'],
             $line,
         );
     }
