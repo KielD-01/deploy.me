@@ -32,7 +32,7 @@ it('doesn’t count a one-off container left behind as the service being down', 
         ->and($run->output())->toContain('✓ Everything is up');
 
     // The service's own container exited: that still fails.
-    file_put_contents("{$tmp}/bin/docker", str_replace("app\\trunning\\t-\\tdemo-app-1", "app\\texited\\t-\\tdemo-app-1", file_get_contents("{$tmp}/bin/docker")));
+    file_put_contents("{$tmp}/bin/docker", str_replace('app\\trunning\\t-\\tdemo-app-1', 'app\\texited\\t-\\tdemo-app-1', file_get_contents("{$tmp}/bin/docker")));
     $run = $health();
     expect($run->exitCode())->toBe(30)
         ->and($run->output())->toContain('::deployme::waiting=app (exited)');

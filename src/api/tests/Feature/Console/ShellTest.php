@@ -4,6 +4,7 @@ use App\Enums\DeploymentKind;
 use App\Enums\DeploymentStatus;
 use App\Jobs\ProbeServer;
 use App\Jobs\RunDeployment;
+use App\Livewire\Console\Git;
 use App\Livewire\Console\Session;
 use App\Livewire\Console\Shell as ShellPane;
 use App\Mcp\Tools\PlanDeploy;
@@ -163,7 +164,7 @@ it('opens a pane on what a name found, however it was typed', function () {
     expect($shell->run('open git shopfront')->open)->toBe(['kind' => 'git', 'arg' => 'shop'])
         ->and($shell->run('open htop prod-eu-alias')->open)->toBe(['kind' => 'htop', 'arg' => 'prod-eu']);
 
-    Livewire::test(\App\Livewire\Console\Git::class, ['pane' => 'p1', 'arg' => $shell->run('open git shopfront')->open['arg']])
+    Livewire::test(Git::class, ['pane' => 'p1', 'arg' => $shell->run('open git shopfront')->open['arg']])
         ->assertSet('projectId', $target->project_id);
 });
 

@@ -9,6 +9,7 @@ use App\Models\Credential;
 use App\Models\Deployment;
 use App\Models\Target;
 use App\Platform\Ssh\SshClient;
+use App\Platform\Ssh\SshResult;
 use App\Platform\Ssh\Testing\FakeSshClient;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
@@ -119,7 +120,7 @@ it('runs the old release’s script again when a deploy switches back on its own
 
     // The next release goes live through its script, then fails its health check.
     $target->project->update(['health_url' => 'https://example.dev/up', 'auto_rollback' => true]);
-    $this->ssh->on('box', 'deploy-health', new \App\Platform\Ssh\SshResult(30, "✗ gave HTTP 502\n::deployme::last=HTTP 502\n", '', 1.0));
+    $this->ssh->on('box', 'deploy-health', new SshResult(30, "✗ gave HTTP 502\n::deployme::last=HTTP 502\n", '', 1.0));
     $before = count($this->ssh->calls);
     $failed = blueGreenRun($target->refresh());
     $runs = collect(array_slice($this->ssh->calls, $before))->pluck('script')->filter(fn ($script) => $script->name === 'deploy-run-script')->values();

@@ -614,7 +614,7 @@ class DemoSeeder extends Seeder
             'deploy-build-ignore' => $took(1, "✓ .dockerignore keeps the shared paths out of the build\n"),
             'deploy-state' => $took(1, "✓ Wrote .deploy/state.json\n"),
             'deploy-unlock' => fn (string $alias, RemoteScript $s) => $script($s, 'FORCE') === '1'
-                ? $took(1, "! Broke the lock deploy #".(Deployment::query()->where('target_id', $target->id)->latest('id')->skip(1)->value('id'))." held on {$target->path}\n::deployme::broken=1\n::deployme::previous=".(Deployment::query()->where('target_id', $target->id)->latest('id')->skip(1)->value('id'))."\n")()
+                ? $took(1, '! Broke the lock deploy #'.(Deployment::query()->where('target_id', $target->id)->latest('id')->skip(1)->value('id'))." held on {$target->path}\n::deployme::broken=1\n::deployme::previous=".(Deployment::query()->where('target_id', $target->id)->latest('id')->skip(1)->value('id'))."\n")()
                 : $took(1, "✓ Unlocked {$target->path}\n")(),
             'deploy-link-shared' => fn (string $alias, RemoteScript $s) => $took(1, collect(explode("\n", (string) $script($s, 'DIRS')."\n".$script($s, 'FILES')))->filter()->map(fn ($path) => "✓ {$path} → shared/{$path}")->implode("\n")."\n")(),
             'deploy-hook' => $took(3, "   INFO  Caching framework bootstrap, configuration, and metadata.\n\n  config ......................................... 24.61ms DONE\n  events .......................................... 1.20ms DONE\n  routes ......................................... 31.84ms DONE\n  views ......................................... 412.07ms DONE\n"),

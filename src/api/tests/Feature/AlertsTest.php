@@ -2,8 +2,10 @@
 
 use App\Enums\DeploymentStatus;
 use App\Enums\TargetHealth;
+use App\Livewire\Settings\Index;
 use App\Models\Deployment;
 use App\Models\Setting;
+use App\Models\User;
 use App\Support\Alert;
 use App\Support\Settings;
 use Illuminate\Http\Client\ConnectionException;
@@ -77,14 +79,14 @@ it('swallows a refusal rather than failing what it reports on', function () {
 
 it('asks for a passkey before alerts go to another chat, or stop', function () {
     alertsConfigured();
-    $this->actingAs(App\Models\User::factory()->create());
+    $this->actingAs(User::factory()->create());
 
     // Whoever sets the chat reads every failure the runs report.
-    Livewire\Livewire::test(App\Livewire\Settings\Index::class)
+    Livewire\Livewire::test(Index::class)
         ->set('telegramChatId', '9999')
         ->call('saveAlerts')
         ->assertRedirect(route('password.confirm'));
-    Livewire\Livewire::test(App\Livewire\Settings\Index::class)
+    Livewire\Livewire::test(Index::class)
         ->call('forgetAlerts')
         ->assertRedirect(route('password.confirm'));
 
@@ -92,7 +94,7 @@ it('asks for a passkey before alerts go to another chat, or stop', function () {
         ->and(Settings::string('telegram_bot_token'))->toBe('123456:test-token');
 
     session(['auth.password_confirmed_at' => time()]);
-    Livewire\Livewire::test(App\Livewire\Settings\Index::class)
+    Livewire\Livewire::test(Index::class)
         ->set('telegramChatId', '9999')
         ->call('saveAlerts')
         ->assertHasNoErrors();

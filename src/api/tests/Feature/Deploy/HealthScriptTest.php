@@ -1,6 +1,7 @@
 <?php
 
 use App\Platform\Ssh\RemoteScript;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 
 // deploy-health.sh run with bash in the worker, against a web server of its
@@ -22,7 +23,7 @@ afterEach(function () {
     $this->server?->stop();
 });
 
-function healthOf(object $test, int $appStatus): Illuminate\Contracts\Process\ProcessResult
+function healthOf(object $test, int $appStatus): ProcessResult
 {
     $test->server = Process::env(['APP_STATUS' => (string) $appStatus])
         ->path($test->web)->start(['php', '-S', "127.0.0.1:{$test->port}", 'router.php']);

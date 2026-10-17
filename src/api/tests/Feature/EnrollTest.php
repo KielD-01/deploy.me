@@ -2,6 +2,8 @@
 
 use App\Auth\EnrollmentLinks;
 use App\Models\User;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Support\Facades\Cache;
 
 beforeEach(fn () => $this->withoutVite());
 
@@ -44,7 +46,7 @@ it('refuses links it never issued', function () {
 it('lets only one of two requests that arrive at once use a link', function () {
     // A store where a second request reads the link while the first one has
     // read it but not yet removed it.
-    $store = new class extends Illuminate\Cache\ArrayStore
+    $store = new class extends ArrayStore
     {
         public ?Closure $meanwhile = null;
 
@@ -60,7 +62,7 @@ it('lets only one of two requests that arrive at once use a link', function () {
             return $value;
         }
     };
-    Illuminate\Support\Facades\Cache::extend('racy', fn () => Illuminate\Support\Facades\Cache::repository($store));
+    Cache::extend('racy', fn () => Cache::repository($store));
     config(['cache.stores.racy' => ['driver' => 'racy'], 'cache.default' => 'racy']);
 
     $links = app(EnrollmentLinks::class);
