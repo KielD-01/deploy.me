@@ -10,6 +10,7 @@ use App\Models\Release;
 use App\Models\Target;
 use App\Support\BranchCommits;
 use Illuminate\Contracts\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -24,12 +25,16 @@ class Git extends Component
 {
     use LoadsAfterThePage;
 
+    #[Locked]
     public ?string $pane = null;
 
+    #[Locked]
     public ?string $arg = null;
 
+    #[Locked]
     public ?int $projectId = null;
 
+    #[Locked]
     public bool $page = false;
 
     public function mount(?string $pane = null, ?string $arg = null, bool $page = false): void

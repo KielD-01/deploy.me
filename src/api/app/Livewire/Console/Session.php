@@ -5,6 +5,7 @@ namespace App\Livewire\Console;
 use App\Support\Ui;
 use App\Terminal\Layout;
 use Illuminate\Contracts\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -17,6 +18,7 @@ use Livewire\Component;
 class Session extends Component
 {
     /** @var array<string, mixed> */
+    #[Locked]
     public array $layout = [];
 
     public function mount(): void

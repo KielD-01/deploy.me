@@ -3,6 +3,7 @@
 use App\Enums\DeploymentKind;
 use App\Livewire\Console\Git;
 use App\Livewire\Console\Htop;
+use App\Livewire\Console\Session;
 use App\Livewire\Console\Status;
 use App\Livewire\Console\Tail;
 use App\Models\Deployment;
@@ -13,6 +14,7 @@ use App\Models\ServerSnapshot;
 use App\Models\Target;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
 beforeEach(fn () => $this->actingAs(User::factory()->create()));
@@ -86,3 +88,15 @@ it('loads the commits on a project page after the page', function () {
         ->assertSee('$ git warehouse')
         ->assertSeeHtml('aria-busy="true"');
 });
+
+it('keeps what a pane shows in the server’s hands', function (string $component, string $property, mixed $value) {
+    $pane = Livewire::test($component, $component === Session::class ? [] : ['pane' => 'p1']);
+
+    expect(fn () => $pane->set($property, $value))->toThrow(CannotUpdateLockedPropertyException::class);
+})->with([
+    [Tail::class, 'deploymentId', 99],
+    [Git::class, 'projectId', 99],
+    [Git::class, 'page', true],
+    [Htop::class, 'serverId', 99],
+    [Session::class, 'layout', ['broken']],
+]);

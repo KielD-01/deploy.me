@@ -8,6 +8,7 @@ use App\Enums\StepStatus;
 use App\Livewire\Console\Concerns\LoadsAfterThePage;
 use App\Models\Deployment;
 use Illuminate\Contracts\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Renderless;
 use Livewire\Component;
@@ -21,10 +22,13 @@ class Tail extends Component
 {
     use LoadsAfterThePage;
 
+    #[Locked]
     public ?string $pane = null;
 
+    #[Locked]
     public ?string $arg = null;
 
+    #[Locked]
     public ?int $deploymentId = null;
 
     public function mount(?string $pane = null, ?string $arg = null): void
