@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Auth\EnrollmentLinks;
 use App\Enums\AuditAction;
 use App\Models\User;
 use App\Support\Audit;
@@ -9,16 +10,19 @@ use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
- * First run in the browser: while this machine has no account, anyone who can
- * open https://deployme.localhost (only local programs: the edge listens on
- * 127.0.0.1) creates the one account, then chooses a passkey or a password on
- * Settings → Account, as an enrollment link would have them do. Once an
- * account exists this page is gone; `make enroll` stays the way back in.
+ * First run in the browser, off unless DEPLOYME_WEB_SETUP=true: while this
+ * machine has no account, whoever opens https://deployme.localhost creates the
+ * one account, then chooses a passkey or a password on Settings → Account.
+ * That is exactly what an enrollment link does, so this page hands the new
+ * account an enrollment link (the account has no password and no passkey yet,
+ * so nothing else could confirm the first passkey). It's off by default
+ * because anything on this machine's network can reach the page before its
+ * owner does. Once an account exists it is gone; `make enroll` stays the way
+ * back in.
  */
 class SetupController extends Controller
 {
@@ -36,7 +40,7 @@ class SetupController extends Controller
         return view('auth.setup', ['suggested' => (string) (config('deployme.host_user') ?: '')]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, EnrollmentLinks $links): RedirectResponse
     {
         if (! self::available()) {
             return redirect()->route('login');
@@ -70,12 +74,10 @@ class SetupController extends Controller
             return redirect()->route('login')->withErrors(['enroll' => 'This machine already has an account. Sign in, or run `make enroll` for a one-time link.']);
         }
 
-        Auth::login($user, remember: true);
-        $request->session()->regenerate();
-        // Setting up the first passkey or password is a sensitive action; creating the account counts as the confirmation.
-        $request->session()->passwordConfirmed();
         Audit::record(AuditAction::AccountCreated, ['subject' => $user->email, 'detail' => 'in the browser', 'user' => $user]);
 
-        return redirect()->route('settings', ['enroll' => 1]);
+        // Signing in and confirming for the first passkey is the enrollment
+        // link's job, not this controller's.
+        return redirect($links->create($user));
     }
 }

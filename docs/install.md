@@ -12,8 +12,10 @@ deploy.me runs in Docker on your own machine, the same way on all three systems:
 | **Nightly backup** | launchd | systemd user timer, or cron | systemd in WSL, or cron |
 
 You end up at **https://deployme.localhost**, signing in with a passkey or a password. If
-you set it up by hand rather than with `bin/install`, the first visit there creates your
-account.
+you set it up by hand rather than with `bin/install`, `make init` prints a one-time link
+that creates your account (or run `make enroll`). Open the link within 15 minutes. The
+first-visit "Create your account" page is off by default, because until you use it anything on
+your machine could claim the account; put `DEPLOYME_WEB_SETUP=true` in `src/api/.env` to turn it on.
 
 - [Before you start](#before-you-start)
 - [macOS](#-macos)

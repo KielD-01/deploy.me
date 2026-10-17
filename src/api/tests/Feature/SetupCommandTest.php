@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use App\Support\EnvFile;
 
 beforeEach(function () {
@@ -22,8 +23,20 @@ it('generates Reverb credentials once', function () {
         ->and((new EnvFile($this->envPath))->get('REVERB_APP_SECRET'))->toHaveLength(40);
 });
 
-it('points at enrollment when nobody has an account yet', function () {
+it('creates the account and prints its enrollment link when nobody has one yet', function () {
+    expect(User::query()->exists())->toBeFalse();
+
     $this->artisan('deployme:setup')
-        ->expectsOutputToContain('make enroll')
+        ->expectsOutputToContain('/enroll/')
         ->assertSuccessful();
+
+    expect(User::query()->count())->toBe(1);
+});
+
+it('prints no link when an account already exists', function () {
+    User::factory()->create();
+
+    $this->artisan('deployme:setup')->doesntExpectOutputToContain('/enroll/')->assertSuccessful();
+
+    expect(User::query()->count())->toBe(1);
 });

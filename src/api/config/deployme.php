@@ -10,9 +10,12 @@ return [
 
     'host_user' => env('DEPLOYME_HOST_USER'),
 
-    // While no account exists, the sign-in page offers to create it (/setup).
-    // Off: only `make enroll` creates it, so nothing local can claim it first.
-    'web_setup' => (bool) env('DEPLOYME_WEB_SETUP', true),
+    // true: while no account exists, the sign-in page offers to create it (/setup).
+    // Off by default: until the first enroll, anything that can reach the web
+    // container (other containers on proxy-network, local programs) could claim
+    // the account. `make setup` (and so `make init`) and `make enroll` create it
+    // and print the one-time link instead.
+    'web_setup' => (bool) env('DEPLOYME_WEB_SETUP', false),
 
     'ssh' => [
         'binary' => env('DEPLOYME_SSH_BINARY', 'ssh'),
