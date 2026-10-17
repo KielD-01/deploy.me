@@ -2,6 +2,7 @@
 
 namespace App\Deploy\Pipeline\Steps;
 
+use App\Deploy\Delivery\CommitOnBranch;
 use App\Deploy\Delivery\DeliveryResolver;
 use App\Deploy\Delivery\VerdictState;
 use App\Deploy\DeployContext;
@@ -78,6 +79,11 @@ final class ResolveRelease implements Step
 
         if (! $resolution->found()) {
             throw new StepFailed($resolution->reason());
+        }
+
+        // A commit an agent or CI named is shipped only from the branch.
+        if ($commit !== null && ($refusal = app(CommitOnBranch::class)->refusal($context->project, (string) ($deployment->commit_sha ?? $commit), (string) $deployment->trigger)) !== null) {
+            throw new StepFailed($refusal);
         }
 
         if ($deployment->status === DeploymentStatus::WaitingCi) {

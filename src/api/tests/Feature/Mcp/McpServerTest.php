@@ -7,6 +7,7 @@ use App\Jobs\ProbeServer;
 use App\Jobs\RunDeployment;
 use App\Mcp\Server as McpServer;
 use App\Mcp\Stdio;
+use App\Models\Credential;
 use App\Models\Deployment;
 use App\Models\Project;
 use App\Models\Release;
@@ -16,6 +17,7 @@ use App\Models\Target;
 use App\Models\User;
 use App\Support\Audit;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 /**
@@ -169,7 +171,16 @@ it('finds a step’s log lines however many lines other steps wrote before them'
 
 it('deploys a project to its only server, as the person who uses deploy.me', function () {
     $user = User::factory()->create();
-    mcpTarget();
+    mcpTarget()->project->update(['github_repo' => 'demo']);
+
+    // GitHub says abc1234 is on main, behind its head.
+    Credential::factory()->create();
+    $head = str_repeat('f', 40);
+    Http::preventStrayRequests();
+    Http::fake([
+        'api.github.com/repos/KielD-01/demo/git/ref/heads/main' => Http::response(['object' => ['sha' => $head]]),
+        "api.github.com/repos/KielD-01/demo/compare/{$head}...abc1234*" => Http::response(['status' => 'behind']),
+    ]);
 
     $result = mcpCall(new McpServer(allowDeploys: true), 'deploy', ['project' => 'demo', 'commit' => 'abc1234']);
 

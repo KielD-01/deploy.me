@@ -50,7 +50,11 @@ final class BranchCommits
         return [];
     }
 
-    private static function repository(Project $project): ?string
+    /**
+     * Where the project's history is readable here: its repository on the
+     * Mac, or the GitHub mirror once a deploy has cloned it.
+     */
+    public static function repository(Project $project): ?string
     {
         if ($project->source === ProjectSource::Local) {
             $path = app(ProjectRoots::class)->resolve((string) $project->local_path);

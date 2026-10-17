@@ -3,6 +3,7 @@
 namespace App\Mcp\Tools;
 
 use App\Actions\Deployments\StartDeployment;
+use App\Deploy\Delivery\CommitOnBranch;
 use App\Deploy\DeploymentBusy;
 use App\Deploy\DeploymentRefused;
 use App\Enums\DeploymentKind;
@@ -24,7 +25,7 @@ class Deploy extends Tool
 
     public function description(): string
     {
-        return 'Starts a deploy of a project to one of its servers, as the deploy dialog does: the branch’s latest commit or the one named, through the first delivery strategy that applies. It queues the run and answers with its number at once; follow it with get_deployment. Ask the person first: this changes what their server runs.';
+        return 'Starts a deploy of a project to one of its servers, as the deploy dialog does: the branch’s latest commit or an earlier one on the branch, through the first delivery strategy that applies. It queues the run and answers with its number at once; follow it with get_deployment. Ask the person first: this changes what their server runs.';
     }
 
     public function properties(): array
@@ -32,7 +33,7 @@ class Deploy extends Tool
         return [
             'project' => ['type' => 'string', 'description' => 'The project’s slug or name.'],
             'server' => ['type' => 'string', 'description' => 'The server to deploy to (slug, name or ssh alias). Needed when the project deploys to more than one.'],
-            'commit' => ['type' => 'string', 'description' => 'A commit sha (7–40 hex). Empty: the branch’s latest commit.'],
+            'commit' => ['type' => 'string', 'description' => 'A commit sha (7–40 hex) on the project’s branch: its head or an earlier commit. Empty: the branch’s latest commit.'],
             'backup' => ['type' => 'boolean', 'default' => true, 'description' => 'Docker projects that migrate: pg_dump the database first (when the project can).'],
             'skip_migrations' => ['type' => 'boolean', 'default' => false, 'description' => 'Docker projects that migrate: don’t run the migrations.'],
         ];
@@ -53,6 +54,11 @@ class Deploy extends Tool
         $project = Find::project($this->requiredString($arguments, 'project'));
         $target = Find::target($project, $this->string($arguments, 'server'));
         $commit = PlanDeploy::commit($this->string($arguments, 'commit'));
+
+        // An agent ships the branch: its head, or a commit on it.
+        if ($commit !== null && ($refusal = app(CommitOnBranch::class)->refusal($project, $commit, $this->trigger)) !== null) {
+            throw new ToolFailed($refusal);
+        }
 
         // What was asked for; StartDeployment fills in the defaults and
         // refuses a target that can't take a deploy.
