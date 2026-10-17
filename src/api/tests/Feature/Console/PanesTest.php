@@ -89,6 +89,22 @@ it('loads the commits on a project page after the page', function () {
         ->assertSeeHtml('aria-busy="true"');
 });
 
+it('puts each commit of the branch on a line of its own', function () {
+    $repo = tempGitRepo(['README.md' => 'one']);
+    commitFile($repo, 'README.md', 'two');
+    mkdir("{$repo}/database/migrations", 0777, true);
+    commitFile($repo, 'database/migrations/2026_10_17_000000_add.php', '<?php');
+    config(['deployme.project_roots' => [dirname($repo)]]);
+    Project::factory()->local($repo)->create(['slug' => 'warehouse', 'branch' => trim((string) shell_exec('git -C '.escapeshellarg($repo).' branch --show-current'))]);
+
+    $text = html_entity_decode(strip_tags(Livewire::test(Git::class, ['arg' => 'warehouse'])->html()));
+    $rows = array_values(array_filter(explode("\n", $text), fn (string $line) => str_contains($line, '●')));
+
+    // Three commits, three rows: the one that adds a migration ends its row too.
+    expect($rows)->toHaveCount(3)
+        ->and($rows[0])->toContain('+migration');
+});
+
 it('keeps what a pane shows in the server’s hands', function (string $component, string $property, mixed $value) {
     $pane = Livewire::test($component, $component === Session::class ? [] : ['pane' => 'p1']);
 
