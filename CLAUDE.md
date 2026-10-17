@@ -21,6 +21,14 @@ and health checks on queue workers run by supervisor.
   `Dockerfile` adds the entrypoint, git askpass helper, supervisor programs (queue workers +
   scheduler) and the machine's user on top. `bin/build` pulls the base, or compiles it
   (`deployme-php-base:local`) when it can't or `.env` says `DEPLOYME_PHP_BASE`.
+  Two targets, one per mode (`DEPLOYME_MODE` in `.env`, `bin/configure --mode dev|prod`):
+  `runtime` (dev, `deployme-php:local`: src/api is bind-mounted, OPcache re-checks every
+  2 s, the entrypoint clears the caches) and `app` (prod, `deployme-php:prod` through
+  `compose.prod.yml`: src/api with `--no-dev` vendor and assets from a node stage baked in,
+  only `src/api/.env` (ro) and `src/api/storage` mounted, `php-prod.ini` turns timestamp
+  checks off, and the entrypoint caches config/routes/events in each container and views
+  in deployme-web). `core/local/tests/configure-modes.sh` is the shell harness for
+  `bin/configure --mode` and db-create's first `.env`.
 - `src/api/` — the Laravel app. Livewire 4 class components in `app/Livewire`, layout
   `resources/views/layouts/app.blade.php`, daisyUI 5 theme in `resources/css/app.css`
   (tokens from a sibling project's design system), icons via `<x-icon name="…" />`.
@@ -29,8 +37,9 @@ and health checks on queue workers run by supervisor.
   `Database\Seeders\DemoSeeder` (example servers and projects, a week of runs through the real
   pipeline with a fake ssh client) on an empty database, never the live one.
 - `bin/install` (and `bin/install.ps1` for Windows → WSL2) runs the guided install;
-  `bin/configure` writes `.env` (COMPOSE_FILE, stack mode, DEPLOYME_UID/GID, TZ, project
-  roots) and `compose.host.yml` (root and ssh-agent mounts); `bin/trust-ca` trusts the edge's
+  `bin/configure` writes `.env` (COMPOSE_FILE, stack mode, DEPLOYME_MODE, DEPLOYME_UID/GID,
+  TZ, project roots) and `compose.host.yml` (root and ssh-agent mounts), and sets
+  APP_ENV/APP_DEBUG/LOG_LEVEL in `src/api/.env` for the mode; `bin/trust-ca` trusts the edge's
   CA per OS; `bin/lib.sh` is what they share. Stack modes: `shared` (the external
   proxy-network stack, this machine) or `standalone` (`compose.standalone.yml`:
   deployme-postgres/-valkey/-caddy with the aliases postgres/redis). On Linux/WSL the
@@ -55,7 +64,12 @@ make test      # Pest, in the container, against deployme_test
 make sandbox   # local SSH server (alias "sandbox") · make test-ssh for real-ssh tests
 make doctor    # infra, TLS, websockets, then `php artisan deployme:doctor`
 make assets    # build frontend (make dev for Vite + HMR at vite.deployme.localhost)
+bin/configure --mode prod && make build && make up   # production mode (dev: --mode dev)
 ```
+
+In production mode the code is the image's: any change (a pull, an edit, CSS) needs
+`make build && make up`, an edit to `src/api/.env` needs `make restart`, `make dev` refuses
+and `make assets` only says so. Tests run in development mode.
 
 The web container applies pending migrations when it starts, so a change that brings one
 doesn't wait for `make migrate`.

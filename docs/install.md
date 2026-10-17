@@ -21,6 +21,7 @@ account.
 - [Windows (WSL2)](#-windows-wsl2)
 - [The PHP image](#the-php-image)
 - [Two stack modes](#two-stack-modes)
+- [Development and production mode](#development-and-production-mode)
 - [What `bin/configure` writes](#what-binconfigure-writes)
 - [Updating, stopping, uninstalling](#updating-stopping-uninstalling)
 - [Troubleshooting](#troubleshooting)
@@ -174,6 +175,46 @@ a stack you already run:
 `--stack shared`, then run `make up`. Either way the app finds the database as `postgres`
 and the cache as `redis`, so nothing in `src/api/.env` changes.
 
+## Development and production mode
+
+Separately from the stack, each machine runs deploy.me in one of two modes:
+
+| | `dev` (development, the default) | `prod` (production) |
+|---|---|---|
+| **The code** | mounted from `src/api`: an edit shows up on the next request | baked into the image (`deployme-php:prod`), with its `--no-dev` dependencies and built assets |
+| **Mounted from `src/api`** | all of it | only `.env` (read-only) and `storage/` (logs, deploy logs, mirrors) |
+| **`src/api/.env`** | `APP_ENV=local`, `APP_DEBUG=true`, `LOG_LEVEL=debug` | `APP_ENV=production`, `APP_DEBUG=false`, `LOG_LEVEL=warning` |
+| **Caches** | cleared when a container starts | config, routes, events and views built when a container starts |
+| **OPcache** | re-checks file timestamps every 2 s | never re-checks them; on for the CLI too, with a file cache |
+| **Frontend** | `make assets`, or `make dev` for Vite with hot reload | built into the image |
+| **Compose files** | as in the stack table above | plus `compose.prod.yml`, before `compose.host.yml` |
+
+Development mode is for working on deploy.me itself. **Once you only use it, switch to
+production mode**: pages answer faster, an error page shows no stack trace, and the
+containers run exactly the code you built.
+
+Switch with `bin/configure` (the first run asks; later runs keep the mode until told
+otherwise), then rebuild and restart:
+
+```bash
+bin/configure --mode prod && make build && make up   # to production
+bin/configure --mode dev && make build && make up    # back to development
+```
+
+`bin/configure` sets the three values above in `src/api/.env` and leaves every other line,
+`APP_KEY` above all, as it is. Going back to dev restores the development values.
+
+**In production mode a code change needs `make build && make up`.** That covers a
+`git pull`, an edit in `src/api`, and the CSS and JavaScript: `make assets` only says so,
+and `make dev` refuses until you switch back. An edit to `src/api/.env` needs
+`make restart`, since the config is cached when a container starts. The test suite and
+`make composer` belong to development mode (the image has neither the tests nor the dev
+dependencies). `make doctor` says which mode the machine is in, and in production checks
+that debug is off, the caches are built and OPcache trusts the code.
+
+`compose.prod.yml` uses Compose's `!override` tag (Compose 2.24.4 or later) to replace
+the base file's mounts, since an overlay can't otherwise take a mount away.
+
 ## What `bin/configure` writes
 
 Two files, both git-ignored. Running it again rewrites them and keeps the database password.
@@ -184,6 +225,7 @@ Two files, both git-ignored. Running it again rewrites them and keeps the databa
 |---|---|
 | `COMPOSE_FILE` | The compose files for this machine's stack mode |
 | `DEPLOYME_STACK` | `standalone` or `shared` |
+| `DEPLOYME_MODE` | `dev` or `prod` ([the two modes](#development-and-production-mode)) |
 | `DEPLOYME_OS` | `macos`, `linux` or `wsl` |
 | `DEPLOYME_NETWORK` | The edge's Docker network |
 | `DEPLOYME_UID`, `DEPLOYME_GID` | Who the containers run as (0 on macOS) |
@@ -196,11 +238,14 @@ Two files, both git-ignored. Running it again rewrites them and keeps the databa
 (read-only for the web container, read-write for the worker) and the ssh-agent socket.
 
 The app's own settings stay in `src/api/.env`, including `APP_KEY`. Back that key up.
+`bin/configure` only touches its `APP_ENV`, `APP_DEBUG` and `LOG_LEVEL`, for the mode. In
+production mode `make db-create` also generates `APP_KEY` and the Reverb credentials when
+they're blank, because the containers mount that file read-only.
 
 ## Updating, stopping, uninstalling
 
 ```bash
-git pull && make build up    # update: rebuild the image; the web container migrates on start
+git pull && make build up    # update: rebuild the image (in prod mode, with the new code); the web container migrates on start
 make down                    # stop (data is kept)
 make up                      # start again
 ```
@@ -229,4 +274,6 @@ Start with `make doctor`. It says which part fails.
 | `docker: permission denied` (Linux) | Add yourself to the `docker` group and log in again |
 | Docker isn't reachable in WSL | Docker Desktop → Settings → Resources → WSL integration → on for your distribution |
 | `deployme.localhost` doesn't resolve | Browsers and curl resolve `*.localhost` themselves. For other tools, add `127.0.0.1 deployme.localhost` to `/etc/hosts` (Windows: `C:\Windows\System32\drivers\etc\hosts`) |
+| An edit in `src/api` doesn't show up | Production mode bakes the code into the image: `make build && make up`, or `bin/configure --mode dev` while you work on it |
+| `make dev` says it needs development mode | `bin/configure --mode dev && make build && make up` |
 | A project folder isn't offered for import | Add its parent as a root: `bin/configure --roots ~/Projects:~/work`, then `make up` |
