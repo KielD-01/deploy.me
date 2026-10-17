@@ -2,9 +2,13 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'server_id', 'captured_at', 'cpu_usage', 'cpu_mhz', 'load_1', 'load_5', 'load_15',
@@ -12,6 +16,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class ServerSnapshot extends Model
 {
+    /** Days a snapshot keeps its busiest-process lists (about 2 KB each); the readings stay as long as the snapshots. */
+    public const PROCESS_DAYS = 2;
+
+    /** The width of a point on a chart, and of a step in the picker of earlier process lists. */
+    public const BUCKET = '5 minutes';
+
+    // The bucket a reading falls in, as SQL: all constants, so no bindings to tell apart in a GROUP BY.
+    private const BIN = "date_bin('5 minutes', captured_at, timestamp '2000-01-01 00:00:00')";
+
     public $timestamps = false;
 
     protected function casts(): array
@@ -28,6 +41,53 @@ class ServerSnapshot extends Model
             'stacks' => 'array',
             'processes' => 'array',
         ];
+    }
+
+    /**
+     * The readings since a moment, averaged over five-minute buckets, per
+     * server: at most 288 points for a day instead of a row per probe (1,440
+     * at a one-minute interval) to hydrate and draw.
+     *
+     * @param  array<int, int>  $serverIds
+     * @return Collection<int, Collection<int, object{at: Carbon, cpu: ?float, mem: ?float}>> by server id, oldest first
+     */
+    public static function history(array $serverIds, CarbonInterface $since): Collection
+    {
+        if ($serverIds === []) {
+            return collect();
+        }
+
+        return DB::table('server_snapshots')
+            ->selectRaw('server_id, '.self::BIN.' as bucket, avg(cpu_usage) as cpu, avg(100.0 * (1 - mem_available::float8 / nullif(mem_total, 0))) as mem')
+            ->whereIn('server_id', $serverIds)
+            ->where('captured_at', '>=', $since)
+            ->groupBy('server_id', 'bucket')
+            ->orderBy('bucket')
+            ->get()
+            ->groupBy('server_id')
+            ->map(fn (Collection $rows) => $rows->map(fn (object $row) => (object) [
+                'at' => Carbon::parse($row->bucket),
+                'cpu' => $row->cpu !== null ? round((float) $row->cpu, 1) : null,
+                'mem' => $row->mem !== null ? round((float) $row->mem, 1) : null,
+            ])->values());
+    }
+
+    /**
+     * The probes a server's process picker offers: the last one in each
+     * five-minute step of the last day that kept its process lists.
+     *
+     * @return Collection<int, CarbonInterface> captured_at by snapshot id, newest first
+     */
+    public static function processTimes(int $serverId, CarbonInterface $since): Collection
+    {
+        $last = DB::table('server_snapshots')
+            ->selectRaw('max(id)')
+            ->where('server_id', $serverId)
+            ->whereNotNull('processes')
+            ->where('captured_at', '>=', $since)
+            ->groupByRaw(self::BIN);
+
+        return self::query()->whereIn('id', $last)->orderByDesc('captured_at')->pluck('captured_at', 'id');
     }
 
     public function server(): BelongsTo

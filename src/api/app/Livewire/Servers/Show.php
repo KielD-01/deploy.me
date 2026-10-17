@@ -12,6 +12,7 @@ use App\Enums\EnvTag;
 use App\Models\AuditEntry;
 use App\Models\Project;
 use App\Models\Server;
+use App\Models\ServerSnapshot;
 use App\Models\SshHostKey;
 use App\Models\Target;
 use App\Models\TargetHealthCheck;
@@ -249,10 +250,7 @@ class Show extends Component
     {
         $server = $this->server;
         $latest = $server->snapshots()->latest('captured_at')->first();
-        $history = $server->snapshots()
-            ->where('captured_at', '>=', now()->subDay())
-            ->orderBy('captured_at')
-            ->get(['captured_at', 'cpu_usage', 'mem_total', 'mem_available']);
+        $history = ServerSnapshot::history([$server->id], now()->subDay())->get($server->id, collect());
 
         // The busiest processes: the latest probe's lists, or the earlier probe's picked.
         $withProcesses = fn () => $server->snapshots()->whereNotNull('processes');
@@ -262,11 +260,11 @@ class Show extends Component
         return view('livewire.servers.show', [
             'latest' => $latest,
             'disk' => $latest?->diskFor($server->default_deploy_path ?: '/'),
-            'cpuHistory' => $history->pluck('cpu_usage')->all(),
-            'memHistory' => $history->map->memoryUsedPercent()->all(),
-            'historyFrom' => $history->first()?->captured_at,
+            'cpuHistory' => $history->pluck('cpu')->all(),
+            'memHistory' => $history->pluck('mem')->all(),
+            'historyFrom' => $history->first()?->at,
             'processes' => $processes,
-            'processTimes' => $withProcesses()->where('captured_at', '>=', now()->subDay())->orderByDesc('captured_at')->pluck('captured_at', 'id'),
+            'processTimes' => ServerSnapshot::processTimes($server->id, now()->subDay()),
             'hostKey' => SshHostKey::query()->where('alias', $server->ssh_alias)->whereNull('revoked_at')->latest('trusted_at')->first(),
             'targets' => $server->targets()->active()->with(['project', 'latestDeployment'])->orderBy('path')->get(),
             'checks' => TargetHealthCheck::query()

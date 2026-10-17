@@ -103,8 +103,11 @@ doesn't wait for `make migrate`.
   doesn't stretch the interval.
   - Each probe also records the busiest processes over a one-second sample, ten each by
     CPU (100% is one core), resident memory and TCP traffic, in `server_snapshots.processes`
-    (`ProbeResult::processes`). They're kept as long as the snapshots and shown on the
-    server's Overview, with a picker for the last day's probes. CPU and memory come from
+    (`ProbeResult::processes`). The processes are kept two days (the readings as long as
+    the snapshots: `PruneOldData` nulls the column after `ServerSnapshot::PROCESS_DAYS`) and
+    shown on the server's Overview, with a picker for the last day's probes at five-minute
+    steps. The charts on the dashboard and the server page are five-minute averages
+    (`ServerSnapshot::history`, `date_bin`), at most 288 points a day, not a row per probe. CPU and memory come from
     `/proc/<pid>/stat` as the ssh user, leaving out the probe's own processes; only names
     (comm) are read, never command lines. The kernel doesn't count traffic per process, so
     `probe-net.sh` (sent as `NET_SAMPLER`) runs as root under `sudo -n`: `ss -tie` inside

@@ -16,13 +16,13 @@ use Illuminate\Support\Facades\DB;
 /**
  * The nightly tidy-up, by Settings → Schedules: finished runs' logs move from
  * the database into gzipped archives, old archives go, and so do old probe
- * history, old health checks, old audit entries and old folder syncs (each
+ * history (and, after two days, a snapshot's process lists), old health checks, old audit entries and old folder syncs (each
  * mapping keeps its newest).
  */
 class PruneOldData
 {
     /**
-     * @return array{archived: int, archives_removed: int, snapshots: int, syncs: int, health_checks: int, audit: int}
+     * @return array{archived: int, archives_removed: int, snapshots: int, processes: int, syncs: int, health_checks: int, audit: int}
      */
     public function __invoke(): array
     {
@@ -53,6 +53,12 @@ class PruneOldData
             ->where('captured_at', '<', now()->subDays(Settings::int('snapshot_retention_days')))
             ->delete();
 
+        // The process lists are the bulk of a snapshot and only the last day's are offered.
+        $processes = ServerSnapshot::query()
+            ->whereNotNull('processes')
+            ->where('captured_at', '<', now()->subDays(ServerSnapshot::PROCESS_DAYS))
+            ->update(['processes' => null]);
+
         $syncs = SyncRun::query()
             ->whereNotIn('status', SyncRunStatus::ACTIVE)
             ->where('created_at', '<', now()->subDays(Settings::int('archive_retention_days')))
@@ -72,7 +78,7 @@ class PruneOldData
         });
 
         return [
-            'archived' => $archived, 'archives_removed' => $removed, 'snapshots' => $snapshots,
+            'archived' => $archived, 'archives_removed' => $removed, 'snapshots' => $snapshots, 'processes' => $processes,
             'syncs' => $syncs, 'health_checks' => $checks, 'audit' => $audit,
         ];
     }

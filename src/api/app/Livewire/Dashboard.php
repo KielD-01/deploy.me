@@ -44,13 +44,8 @@ class Dashboard extends Component
             ->orderBy('name')
             ->get();
 
-        $cpuHistory = ServerSnapshot::query()
-            ->whereIn('server_id', $servers->modelKeys())
-            ->where('captured_at', '>=', now()->subDay())
-            ->orderBy('captured_at')
-            ->get(['server_id', 'cpu_usage'])
-            ->groupBy('server_id')
-            ->map(fn ($rows) => $rows->pluck('cpu_usage')->all());
+        $cpuHistory = ServerSnapshot::history($servers->modelKeys(), now()->subDay())
+            ->map(fn ($points) => $points->pluck('cpu')->all());
 
         $targets = Target::query()
             ->active()
