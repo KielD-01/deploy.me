@@ -11,7 +11,7 @@
   <a href="https://docs.docker.com/compose/"><img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white"></a>
   <a href="https://www.postgresql.org"><img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-18-4169E1?style=for-the-badge&logo=postgresql&logoColor=white"></a>
   <a href="docs/mcp.md"><img alt="MCP server" src="https://img.shields.io/badge/MCP-ready-6D4AC7?style=for-the-badge&logo=anthropic&logoColor=white"></a>
-  <a href="#-tests"><img alt="480+ Pest tests" src="https://img.shields.io/badge/Pest-480%2B_tests-0F766E?style=for-the-badge&logo=pestphp&logoColor=white"></a>
+  <a href="#-tests"><img alt="590+ Pest tests" src="https://img.shields.io/badge/Pest-590%2B_tests-0F766E?style=for-the-badge&logo=pestphp&logoColor=white"></a>
   <br>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-22C55E?style=for-the-badge"></a>
   <a href="#️-made-together-with-claude"><img alt="Made with Claude" src="https://img.shields.io/badge/made_with-Claude_%E2%9D%A4-D97757?style=for-the-badge&logo=claude&logoColor=white"></a>
@@ -374,7 +374,7 @@ flowchart LR
 ## 🧪 Tests
 
 ```bash
-make test       # 480+ Pest tests, in the container, against deployme_test
+make test       # 590+ Pest tests, in the container, against deployme_test
 make sandbox    # then:
 make test-ssh   # the deploy scripts for real, against the local SSH sandbox
 ```

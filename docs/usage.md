@@ -20,7 +20,8 @@ chapter stands on its own, so skip to the one you need.
 - [14. Audit log](#14--audit-log)
 - [15. Back up deploy.me itself](#15--back-up-deployme-itself)
 - [16. Let an AI agent help](#16--let-an-ai-agent-help)
-- [17. Troubleshooting](#17--troubleshooting)
+- [17. The Console theme](#17--the-console-theme)
+- [18. Troubleshooting](#18--troubleshooting)
 
 ---
 
@@ -301,7 +302,78 @@ Now ask *"what's deployed where?"* or *"why did run #42 fail?"*. Add `--allow-de
 let the agent deploy and roll back. See **[docs/mcp.md](mcp.md)** for every client and
 every tool.
 
-## 17. 🧯 Troubleshooting
+## 17. 🖥️ The Console theme
+
+The Console is the default look: deploy.me as a **tmux session**. Switch between it and
+the **Classic** pages (a top bar, cards and tables) under **Settings → Appearance**, or
+from the shell with `theme classic` and `theme console`. Everything below also works with
+the mouse; the keys are shortcuts, never the only way.
+
+**The session.** The first window, `0:ops` (the dashboard), is a set of panes you split.
+Each pane is one of:
+
+| Pane | Shows |
+|---|---|
+| `shell` | A prompt for deploy.me's own commands (below) |
+| `status` | Every target: live commit, health, last run |
+| `tail` | A run's steps and live log (the newest run, or the one you open) |
+| `htop` | A server's load, memory and busiest processes |
+| `git` | A project's branch, with where each commit is live |
+
+The default layout (`ops`) puts the shell on the left, and `tail`, `htop` and `git` on the
+right. Two more are saved: `deploy` (shell beside a run's log) and `watch` (status on top,
+log and shell below). The layout is kept on your account as you change it, so it's the
+same in every browser. Drag a border to resize, click a pane to focus it. A command that
+starts a run (`deploy`, `rollback`) opens its log in a pane for you.
+
+**Windows.** The status bar at the bottom lists the other pages as windows: `0:ops`,
+`1:runs`, `2:servers`, `3:projects`, `4:audit`, `5:settings`. A page opens as one pane,
+and `⌃b 0` brings you back to the session. Failing and running counts, and whether live
+updates are connected, sit on the right of the bar.
+
+**Keys.** The prefix is `⌃b` (Control and b, as in tmux): press it, let go, then press
+the next key within a second and a half. `⌃b ?` lists them all.
+
+| Keys | Does |
+|---|---|
+| `⌃b %` | Split the active pane right |
+| `⌃b "` | Split the active pane down |
+| `⌃b o` | Move to the next pane |
+| `⌃b z` | Zoom the active pane, or put it back |
+| `⌃b x` | Close the active pane |
+| `⌃b L` | Load the next saved layout (`ops`, `deploy`, `watch`) |
+| `⌃b /` | Focus the shell |
+| `⌃b 0`–`5` | Go to a window |
+| `⌃b n`, `⌃b p` | Next and previous window |
+| `⌃b w` | Choose a window from a tree |
+| `F1`–`F6` | Go to a window without the prefix (on a Mac keyboard this may need `fn`) |
+| `Esc` | Close the key list or the tree |
+
+Pages also have one-letter keys of their own, shown beside the buttons they press. They
+never fire while you are typing, or right after the `⌃b` prefix.
+
+**The shell.** `Tab` completes commands and names (projects, servers, runs), `↑` and `↓`
+walk the history, and `⌃c` drops a question you were asked. Anything that changes a
+server shows what it will do, then asks first. Leave out an argument and the shell asks
+you to pick one. The runs it starts are recorded with the trigger `console`.
+
+| Command | What it does |
+|---|---|
+| `help` | The list of commands, and the pane keys |
+| `status` | Every target: live commit, health, last run |
+| `runs` | Recent runs; `runs <project>` for one project |
+| `servers` | Servers, their status and load |
+| `projects` | Projects, their branch and CI |
+| `deploy` | `deploy <project> <server> [--commit <sha>] [--no-backup] [--skip-migrations]`: picks a commit, shows the plan, asks, then starts the run |
+| `rollback` | `rollback <project> [<server>] [<release>]`: picks an earlier release, asks, then starts the rollback |
+| `cancel` | `cancel <run>`: cancels a queued or running run, after asking |
+| `probe` | `probe <server>`: queues a fresh probe |
+| `open` | `open tail <run>`, `open htop <server>`, `open git <project>` or `open status`: shows it in a pane |
+| `go` | Go to a page: `go runs`, `servers`, `projects`, `audit`, `settings`, `run <n>`, `server <name>` or `project <name>` |
+| `theme` | `theme console` or `theme classic` |
+| `clear` | Clear the screen |
+
+## 18. 🧯 Troubleshooting
 
 Start with:
 

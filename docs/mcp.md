@@ -116,13 +116,23 @@ For any other client, the command is `docker` and the arguments are
 | `get_deployment_log` | — | A run's redacted log, page by page or one step at a time |
 | `list_audit` | — | Who did what, and (optionally) every command run on a server |
 | `plan_deploy` | — | Which strategy would ship a commit, or what it would wait for, without starting anything |
-| `deploy` | ✅ ² | Starts a deploy of a project (latest commit or a named one) to one of its servers |
-| `rollback` | ✅ ² | Rolls a project on a server back to an earlier release (the previous one by default) |
+| `deploy` | ✅ ² | Starts a deploy of a project (latest commit or a named one) to one of its servers. Arguments: `project`\*, `server`, `commit`, `backup`, `skip_migrations` ³ |
+| `rollback` | ✅ ² | Rolls a project on a server back to an earlier release (the previous one by default). Arguments: `project`\*, `server`, `release` ³ |
 | `cancel_deployment` | ✅ ² | Cancels a queued or running run |
 
 ¹ A probe only reads the server, and the scheduler already runs one every few minutes.
 ² Offered only with `--allow-deploys`, and marked `destructiveHint`, so clients ask you
 before calling them.
+³ \* marks a required argument. The two tools take:
+
+| Argument | Tool | Type | Meaning |
+|---|---|---|---|
+| `project`\* | `deploy`, `rollback` | string | The project's slug or name |
+| `server` | `deploy`, `rollback` | string | The server (slug, name or ssh alias). Needed when the project deploys to more than one |
+| `commit` | `deploy` | string | A commit sha (7–40 hex). Empty: the branch's latest commit |
+| `backup` | `deploy` | boolean, default `true` | Docker projects that migrate: `pg_dump` the database first, when the project can |
+| `skip_migrations` | `deploy` | boolean, default `false` | Docker projects that migrate: don't run the migrations |
+| `release` | `rollback` | string | The release's name, like `20260911-120000`. Empty: the previous release |
 
 Projects are named by slug or name, servers by slug, name or SSH alias, and runs by number
 (`42` or `#42`). If a name doesn't match, the error lists the ones that do exist.
