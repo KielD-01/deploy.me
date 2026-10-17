@@ -12,6 +12,7 @@ use App\Platform\Ssh\Exceptions\SshException;
 use App\Platform\Ssh\Exceptions\SshTimeout;
 use App\Platform\Ssh\RemoteScript;
 use App\Platform\Ssh\SshClient;
+use App\Support\DotEnv;
 use Throwable;
 
 /**
@@ -55,8 +56,19 @@ final class DeployContext
     public static function for(Deployment $deployment, SshClient $ssh): self
     {
         $target = $deployment->target()->with(['project', 'server'])->firstOrFail();
+        $log = new StepLogger($deployment);
 
-        return new self($deployment, $target, $target->project, $target->server, $target->layout(), new StepLogger($deployment), $ssh);
+        // Every kind of run, not only the ones that write the env files: what
+        // a rollback or a conversion runs can print them just the same.
+        foreach ($target->project->envFiles()->get() as $file) {
+            foreach (DotEnv::parse($file->content) as $key => $value) {
+                if (DotEnv::isSecret($key)) {
+                    $log->redactor->add($value);
+                }
+            }
+        }
+
+        return new self($deployment, $target, $target->project, $target->server, $target->layout(), $log, $ssh);
     }
 
     /**

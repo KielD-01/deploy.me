@@ -5,13 +5,12 @@ namespace App\Deploy\Pipeline\Steps;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\AlwaysRuns;
 use App\Deploy\Pipeline\Step;
-use App\Support\DotEnv;
 use Illuminate\Support\Str;
 
 /**
  * Uploads the project's env files: into shared/ for versionable projects,
- * the project folder otherwise. Their secrets are registered with the log's
- * redactor first, so nothing the server echoes can leak them. A retry writes
+ * the project folder otherwise. Their secrets are masked in the log from the
+ * run's first line (DeployContext::for). A retry writes
  * them again, so a fix made since reaches the server.
  */
 final class SyncEnvFiles implements AlwaysRuns, Step
@@ -34,14 +33,6 @@ final class SyncEnvFiles implements AlwaysRuns, Step
     public function run(DeployContext $context): ?string
     {
         $files = $context->project->envFiles()->get();
-
-        foreach ($files as $file) {
-            foreach (DotEnv::parse($file->content) as $key => $value) {
-                if (DotEnv::isSecret($key)) {
-                    $context->log->redactor->add($value);
-                }
-            }
-        }
 
         foreach ($files as $file) {
             $context->script('deploy-write-file', [

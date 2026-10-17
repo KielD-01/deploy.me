@@ -474,6 +474,22 @@ it('rolls back to an older release that’s still on the server', function () {
         ->and($target->previous_release_id)->toBe($second->id);
 });
 
+it('masks the env file’s secrets in a rollback’s log too', function () {
+    $target = gitProjectTarget();
+    $target->project->envFiles()->create(['path' => '.env', 'role' => 'app', ...ProjectEnvFile::contentAttributes("DB_PASSWORD=s3cret-pa55word\n")]);
+    $first = runDeploy($target)->release;
+    runDeploy($target);
+
+    // A rollback writes no env files, but what it runs can still print them.
+    fakeDeployScripts($this->ssh, ['deploy-activate' => FakeSshClient::ok("✓ current → releases/{$first->name}\nconnecting with s3cret-pa55word\n")]);
+    $rollback = runDeploy($target, DeploymentKind::Rollback, ['release_id' => $first->id]);
+    $log = $rollback->logLines()->pluck('line')->implode("\n");
+
+    expect($rollback->status)->toBe(DeploymentStatus::Succeeded, (string) $rollback->outcome)
+        ->and($log)->toContain('connecting with')
+        ->and($log)->not->toContain('s3cret-pa55word');
+});
+
 it('removes releases beyond the keep count, never the one a rollback needs', function () {
     $target = gitProjectTarget(['keep_releases' => 2]);
     $old = collect(['20260901-100000', '20260902-100000', '20260903-100000'])
