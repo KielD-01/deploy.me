@@ -6,6 +6,7 @@ use App\Models\SshHostKey;
 use App\Platform\Ssh\Exceptions\SshConfigError;
 use App\Platform\Ssh\SshTarget;
 use App\Platform\Ssh\SshTargetResolver;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
@@ -79,10 +80,12 @@ it('says which key file is too readable, without failing the run over it', funct
 
     $this->mock(SshTargetResolver::class, fn ($mock) => $mock->shouldReceive('resolve')->with('box')->andReturn(doctorTarget('box', [$key, "{$this->keys}/absent"])));
 
-    $this->artisan('deployme:doctor')
-        // One expectation per line: each matches a single write.
-        ->expectsOutputToContain("! box: the keys ssh would offer are private — {$key} is 644, ssh wants 600")
-        ->assertSuccessful();
+    // Run for its output: a failure then says which check failed, wherever it ran.
+    $code = Artisan::call('deployme:doctor');
+    $output = Artisan::output();
+
+    expect($output)->toContain("! box: the keys ssh would offer are private — {$key} is 644, ssh wants 600")
+        ->and($code)->toBe(0, "deployme:doctor exited {$code}:\n{$output}");
 });
 
 it('says when a server’s host key is trusted nowhere', function () {
