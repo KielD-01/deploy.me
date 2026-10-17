@@ -51,6 +51,23 @@ it('lists runs in UTC until the browser names a zone PHP knows', function (?stri
         ->assertDontSee('01:16');
 })->with(['no cookie yet' => [null], 'not a zone' => ['Mars/Olympus']]);
 
+it('shows a server’s probe times in the timezone the browser reports, in either theme', function (string $theme) {
+    // 21:40 UTC on the 12th is 00:40 on the 13th in Kyiv.
+    $this->travelTo(Carbon::parse('2026-09-12 22:30:00', 'UTC'));
+    $server = \App\Models\Server::factory()->create(['slug' => 'edge-fra']);
+    $server->snapshots()->create([
+        'captured_at' => Carbon::parse('2026-09-12 21:40:00', 'UTC'), 'cpu_usage' => 12.5, 'mem_total' => 8 * 1024 ** 3, 'mem_available' => 4 * 1024 ** 3,
+        'processes' => ['window' => 1.0, 'cpu' => [['pid' => 1, 'name' => 'php', 'container' => null, 'cpu' => 12.0]], 'mem' => [], 'net' => [], 'net_note' => null],
+    ]);
+    auth()->user()->forceFill(['ui' => ['theme' => $theme]])->save();
+
+    $this->withUnencryptedCookie(ViewerTimezone::COOKIE, 'Europe/Kyiv')
+        ->get(route('servers.show', $server))
+        ->assertOk()
+        ->assertSee('00:40')
+        ->assertDontSee('21:40');
+})->with(['classic', 'console']);
+
 it('takes a real zone, old spellings included, and nothing else', function (string $cookie, string $zone) {
     app()->instance('request', Request::create('/', cookies: [ViewerTimezone::COOKIE => $cookie]));
 

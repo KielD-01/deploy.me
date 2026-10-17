@@ -130,7 +130,7 @@
                         <div class="con-spark h-[34px] mt-1.5" role="img" aria-label="Memory, last 24 hours, average {{ round(collect($memBars)->avg()) }}%">
                             @foreach ($memBars as $value)<span class="bg-secondary opacity-70" style="height: {{ max(1, round($value)) }}%"></span>@endforeach
                         </div>
-                        <div class="flex justify-between t-faint mt-1"><span>{{ $historyFrom?->format('D H:i') ?? '' }}</span><span>cpu avg {{ round(collect($cpuBars)->avg()) }}% · mem avg {{ round(collect($memBars)->avg()) }}%</span><span>now</span></div>
+                        <div class="flex justify-between t-faint mt-1"><span>{{ $historyFrom?->forViewer()->format('D H:i') ?? '' }}</span><span>cpu avg {{ round(collect($cpuBars)->avg()) }}% · mem avg {{ round(collect($memBars)->avg()) }}%</span><span>now</span></div>
                     @endif
                 </section>
 
@@ -139,7 +139,7 @@
                 <section class="con-box con-wide" aria-label="Busiest processes" x-data="{ by: 'cpu' }">
                     <span class="con-box-t">
                         <b>processes</b>
-                        <span>· {{ $processes ? 'probe at '.$processes->captured_at->format('H:i').($processes->captured_at->isToday() ? '' : ' on '.$processes->captured_at->format('M j')) : 'the next probe collects them' }} ·</span>
+                        <span>· {{ $processes ? 'probe at '.$processes->captured_at->forViewer()->format('H:i').($processes->captured_at->forViewer()->isToday() ? '' : ' on '.$processes->captured_at->forViewer()->format('M j')) : 'the next probe collects them' }} ·</span>
                         @foreach (['cpu', 'mem', 'net'] as $key)
                             <button type="button" x-on:click="by = @js($key)" x-bind:class="{ 'is-on': by === @js($key) }">{{ $key }}</button>
                         @endforeach
@@ -148,7 +148,7 @@
                         <select wire:model.live="processesAt" class="select select-xs w-auto absolute right-3 -top-3 bg-base-200" aria-label="Which probe to show">
                             <option value="">latest probe</option>
                             @foreach ($processTimes as $id => $at)
-                                <option value="{{ $id }}">{{ $at->format('D H:i') }}</option>
+                                <option value="{{ $id }}">{{ $at->forViewer()->format('D H:i') }}</option>
                             @endforeach
                         </select>
                     @endif

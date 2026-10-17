@@ -65,7 +65,7 @@
                     <div class="p-4">
                         <x-sparkline :values="$series" :height="110" />
                         <div class="flex justify-between text-xs text-muted mt-2">
-                            <span>{{ $historyFrom?->format('D H:i') ?? '' }}</span><span>Now</span>
+                            <span>{{ $historyFrom?->forViewer()->format('D H:i') ?? '' }}</span><span>Now</span>
                         </div>
                     </div>
                 </section>
@@ -80,7 +80,7 @@
                 <h2 class="text-[15px] font-semibold">Busiest processes</h2>
                 <span class="text-[13px] text-muted">
                     @if ($processes)
-                        from the probe at {{ $processes->captured_at->format('H:i') }}{{ $processes->captured_at->isToday() ? '' : ' on '.$processes->captured_at->format('M j') }}
+                        from the probe at {{ $processes->captured_at->forViewer()->format('H:i') }}{{ $processes->captured_at->forViewer()->isToday() ? '' : ' on '.$processes->captured_at->forViewer()->format('M j') }}
                     @else
                         the next probe collects them
                     @endif
@@ -89,7 +89,7 @@
                     <select wire:model.live="processesAt" class="select select-sm w-auto ml-auto" aria-label="Which probe to show">
                         <option value="">Latest probe</option>
                         @foreach ($processTimes as $id => $at)
-                            <option value="{{ $id }}">{{ $at->format('D H:i') }}</option>
+                            <option value="{{ $id }}">{{ $at->forViewer()->format('D H:i') }}</option>
                         @endforeach
                     </select>
                 @endif
