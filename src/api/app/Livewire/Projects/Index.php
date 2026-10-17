@@ -27,7 +27,9 @@ class Index extends Component
 
     public function render(): View
     {
+        // The list shows a few columns; the detection (a large JSON document) stays in the database.
         $all = Project::query()->active()
+            ->select(['id', 'name', 'slug', 'source', 'local_path', 'github_owner', 'github_repo', 'framework', 'versionable', 'keep_releases', 'dockerized', 'stack_name', 'ci_state', 'ci_run'])
             ->with(['targets' => fn ($query) => $query->whereNull('archived_at')->with(['server', 'currentRelease']), 'latestDeployment'])
             ->orderBy('name')
             ->get();

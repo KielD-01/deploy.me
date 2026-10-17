@@ -59,7 +59,8 @@ final class Find
      */
     public static function target(Project $project, ?string $server): Target
     {
-        $targets = $project->targets()->active()->with('server')->orderBy('id')->get();
+        // What the tools and the terminal read off the target they get back.
+        $targets = $project->targets()->active()->with(['server', 'project', 'currentRelease'])->orderBy('id')->get();
 
         if ($targets->isEmpty()) {
             throw new ToolFailed("{$project->name} isn’t assigned to a server yet. Assign it on the project’s Targets tab.");
