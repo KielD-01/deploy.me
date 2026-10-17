@@ -356,6 +356,14 @@ final class ConversionPlanner
             $checks[] = ['state' => 'fail', 'text' => 'current is a folder here, not a link. Move it out of the way first.'];
         }
 
+        // The layout's own names: the scan leaves them out as deploy.me's, so a
+        // project with one of its own would lose it to the layout (and undo
+        // would prune its empty folders).
+        $own = array_values(array_intersect(['releases', 'shared', 'current'], (array) ($scan['tracked'] ?? [])));
+        if ($own !== []) {
+            $checks[] = ['state' => 'fail', 'text' => 'The repository has '.self::sentence($own).' of its own, names the releases layout needs for itself'];
+        }
+
         // A job that runs a script from the folder breaks once the script moves.
         if (($scan['cron'] ?? []) !== []) {
             $checks[] = [

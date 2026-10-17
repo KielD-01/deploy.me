@@ -119,3 +119,12 @@ it('shares a bind mount from inside the folder, and blocks one of the whole fold
     $scan['binds'][] = ['container' => 'demo-web-1', 'source' => '.', 'destination' => '/app'];
     expect(ConversionPlanner::ready(app(ConversionPlanner::class)->plan($target, $scan)))->toBeFalse();
 });
+
+it('won’t convert a project whose repository has a shared, releases or current of its own', function () {
+    // A git checkout that tracks shared/: the scan never lists it as an item,
+    // and converting would move deploy.me's shared paths into the project's code.
+    $plan = app(ConversionPlanner::class)->plan(conversionTarget(), conversionScan(['tracked' => ['src', 'design', 'docker-compose.prod.yml', 'shared']]));
+
+    expect(ConversionPlanner::ready($plan))->toBeFalse()
+        ->and(collect($plan['checks'])->where('state', 'fail')->pluck('text')->implode(' '))->toContain('shared');
+});
