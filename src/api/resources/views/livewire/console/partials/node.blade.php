@@ -15,7 +15,8 @@
             </span>
         </div>
         <div class="tmux-content">
-            @livewire('console.'.$node['kind'], ['arg' => $node['arg'], 'pane' => $node['id']], key($node['id'].'-'.$node['kind'].'-'.($node['arg'] ?? '')))
+            {{-- The shell answers at once; the panes with data load right after the frame. --}}
+            @livewire('console.'.$node['kind'], ['arg' => $node['arg'], 'pane' => $node['id'], ...($node['kind'] === 'shell' ? [] : ['defer' => true])], key($node['id'].'-'.$node['kind'].'-'.($node['arg'] ?? '')))
         </div>
     </section>
 @else

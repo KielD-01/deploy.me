@@ -126,7 +126,7 @@
         <div class="flex flex-wrap items-start gap-[22px_14px] px-[14px] pt-[22px] pb-4">
             <section class="con-box px-0 grow-[999] basis-[560px] min-w-0" aria-label="Commits and releases">
                 <span class="con-box-t"><b>{{ $project->branch }}</b> · {{ $project->githubFullName() ?? \App\Support\Format::homePath($project->local_path) }}@if ($ci?->hasSignal()) · <span class="{{ $ciTone }}">ci {{ $ci === CiState::Passing ? '✓' : ($ci === CiState::Failing ? '✕' : '●') }}</span>@endif</span>
-                <livewire:console.git :arg="$project->slug" :page="true" :key="'git-'.$project->id" />
+                <livewire:console.git :arg="$project->slug" :page="true" :key="'git-'.$project->id" defer />
             </section>
 
             <div class="grow basis-[320px] min-w-[min(280px,100%)] flex flex-col gap-[22px]">

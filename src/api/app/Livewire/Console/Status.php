@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Console;
 
+use App\Livewire\Console\Concerns\LoadsAfterThePage;
 use App\Terminal\Shell as Commands;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
@@ -13,6 +14,8 @@ use Livewire\Component;
  */
 class Status extends Component
 {
+    use LoadsAfterThePage;
+
     public ?string $pane = null;
 
     public ?string $arg = null;

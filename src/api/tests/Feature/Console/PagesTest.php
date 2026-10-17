@@ -387,6 +387,8 @@ function graphTarget(): array
 
 it('shows a console user the project as git log --graph, and a classic one the classic page', function () {
     [$target, $head, $first] = graphTarget();
+    // The commits load after the page (a deferred pane); here they render with it.
+    Livewire::withoutLazyLoading();
 
     $this->get(route('projects.show', $target->project))
         ->assertOk()

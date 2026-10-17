@@ -5,6 +5,7 @@ namespace App\Livewire\Console;
 use App\Deploy\Logging\StepLogger;
 use App\Enums\DeploymentStatus;
 use App\Enums\StepStatus;
+use App\Livewire\Console\Concerns\LoadsAfterThePage;
 use App\Models\Deployment;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
@@ -18,6 +19,8 @@ use Livewire\Component;
  */
 class Tail extends Component
 {
+    use LoadsAfterThePage;
+
     public ?string $pane = null;
 
     public ?string $arg = null;

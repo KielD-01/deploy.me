@@ -3,6 +3,7 @@
 namespace App\Livewire\Console;
 
 use App\Enums\DeploymentStatus;
+use App\Livewire\Console\Concerns\LoadsAfterThePage;
 use App\Models\Deployment;
 use App\Models\Project;
 use App\Models\Release;
@@ -21,6 +22,8 @@ use Livewire\Component;
  */
 class Git extends Component
 {
+    use LoadsAfterThePage;
+
     public ?string $pane = null;
 
     public ?string $arg = null;

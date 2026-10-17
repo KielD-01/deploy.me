@@ -70,3 +70,19 @@ it('keeps a status pane', function () {
 
     Livewire::test(Status::class)->assertSee('1 targets');
 });
+
+it('draws the frame first: the shell at once, the panes with data right after', function () {
+    $page = $this->get(route('dashboard'))->assertOk();
+
+    $page->assertSeeHtml('class="term-input"')->assertSee(['$ tail', '$ htop', '$ git']);
+    expect(substr_count($page->getContent(), 'aria-busy="true"'))->toBe(3);
+});
+
+it('loads the commits on a project page after the page', function () {
+    $project = Project::factory()->create(['slug' => 'warehouse']);
+
+    $this->get(route('projects.show', $project))
+        ->assertOk()
+        ->assertSee('$ git warehouse')
+        ->assertSeeHtml('aria-busy="true"');
+});
