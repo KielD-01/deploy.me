@@ -264,7 +264,7 @@ The projects list and the dashboard point out a green build that no server runs 
 
 ## 13. 🔁 Folder mappings
 
-On a server's **Folders** tab, map a folder on your Mac to a folder on the server and sync
+On a server's **Folders** tab, map a folder on your machine to a folder on the server and sync
 it one way, push or pull, with rsync.
 
 - **Preview** is a dry run and changes nothing.

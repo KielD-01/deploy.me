@@ -32,7 +32,8 @@
 ---
 
 **deploy.me** is a local, Dockerized admin app that deploys your projects to **your own
-servers over SSH**. You run it on your Mac at `https://deployme.localhost`.
+servers over SSH**. You run it on your own machine — macOS, Linux, or Windows with WSL2 —
+at `https://deployme.localhost`.
 
 - Servers come straight from your `~/.ssh/config`.
 - Projects come from GitHub or from a local folder.
@@ -145,7 +146,7 @@ roll back and cancel, and the client asks you before each one.
 </tr>
 </table>
 
-Also included: 🔁 one-way **folder mappings** (Mac ↔ server, rsync, previews, capped
+Also included: 🔁 one-way **folder mappings** (your machine ↔ server, rsync, previews, capped
 deletes), 🔑 **passkey or password sign-in** (with optional authenticator codes), and 💾 nightly **backups** of deploy.me itself.
 
 ## 📸 Screenshots
@@ -272,7 +273,7 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    subgraph mac["💻 Your Mac"]
+    subgraph mac["💻 Your machine (macOS · Linux · Windows/WSL2)"]
         browser["🌐 Browser<br/>deployme.localhost"]
         agent["🤖 MCP client"]
         subgraph app["deploy.me containers"]
