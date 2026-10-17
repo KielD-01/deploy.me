@@ -32,8 +32,24 @@ else
   done
 fi
 
-# Caches written by another container (or the host) would pin stale config.
-rm -f bootstrap/cache/config.php bootstrap/cache/routes-v7.php bootstrap/cache/events.php
+if [ "${DEPLOYME_MODE:-dev}" = prod ]; then
+  # Production: the code is the image's, so cache what reads the runtime .env
+  # now. Each container has its own bootstrap/cache; the compiled views live in
+  # the shared storage/, so only the web container builds them. A cache that
+  # fails leaves the app slower, not down: make doctor says which is missing.
+  mkdir -p /tmp/opcache
+  if [ "${DEPLOYME_ROLE:-}" = "web" ]; then
+    php artisan optimize --no-interaction || echo "php artisan optimize failed; the app runs uncached" >&2
+  else
+    for cache in config:cache event:cache route:cache; do
+      php artisan "$cache" --no-interaction || echo "php artisan $cache failed; the app runs without it" >&2
+    done
+  fi
+else
+  # Development: caches written by another container (or the host) would pin
+  # stale config.
+  rm -f bootstrap/cache/config.php bootstrap/cache/routes-v7.php bootstrap/cache/events.php
+fi
 
 # The schema follows the code: the web container applies pending migrations when
 # it starts, so none waits for someone to run `make migrate`. A database that

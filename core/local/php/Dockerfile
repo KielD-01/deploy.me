@@ -77,6 +77,7 @@ RUN mkdir -p public storage/framework/views && npm run build
 
 FROM vendor AS app
 COPY --from=assets /app/public/build ./public/build
+COPY core/local/php/php-prod.ini /usr/local/etc/php/conf.d/zz-mode.ini
 # The code stays root's; only the caches the entrypoint writes (and storage,
 # which compose replaces with ./src/api/storage) belong to the container user.
 ARG DEPLOYME_UID=0
