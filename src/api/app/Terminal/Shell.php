@@ -360,6 +360,10 @@ final class Shell
         if (($args[0] ?? '') === '') {
             $projects = Project::query()->active()->whereHas('targets', fn ($query) => $query->active()->whereNotNull('current_release_id'))->orderBy('name')->get();
 
+            if ($projects->isEmpty()) {
+                return (new Output)->error('Nothing is live yet, so there’s nothing to roll back.');
+            }
+
             return self::pick('Project', $state + ['key' => '0'], $projects->map(fn (Project $project) => ['value' => $project->slug, 'label' => $project->slug])->all());
         }
 

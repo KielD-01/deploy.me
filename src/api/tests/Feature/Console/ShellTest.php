@@ -144,6 +144,15 @@ it('probes, opens panes, goes to pages and completes names', function () {
         ->and($shell->complete('open htop p'))->toBe(['open htop prod-eu']);
 });
 
+it('says so when nothing has a release to roll back, instead of an empty pick', function () {
+    shellTarget();
+
+    $out = app(Shell::class)->run('rollback');
+
+    expect($out->ask)->toBeNull()
+        ->and(shellText($out))->toContain('Nothing is live yet');
+});
+
 it('opens a pane on what a name found, however it was typed', function () {
     $target = shellTarget();
     $target->project->update(['name' => 'ShopFront']);
