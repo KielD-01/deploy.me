@@ -10,7 +10,6 @@ use App\Models\Project;
 use App\Models\Server;
 use App\Models\ServerSnapshot;
 use App\Models\Target;
-use App\Support\Drift;
 use App\Support\ViewerTimezone;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
@@ -75,7 +74,7 @@ class Dashboard extends Component
                 ->filter(fn (Target $target) => $target->activeDeployment === null
                     && in_array($target->latestDeployment?->status, [DeploymentStatus::Failed, DeploymentStatus::Stalled], true))
                 ->values(),
-            'drift' => $targets->map(fn (Target $target) => ['target' => $target, ...Drift::for($target->project, $target->currentRelease?->commit_sha)]),
+            'drift' => $targets->map(fn (Target $target) => ['target' => $target, ...$target->drift()]),
         ]);
     }
 }

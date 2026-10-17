@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Deploy\RemoteLayout;
 use App\Enums\DeploymentStatus;
 use App\Enums\TargetHealth;
+use App\Support\Drift;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -41,6 +42,35 @@ class Target extends Model
             'unhealthy_since' => 'datetime',
             'folder_scan' => 'array',
             'folder_scanned_at' => 'datetime',
+            'drift_behind' => 'integer',
+            'drift_dirty' => 'integer',
+            'drift_checked_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * What the last RefreshDrift measured, as the dashboard shows it. The count
+     * of commits behind was made for the commit that was live then: after a
+     * deploy it is unknown (or none, when the live commit is the head) until
+     * the next refresh, which is never more than a minute away.
+     *
+     * @return array{head: ?string, behind: ?int, dirty: ?int}
+     */
+    public function drift(): array
+    {
+        $live = $this->currentRelease?->commit_sha;
+
+        // Not measured yet (a new target, or the first minute after an upgrade).
+        if ($this->drift_checked_at === null) {
+            return Drift::fromCi($this->project, $live);
+        }
+
+        $current = $this->drift_deployed === $live;
+
+        return [
+            'head' => $this->drift_head,
+            'behind' => $current ? $this->drift_behind : ($this->drift_head !== null && $this->drift_head === $live ? 0 : null),
+            'dirty' => $this->drift_dirty,
         ];
     }
 

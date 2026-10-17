@@ -2,6 +2,7 @@
 
 use App\Actions\Projects\PollCi;
 use App\Enums\CiState;
+use App\Jobs\RefreshDrift;
 use App\Models\Credential;
 use App\Models\Deployment;
 use App\Models\Release;
@@ -83,6 +84,15 @@ it('deploys the branch head when GitHub lists an old run first', function () {
         ->and($project->ci_run['sha'])->toBe($this->head)
         ->and($project->ci_run['number'])->toBe(45)
         ->and(Deployment::query()->sole()->options)->toBe(['commit' => $this->head]);
+});
+
+it('measures the drift again when a poll finds something new', function () {
+    $this->listed = [deployRun(45, $this->head)];
+
+    app(PollCi::class)($this->target->project);
+
+    Queue::assertPushed(RefreshDrift::class, 1);
+    Queue::assertPushed(RefreshDrift::class, fn ($job) => $job->projectId === $this->target->project_id);
 });
 
 it('asks for the head’s own runs when the list leaves them out', function () {

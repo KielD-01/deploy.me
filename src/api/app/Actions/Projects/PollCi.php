@@ -7,6 +7,7 @@ use App\Deploy\DeploymentBusy;
 use App\Enums\CiState;
 use App\Enums\DeploymentKind;
 use App\Events\ProjectCiUpdated;
+use App\Jobs\RefreshDrift;
 use App\Models\Credential;
 use App\Models\Project;
 use App\Models\Target;
@@ -164,6 +165,9 @@ class PollCi
         if ($before !== null && $before === $project->ci_state) {
             return;
         }
+
+        // A new CI answer comes with a new branch head: measure the drift again now.
+        rescue(fn () => RefreshDrift::dispatch($project->id), report: false);
 
         try {
             ProjectCiUpdated::dispatch($project->id, $project->ci_state?->value);

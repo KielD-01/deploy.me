@@ -6,6 +6,7 @@ use App\Actions\Maintenance\PruneOldData;
 use App\Actions\Projects\DispatchDueCiPolls;
 use App\Actions\Servers\DispatchDueProbes;
 use App\Actions\Targets\DispatchDueHealthChecks;
+use App\Jobs\RefreshDrift;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
@@ -32,6 +33,12 @@ Schedule::call(fn () => app(DispatchDueCiPolls::class)())
 Schedule::call(fn () => app(DispatchDueFolderSyncs::class)())
     ->everyMinute()
     ->name('dispatch-folder-syncs')
+    ->withoutOverlapping();
+
+// How far each live target is behind its branch (git, off the dashboard's request).
+Schedule::call(fn () => RefreshDrift::dispatch())
+    ->everyMinute()
+    ->name('refresh-drift')
     ->withoutOverlapping();
 
 // Runs whose worker stopped reporting are marked stalled, so the target frees up.

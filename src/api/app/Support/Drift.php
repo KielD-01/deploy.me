@@ -8,38 +8,27 @@ use App\Models\Project;
 use App\Platform\Git\GitRunner;
 use App\Platform\Git\LocalRepository;
 use App\Platform\Local\ProjectRoots;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * What's newest on a project's branch, and how far a deployed commit is
  * behind it: from the repository on the Mac (or the GitHub mirror), else from
  * the last CI poll.
+ *
+ * It runs git (three processes for a local repository), so it is the
+ * RefreshDrift job that asks, and the targets that keep the answer
+ * (`Target::drift()`); nothing renders a page by calling it.
  */
 final class Drift
 {
     /**
      * @return array{head: ?string, behind: ?int, dirty: ?int}
      */
-    public static function for(Project $project, ?string $deployed): array
-    {
-        return Cache::remember(
-            "deployme:drift:{$project->id}:{$project->branch}:".($deployed ?? '-'),
-            60,
-            fn () => self::measure($project, $deployed),
-        );
-    }
-
-    /**
-     * @return array{head: ?string, behind: ?int, dirty: ?int}
-     */
-    private static function measure(Project $project, ?string $deployed): array
+    public static function measure(Project $project, ?string $deployed): array
     {
         $repository = self::repository($project);
 
         if ($repository === null) {
-            $head = $project->ci_run['sha'] ?? null;
-
-            return ['head' => $head, 'behind' => $head !== null && $head === $deployed ? 0 : null, 'dirty' => null];
+            return self::fromCi($project, $deployed);
         }
 
         $git = app(GitRunner::class);
@@ -61,6 +50,20 @@ final class Drift
         }
 
         return ['head' => $head, 'behind' => $behind, 'dirty' => $dirty];
+    }
+
+    /**
+     * Without a repository to ask, the last CI poll's commit stands for the
+     * head. Needs no git, so it is also what a target shows before its first
+     * measurement.
+     *
+     * @return array{head: ?string, behind: ?int, dirty: ?int}
+     */
+    public static function fromCi(Project $project, ?string $deployed): array
+    {
+        $head = $project->ci_run['sha'] ?? null;
+
+        return ['head' => $head, 'behind' => $head !== null && $head === $deployed ? 0 : null, 'dirty' => null];
     }
 
     private static function repository(Project $project): ?string
