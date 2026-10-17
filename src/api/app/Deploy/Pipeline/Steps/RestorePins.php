@@ -17,9 +17,11 @@ use App\Models\Release;
  */
 final class RestorePins implements Step
 {
+    public const KEY = 'restore_pins';
+
     public function key(): string
     {
-        return 'restore_pins';
+        return self::KEY;
     }
 
     public function label(): string

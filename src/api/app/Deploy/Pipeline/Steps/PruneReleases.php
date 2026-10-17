@@ -17,11 +17,13 @@ use Illuminate\Support\Str;
  */
 final class PruneReleases implements Step
 {
+    public const KEY = 'prune';
+
     public function __construct(private readonly int $keep = 5) {}
 
     public function key(): string
     {
-        return 'prune';
+        return self::KEY;
     }
 
     public function label(): string

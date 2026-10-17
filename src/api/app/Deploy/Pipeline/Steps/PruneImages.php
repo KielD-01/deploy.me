@@ -22,9 +22,11 @@ use Illuminate\Support\Collection;
  */
 final class PruneImages implements Step
 {
+    public const KEY = 'prune_images';
+
     public function key(): string
     {
-        return 'prune_images';
+        return self::KEY;
     }
 
     public function label(): string

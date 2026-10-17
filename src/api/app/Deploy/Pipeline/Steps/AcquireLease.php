@@ -19,11 +19,13 @@ use App\Models\Deployment;
  */
 final class AcquireLease implements AlwaysRuns, Step
 {
+    public const KEY = 'lease';
+
     public const STALE_AFTER = 7200;
 
     public function key(): string
     {
-        return 'lease';
+        return self::KEY;
     }
 
     public function label(): string

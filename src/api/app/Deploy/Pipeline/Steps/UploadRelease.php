@@ -19,9 +19,11 @@ use Illuminate\Support\Str;
  */
 final class UploadRelease implements Step
 {
+    public const KEY = 'upload';
+
     public function key(): string
     {
-        return 'upload';
+        return self::KEY;
     }
 
     public function label(): string

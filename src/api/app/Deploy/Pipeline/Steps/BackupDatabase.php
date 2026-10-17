@@ -24,6 +24,8 @@ use App\Support\Format;
  */
 final class BackupDatabase implements Step
 {
+    public const KEY = 'backup';
+
     public const KEEP = 5;
 
     // A database name the dump's file can be named after.
@@ -34,7 +36,7 @@ final class BackupDatabase implements Step
 
     public function key(): string
     {
-        return 'backup';
+        return self::KEY;
     }
 
     public function label(): string

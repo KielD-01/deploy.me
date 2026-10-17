@@ -14,9 +14,11 @@ use Illuminate\Support\Str;
  */
 final class LinkSharedItems implements Step
 {
+    public const KEY = 'convert_link';
+
     public function key(): string
     {
-        return 'convert_link';
+        return self::KEY;
     }
 
     public function label(): string

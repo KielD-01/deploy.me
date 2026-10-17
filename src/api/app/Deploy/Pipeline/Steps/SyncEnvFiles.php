@@ -15,9 +15,11 @@ use Illuminate\Support\Str;
  */
 final class SyncEnvFiles implements AlwaysRuns, Step
 {
+    public const KEY = 'env';
+
     public function key(): string
     {
-        return 'env';
+        return self::KEY;
     }
 
     public function label(): string

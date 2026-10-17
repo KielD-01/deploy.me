@@ -17,11 +17,13 @@ use App\Enums\ReleaseStatus;
  */
 final class RestoreRelease implements AlwaysRuns, Step
 {
+    public const KEY = 'restore';
+
     public function __construct(private readonly ?string $name = null) {}
 
     public function key(): string
     {
-        return 'restore';
+        return self::KEY;
     }
 
     public function label(): string

@@ -21,11 +21,13 @@ use App\Models\Release;
  */
 final class WritePins implements Step
 {
+    public const KEY = 'pins';
+
     public const FILE = '.deployme-pins.env';
 
     public function key(): string
     {
-        return 'pins';
+        return self::KEY;
     }
 
     public function label(): string

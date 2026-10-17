@@ -15,9 +15,11 @@ use Illuminate\Support\Str;
  */
 final class CheckFolder implements Step
 {
+    public const KEY = 'convert_check';
+
     public function key(): string
     {
-        return 'convert_check';
+        return self::KEY;
     }
 
     public function label(): string

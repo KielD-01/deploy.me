@@ -14,9 +14,11 @@ use Illuminate\Support\Str;
  */
 final class BackUpLayout implements Step
 {
+    public const KEY = 'convert_backup';
+
     public function key(): string
     {
-        return 'convert_backup';
+        return self::KEY;
     }
 
     public function label(): string

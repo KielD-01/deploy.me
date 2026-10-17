@@ -1,6 +1,7 @@
 <div class="flex flex-col gap-5">
     @php
         use App\Deploy\Delivery\VerdictState;
+        use App\Deploy\Pipeline\Steps\RollBack;
         use App\Enums\DeploymentKind;
         use App\Enums\DeploymentStatus;
         use App\Enums\StepStatus;
@@ -194,7 +195,7 @@
                 </header>
                 <ol class="flex flex-col">
                     @forelse ($steps as $step)
-                        @php $switchedBack = $step->key === 'rollback' && $step->status === StepStatus::Succeeded; @endphp
+                        @php $switchedBack = $step->key === RollBack::KEY && $step->status === StepStatus::Succeeded; @endphp
                         <li wire:key="step-{{ $step->id }}" @class([
                             'flex items-start gap-2.5 px-4 py-2.5 border-b border-line last:border-b-0',
                             'bg-info/5' => $step->status === StepStatus::Running,
@@ -261,7 +262,7 @@
         </div>
 
         <section class="card bg-base-100 border border-line overflow-hidden" wire:ignore
-                 x-data="deployLog({ id: {{ $deployment->id }}, live: @js($deployment->isActive()), steps: @js((object) $steps->pluck('label', 'key')->all()) })">
+                 x-data="deployLog({ id: {{ $deployment->id }}, live: @js($deployment->isActive()), active: @js(DeploymentStatus::ACTIVE), steps: @js((object) $steps->pluck('label', 'key')->all()) })">
             <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
                 <h2 class="text-[15px] font-semibold">Log</h2>
                 <span class="text-[13px] text-muted"><span x-show="live" class="text-info">streaming live · </span><span x-text="count">0</span> lines</span>

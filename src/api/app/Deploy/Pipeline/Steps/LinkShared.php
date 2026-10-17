@@ -13,9 +13,11 @@ use App\Models\Release;
  */
 final class LinkShared implements Step
 {
+    public const KEY = 'shared';
+
     public function key(): string
     {
-        return 'shared';
+        return self::KEY;
     }
 
     public function label(): string

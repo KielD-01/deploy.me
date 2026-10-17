@@ -21,9 +21,11 @@ use Illuminate\Support\Str;
  */
 final class ResolveRelease implements Step
 {
+    public const KEY = 'resolve';
+
     public function key(): string
     {
-        return 'resolve';
+        return self::KEY;
     }
 
     public function label(): string

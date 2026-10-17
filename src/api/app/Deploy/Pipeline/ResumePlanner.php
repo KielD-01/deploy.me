@@ -2,6 +2,11 @@
 
 namespace App\Deploy\Pipeline;
 
+use App\Deploy\Pipeline\Steps\Activate;
+use App\Deploy\Pipeline\Steps\ReleaseLease;
+use App\Deploy\Pipeline\Steps\ResolveRelease;
+use App\Deploy\Pipeline\Steps\RestoreRelease;
+use App\Deploy\Pipeline\Steps\RollBack;
 use App\Enums\DeploymentKind;
 use App\Enums\DeploymentStatus;
 use App\Enums\ReleaseStatus;
@@ -28,10 +33,10 @@ final class ResumePlanner
     private const STATUSES = [DeploymentStatus::Failed, DeploymentStatus::RolledBack, DeploymentStatus::Cancelled, DeploymentStatus::Stalled];
 
     // Cleanup steps: nothing to resume from.
-    private const CLEANUP = ['rollback', 'unlock'];
+    private const CLEANUP = [RollBack::KEY, ReleaseLease::KEY];
 
     // Before these finish there's no release to pick up.
-    private const TOO_EARLY = ['resolve', 'restore'];
+    private const TOO_EARLY = [ResolveRelease::KEY, RestoreRelease::KEY];
 
     public static function for(Deployment $run): ?ResumePoint
     {
@@ -84,7 +89,7 @@ final class ResumePlanner
             return null;
         }
 
-        $activate = $main->firstWhere('key', 'activate');
+        $activate = $main->firstWhere('key', Activate::KEY);
 
         return new ResumePoint($point->key, $point->label, switchesBack: ! $live && $activate !== null && $point->position > $activate->position);
     }

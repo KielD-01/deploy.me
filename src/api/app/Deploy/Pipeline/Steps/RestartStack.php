@@ -15,9 +15,11 @@ use App\Models\Release;
  */
 final class RestartStack implements Step
 {
+    public const KEY = 'convert_restart';
+
     public function key(): string
     {
-        return 'convert_restart';
+        return self::KEY;
     }
 
     public function label(): string

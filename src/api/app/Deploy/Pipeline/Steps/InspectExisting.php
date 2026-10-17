@@ -19,9 +19,11 @@ use Illuminate\Support\Str;
  */
 final class InspectExisting implements Step
 {
+    public const KEY = 'inspect';
+
     public function key(): string
     {
-        return 'inspect';
+        return self::KEY;
     }
 
     public function label(): string

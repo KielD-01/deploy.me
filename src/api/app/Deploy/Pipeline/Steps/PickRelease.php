@@ -15,9 +15,11 @@ use App\Deploy\Pipeline\StepFailed;
  */
 final class PickRelease implements Step
 {
+    public const KEY = 'pick';
+
     public function key(): string
     {
-        return 'pick';
+        return self::KEY;
     }
 
     public function label(): string

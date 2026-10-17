@@ -19,9 +19,11 @@ use Illuminate\Support\Str;
  */
 final class UndoConversion implements Step
 {
+    public const KEY = 'convert_undo';
+
     public function key(): string
     {
-        return 'convert_undo';
+        return self::KEY;
     }
 
     public function label(): string

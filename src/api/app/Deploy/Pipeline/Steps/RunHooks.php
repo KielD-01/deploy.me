@@ -20,11 +20,14 @@ use Illuminate\Support\Str;
  */
 final class RunHooks implements Step
 {
+    // Each phase is a step of its own: hooks_<phase>.
+    public const KEY = 'hooks';
+
     public function __construct(private readonly HookPhase $phase) {}
 
     public function key(): string
     {
-        return 'hooks_'.$this->phase->value;
+        return self::KEY.'_'.$this->phase->value;
     }
 
     public function label(): string

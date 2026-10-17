@@ -15,9 +15,11 @@ use App\Platform\Ssh\Exceptions\SshException;
  */
 final class RecordState implements Step
 {
+    public const KEY = 'state';
+
     public function key(): string
     {
-        return 'state';
+        return self::KEY;
     }
 
     public function label(): string

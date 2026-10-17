@@ -12,9 +12,11 @@ use App\Deploy\Pipeline\Step;
  */
 final class ReleaseLease implements Step
 {
+    public const KEY = 'unlock';
+
     public function key(): string
     {
-        return 'unlock';
+        return self::KEY;
     }
 
     public function label(): string

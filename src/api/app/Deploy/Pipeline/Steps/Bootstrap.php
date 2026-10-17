@@ -11,9 +11,11 @@ use App\Deploy\Pipeline\Step;
  */
 final class Bootstrap implements Step
 {
+    public const KEY = 'folders';
+
     public function key(): string
     {
-        return 'folders';
+        return self::KEY;
     }
 
     public function label(): string

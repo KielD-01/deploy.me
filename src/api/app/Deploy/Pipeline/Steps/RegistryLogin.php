@@ -20,11 +20,13 @@ use App\Models\Credential;
  */
 final class RegistryLogin implements AlwaysRuns, Step
 {
+    public const KEY = 'login';
+
     public const REGISTRY = 'ghcr.io';
 
     public function key(): string
     {
-        return 'login';
+        return self::KEY;
     }
 
     public function label(): string

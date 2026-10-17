@@ -14,9 +14,11 @@ use App\Models\Release;
  */
 final class PullImages implements Step
 {
+    public const KEY = 'pull';
+
     public function key(): string
     {
-        return 'pull';
+        return self::KEY;
     }
 
     public function label(): string

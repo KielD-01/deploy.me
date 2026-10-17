@@ -16,9 +16,11 @@ use Illuminate\Support\Str;
  */
 final class CheckCompose implements Step
 {
+    public const KEY = 'convert_compose';
+
     public function key(): string
     {
-        return 'convert_compose';
+        return self::KEY;
     }
 
     public function label(): string

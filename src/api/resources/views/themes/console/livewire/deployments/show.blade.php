@@ -2,6 +2,7 @@
      folds open on its own log, a segmented progress line, and the page's keys up top. --}}
 @php
     use App\Deploy\Delivery\VerdictState;
+    use App\Deploy\Pipeline\Steps\RollBack;
     use App\Enums\DeploymentKind;
     use App\Enums\DeploymentStatus;
     use App\Enums\StepStatus;
@@ -15,7 +16,7 @@
         DeploymentStatus::RolledBack, DeploymentStatus::Cancelled => 't-warn',
         default => 't-run',
     };
-    $mark = fn ($step) => $step->key === 'rollback' && $step->status === StepStatus::Succeeded
+    $mark = fn ($step) => $step->key === RollBack::KEY && $step->status === StepStatus::Succeeded
         ? ['↺', 't-warn']
         : match ($step->status) {
             StepStatus::Succeeded => ['✓', 't-ok'],
@@ -46,7 +47,7 @@
         : 'run it again';
 @endphp
 <div class="con-page is-fill con-run" x-data="pageKeys" x-on:keydown.window="key($event)">
-    <div class="contents" x-data="deployLog({ id: {{ $deployment->id }}, live: @js($deployment->isActive()), steps: @js((object) $steps->pluck('label', 'key')->all()) })">
+    <div class="contents" x-data="deployLog({ id: {{ $deployment->id }}, live: @js($deployment->isActive()), active: @js(DeploymentStatus::ACTIVE), steps: @js((object) $steps->pluck('label', 'key')->all()) })">
         <header class="con-prompt">
             <span class="min-w-0 truncate">
                 <span class="t-ok">deploy{{ '@'.$server->slug }}</span><span class="t-mute">:</span><span class="t-run">~/runs/{{ $deployment->id }}</span>

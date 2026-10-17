@@ -19,11 +19,13 @@ use App\Models\Release;
  */
 final class RollBack implements Step
 {
+    public const KEY = 'rollback';
+
     public function __construct(private readonly ?string $to = null) {}
 
     public function key(): string
     {
-        return 'rollback';
+        return self::KEY;
     }
 
     public function label(): string

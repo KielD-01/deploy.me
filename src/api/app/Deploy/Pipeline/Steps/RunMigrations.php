@@ -16,11 +16,13 @@ use Illuminate\Support\Str;
  */
 final class RunMigrations implements Step
 {
+    public const KEY = 'migrate';
+
     public const COMMAND = 'php artisan migrate --force';
 
     public function key(): string
     {
-        return 'migrate';
+        return self::KEY;
     }
 
     public function label(): string

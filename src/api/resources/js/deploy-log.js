@@ -11,7 +11,6 @@
 // that way. Lines of no step, or of one the page has no fold for yet, stay in
 // x-ref="lines".
 const MAX_LINES = 5000;
-const ACTIVE = ['queued', 'waiting_ci', 'running'];
 
 const clock = (at) => {
     const time = new Date(at);
@@ -19,7 +18,8 @@ const clock = (at) => {
     return [time.getHours(), time.getMinutes(), time.getSeconds()].map((part) => String(part).padStart(2, '0')).join(':');
 };
 
-export default ({ id, live, steps }) => ({
+// active: the statuses of a run still going (DeploymentStatus::ACTIVE), from the page.
+export default ({ id, live, active, steps }) => ({
     live,
     steps,
     step: '',
@@ -48,7 +48,7 @@ export default ({ id, live, steps }) => ({
         // other pane showing the run listen on the same channel.
         this.onLog = (event) => this.receive(event);
         this.onUpdated = (event) => {
-            this.live = ACTIVE.includes(event.status);
+            this.live = active.includes(event.status);
             if (!this.live) this.fetchMissing();
         };
         const channel = window.Echo?.private(`deployments.${id}`);

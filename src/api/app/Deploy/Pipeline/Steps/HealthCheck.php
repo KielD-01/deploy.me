@@ -21,9 +21,11 @@ use App\Platform\Ssh\SshErrors;
  */
 final class HealthCheck implements Step
 {
+    public const KEY = 'health';
+
     public function key(): string
     {
-        return 'health';
+        return self::KEY;
     }
 
     public function label(): string

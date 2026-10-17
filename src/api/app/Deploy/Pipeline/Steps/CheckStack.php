@@ -16,9 +16,11 @@ use Illuminate\Support\Str;
  */
 final class CheckStack implements Step
 {
+    public const KEY = 'stack';
+
     public function key(): string
     {
-        return 'stack';
+        return self::KEY;
     }
 
     public function label(): string

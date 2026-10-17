@@ -16,9 +16,11 @@ use App\Models\Release;
  */
 final class RollServices implements Step
 {
+    public const KEY = 'roll';
+
     public function key(): string
     {
-        return 'roll';
+        return self::KEY;
     }
 
     public function label(): string

@@ -17,12 +17,14 @@ use App\Models\Release;
  */
 final class BuildImages implements Step
 {
+    public const KEY = 'build';
+
     // The strategies that ship files, so the server builds the images.
     public const STRATEGIES = [DeliveryStrategyKey::PushArchive, DeliveryStrategyKey::PushRsync, DeliveryStrategyKey::ServerGit];
 
     public function key(): string
     {
-        return 'build';
+        return self::KEY;
     }
 
     public function label(): string

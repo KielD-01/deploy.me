@@ -14,12 +14,14 @@ use App\Models\Release;
  */
 final class Activate implements Step
 {
+    public const KEY = 'activate';
+
     // Converting only switches: the project's own deploy script doesn't run.
     public function __construct(private readonly string $label = 'Switch current', private readonly bool $switchOnly = false) {}
 
     public function key(): string
     {
-        return 'activate';
+        return self::KEY;
     }
 
     public function label(): string

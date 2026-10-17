@@ -15,9 +15,11 @@ use App\Support\Audit;
  */
 final class BreakLock implements Step
 {
+    public const KEY = 'break_lock';
+
     public function key(): string
     {
-        return 'break_lock';
+        return self::KEY;
     }
 
     public function label(): string

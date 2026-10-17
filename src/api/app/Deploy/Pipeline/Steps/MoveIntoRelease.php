@@ -14,9 +14,11 @@ use App\Models\Release;
  */
 final class MoveIntoRelease implements Step
 {
+    public const KEY = 'convert_move';
+
     public function key(): string
     {
-        return 'convert_move';
+        return self::KEY;
     }
 
     public function label(): string

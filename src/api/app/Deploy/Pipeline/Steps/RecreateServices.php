@@ -16,9 +16,11 @@ use App\Models\Release;
  */
 final class RecreateServices implements Step
 {
+    public const KEY = 'recreate';
+
     public function key(): string
     {
-        return 'recreate';
+        return self::KEY;
     }
 
     public function label(): string
