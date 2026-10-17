@@ -167,7 +167,15 @@ if ! docker inspect "$pg" > /dev/null 2>&1; then
     exit 1
 fi
 
-docker exec "$pg" pg_dump -U postgres --no-owner --clean --if-exists deployme | gzip > "$dest/deployme-$stamp.sql.gz"
+# Under a name of its own until pg_dump is done: a dump that failed halfway
+# would otherwise look like a good one, and push a good one out of the 14 kept.
+part="$dest/.deployme-$stamp.sql.gz.part"
+if ! docker exec "$pg" pg_dump -U postgres --no-owner --clean --if-exists deployme | gzip > "$part"; then
+    rm -f -- "$part"
+    echo "$(date -Iseconds)  pg_dump failed; nothing backed up" >&2
+    exit 1
+fi
+mv -- "$part" "$dest/deployme-$stamp.sql.gz"
 
 # Without APP_KEY the credentials and env files in that dump stay unreadable.
 if [ -f "$repo/src/api/.env" ]; then
