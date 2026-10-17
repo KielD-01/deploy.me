@@ -52,9 +52,24 @@
 Потрібен лише Docker. deploy.me однаково працює на macOS, Linux і Windows і приносить власні
 PostgreSQL, Valkey та HTTPS-edge, якщо у вас ще немає спільного стеку.
 
-| 🍎 macOS · 🐧 Linux | 🪟 Windows (WSL2 + Docker Desktop), у PowerShell |
-|---|---|
-| `git clone https://github.com/KielD-01/deploy.me.git && cd deploy.me && bin/install` | `irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 \| iex` |
+#### 🍎 macOS · 🐧 Linux
+
+Потрібен Docker Desktop або OrbStack на macOS, чи Docker Engine із плагіном Compose на
+Linux. Далі:
+
+```bash
+git clone https://github.com/KielD-01/deploy.me.git
+cd deploy.me
+bin/install
+```
+
+#### 🪟 Windows
+
+Потрібні WSL2 і Docker Desktop з увімкненою інтеграцією WSL. Далі в PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 | iex
+```
 
 `bin/install` робить усе за один раз:
 

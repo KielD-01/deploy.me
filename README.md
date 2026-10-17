@@ -152,16 +152,10 @@ deletes), 🔑 **passkey or password sign-in** (with optional authenticator code
 All you need is Docker. deploy.me runs the same way on all three systems and brings its own
 PostgreSQL, Valkey and HTTPS edge, unless you already run a shared stack it can join.
 
-<table>
-<tr>
-<th width="33%">🍎 macOS</th>
-<th width="33%">🐧 Linux</th>
-<th width="33%">🪟 Windows</th>
-</tr>
-<tr>
-<td valign="top">
+#### 🍎 macOS · 🐧 Linux
 
-Docker Desktop or OrbStack, then:
+You need Docker Desktop or OrbStack on macOS, or Docker Engine with the Compose plugin on
+Linux. Then:
 
 ```bash
 git clone https://github.com/KielD-01/deploy.me.git
@@ -169,29 +163,13 @@ cd deploy.me
 bin/install
 ```
 
-</td>
-<td valign="top">
+#### 🪟 Windows
 
-Docker Engine + Compose, then:
-
-```bash
-git clone https://github.com/KielD-01/deploy.me.git
-cd deploy.me
-bin/install
-```
-
-</td>
-<td valign="top">
-
-WSL2 + Docker Desktop, then in PowerShell:
+You need WSL2 and Docker Desktop with WSL integration turned on. Then, in PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 | iex
 ```
-
-</td>
-</tr>
-</table>
 
 `bin/install` does everything in one go:
 
