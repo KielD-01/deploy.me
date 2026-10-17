@@ -33,8 +33,8 @@ init: .env db-create build up assets setup doctor ## First run: database, image,
 db-create: .env ## Create the deployme role and databases (shared or own Postgres)
 	bin/db-create.sh
 
-build: .env ## Build the PHP image
-	$(DC) build
+build: .env ## Build the PHP image (pulls its base from Docker Hub, or compiles it)
+	bin/build
 
 up: .env ## Start the stack
 	$(DC) up -d

@@ -9,6 +9,8 @@
 #   bin/configure --stack shared          the shared stack on proxy-network
 #   bin/configure --roots ~/code:~/work   the folders projects are imported from
 #   bin/configure --uid 0                 run the containers as root anyway
+#   bin/configure --build-from-source     compile the PHP base here, never pull it
+#   bin/configure --pull-base             back to the ready-made base from Docker Hub
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 cd "$DEPLOYME_ROOT"
@@ -17,6 +19,7 @@ stack=""
 roots=""
 uid=""
 gid=""
+php_base=$(deployme_env DEPLOYME_PHP_BASE)
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -26,6 +29,8 @@ while [ $# -gt 0 ]; do
         --roots=*) roots=${1#*=}; shift ;;
         --uid) uid=${2:?}; gid=${uid}; shift 2 ;;
         --uid=*) uid=${1#*=}; gid=$uid; shift ;;
+        --build-from-source) php_base=deployme-php-base:local; shift ;;
+        --pull-base) php_base=""; shift ;;
         -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) deployme_die "Unknown option $1 (see bin/configure --help)" ;;
     esac
@@ -136,6 +141,8 @@ DEPLOYME_TZ=$tz
 DEPLOYME_PROJECT_ROOTS=$roots
 ENV
 [ -n "$password" ] && echo "DEPLOYME_POSTGRES_PASSWORD=$password" >> .env
+# Empty: the ready-made base from Docker Hub (bin/build).
+[ -n "$php_base" ] && echo "DEPLOYME_PHP_BASE=$php_base" >> .env
 chmod 600 .env
 
 {
@@ -158,6 +165,7 @@ deployme_say "Configured deploy.me for $os"
 deployme_ok "stack: $stack$([ "$stack" = standalone ] && echo ' (its own Postgres, Valkey and edge)' || echo ' (the shared stack on proxy-network)')"
 deployme_ok "containers run as $([ "$uid" = 0 ] && echo root || echo "uid $uid:$gid")"
 deployme_ok "timezone: $tz"
+deployme_ok "PHP base image: ${php_base:-romanovich0195/deployme-php:1 (pulled from Docker Hub)}"
 deployme_ok "project roots: ${roots//:/, }"
 if [ -n "$agent" ]; then deployme_ok "ssh-agent: $agent"; else deployme_warn "no ssh-agent socket: deploy.me uses the IdentityFile keys in ~/.ssh/config"; fi
 [ -f "$HOME/.ssh/config" ] || deployme_warn "$HOME/.ssh/config is missing: add your servers as Host entries before adding them to deploy.me"

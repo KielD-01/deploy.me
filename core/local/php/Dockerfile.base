@@ -1,0 +1,49 @@
+# deploy.me — the heavy part of the PHP image: FrankenPHP (PHP 8.5) with the
+# extensions compiled in, and the CLI tools the SSH and git layer shells out to.
+# Nothing in it is specific to a machine or to the app's own config files.
+#
+# Published for amd64 and arm64 as romanovich0195/deployme-php (Docker Hub) by
+# .github/workflows/php-image.yml, so an install pulls it instead of compiling
+# the extensions (a minute on a fast Mac, several elsewhere). Dockerfile (next
+# to this one) adds the config files and the machine's user on top.
+#
+#   docker build -f core/local/php/Dockerfile.base -t deployme-php-base:local .
+
+FROM dunglas/frankenphp:1-php8.5
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC \
+    COMPOSER_ALLOW_SUPERUSER=1
+
+#   pcntl            queue worker signals
+#   pdo_pgsql/pgsql  PostgreSQL 18
+#   redis            Valkey (queues, cache, locks)
+#   intl zip bcmath  framework basics
+#   opcache
+#   sockets + uv     Reverb. Without ext-uv ReactPHP falls back to stream_select()
+#                    and silently caps at ~1024 connections, so the build fails
+#                    if it is missing.
+RUN install-php-extensions pcntl pdo_pgsql pgsql redis intl zip opcache bcmath sockets uv \
+ && php -m | grep -qx uv \
+ && php -m | grep -qx pcntl
+
+#   openssh-client       ssh, ssh-keygen (servers, host keys)
+#   rsync tar zstd       uploads
+#   git                  local repos, archives, pushes
+#   supervisor           queue workers + scheduler in deployme-worker
+#   postgresql-client    psql for the doctor and tests
+#   procps jq curl       health checks and diagnostics
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      openssh-client rsync git tar zstd supervisor curl ca-certificates tzdata \
+      postgresql-client procps jq unzip \
+ && ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
+ && echo "$TZ" > /etc/timezone \
+ && rm -rf /var/lib/apt/lists/* /etc/supervisor/conf.d/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+LABEL org.opencontainers.image.title="deploy.me PHP runtime" \
+      org.opencontainers.image.description="FrankenPHP 8.5 with the extensions and tools deploy.me needs" \
+      org.opencontainers.image.source="https://github.com/KielD-01/deploy.me" \
+      org.opencontainers.image.licenses="MIT"

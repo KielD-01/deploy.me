@@ -11,8 +11,12 @@ and health checks on queue workers run by supervisor.
 
 ## Layout
 
-- `core/local/php/` — PHP image (FrankenPHP 8.5), entrypoint, git askpass helper,
-  supervisor programs (queue workers + scheduler).
+- `core/local/php/` — PHP image (FrankenPHP 8.5): `Dockerfile.base` (extensions, tools) is
+  published to Docker Hub as `romanovich0195/deployme-php:1` for amd64/arm64 by
+  `.github/workflows/php-image.yml` (needs the DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets);
+  `Dockerfile` adds the entrypoint, git askpass helper, supervisor programs (queue workers +
+  scheduler) and the machine's user on top. `bin/build` pulls the base, or compiles it
+  (`deployme-php-base:local`) when it can't or `.env` says `DEPLOYME_PHP_BASE`.
 - `src/api/` — the Laravel app. Livewire 4 class components in `app/Livewire`, layout
   `resources/views/layouts/app.blade.php`, daisyUI 5 theme in `resources/css/app.css`
   (tokens from a sibling project's design system), icons via `<x-icon name="…" />`.

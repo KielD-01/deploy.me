@@ -175,7 +175,8 @@ irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 | 
 
 - checks the tools it needs;
 - describes your machine in `.env` (`bin/configure`);
-- builds and starts the stack;
+- pulls the ready-made PHP image from Docker Hub (amd64 and arm64), so nothing compiles,
+  and starts the stack;
 - trusts the local CA in your browsers (macOS keychain, Linux NSS, Windows' store);
 - prints a one-time link that sets up your **passkey** or a password.
 

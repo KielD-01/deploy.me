@@ -19,6 +19,7 @@ account.
 - [macOS](#-macos)
 - [Linux](#-linux)
 - [Windows (WSL2)](#-windows-wsl2)
+- [The PHP image](#the-php-image)
 - [Two stack modes](#two-stack-modes)
 - [What `bin/configure` writes](#what-binconfigure-writes)
 - [Updating, stopping, uninstalling](#updating-stopping-uninstalling)
@@ -136,6 +137,23 @@ Notes:
   `/etc/wsl.conf`, the default on new installs), and cron otherwise. Either way, they run
   only while WSL is running.
 
+## The PHP image
+
+Most of the image is ready-made. The PHP extensions compiled in, ssh, git and supervisor
+are published for amd64 and arm64 as
+[`romanovich0195/deployme-php`](https://hub.docker.com/r/romanovich0195/deployme-php) on
+Docker Hub, so `make build` (`bin/build`) pulls it and only adds this checkout's config
+files and your user on top. That takes seconds, where compiling the extensions takes a
+minute on a fast Mac and several elsewhere.
+
+- **Offline, or the base can't be pulled?** `bin/build` compiles it here from
+  `core/local/php/Dockerfile.base`, without being asked.
+- **Prefer to build everything yourself?** Run `bin/configure --build-from-source`, then
+  `make build`. `bin/configure --pull-base` goes back to the ready-made one.
+- **Updates.** GitHub Actions (`.github/workflows/php-image.yml`) rebuilds the base when
+  `Dockerfile.base` changes, and every Monday for FrankenPHP and Debian security fixes.
+  `make build` pulls the newest one.
+
 ## Two stack modes
 
 deploy.me needs PostgreSQL, Valkey (Redis) and an HTTPS edge. It can bring its own, or use
@@ -168,6 +186,7 @@ Two files, both git-ignored. Running it again rewrites them and keeps the databa
 | `DEPLOYME_TZ` | Your timezone |
 | `DEPLOYME_PROJECT_ROOTS` | The folders projects are imported from, `:`-separated |
 | `DEPLOYME_POSTGRES_PASSWORD` | Standalone only: the Postgres superuser's password |
+| `DEPLOYME_PHP_BASE` | Only with `--build-from-source`: `deployme-php-base:local`, the base compiled here |
 
 **`compose.host.yml`**: the mounts only this machine has, namely each project root
 (read-only for the web container, read-write for the worker) and the ssh-agent socket.

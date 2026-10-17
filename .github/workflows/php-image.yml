@@ -1,0 +1,105 @@
+# Publishes the heavy PHP base image (core/local/php/Dockerfile.base) to Docker
+# Hub for amd64 and arm64, so an install pulls it instead of compiling the
+# extensions. Each architecture builds on its own native runner (under QEMU the
+# compile takes half an hour), then one tag points at both.
+#
+# Needs the repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a Docker
+# Hub access token with write access). Tags: 1 (what installs use), latest, and
+# sha-<commit>. Rebuilt weekly too, for FrankenPHP and Debian security fixes.
+name: PHP base image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - core/local/php/Dockerfile.base
+      - .github/workflows/php-image.yml
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'romanovich0195/deployme-php' }}
+
+concurrency:
+  group: php-image
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Only the public repository publishes; a fork or a mirror skips it.
+    if: github.repository == 'KielD-01/deploy.me'
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: core/local/php/Dockerfile.base
+          platforms: ${{ matrix.platform }}
+          pull: true
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+
+      - name: Keep the digest for the manifest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag both architectures as one image
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          sources=()
+          for digest in *; do sources+=("$IMAGE@sha256:$digest"); done
+          docker buildx imagetools create \
+            -t "$IMAGE:1" -t "$IMAGE:latest" -t "$IMAGE:sha-${GITHUB_SHA::7}" \
+            "${sources[@]}"
+
+      - name: Check it
+        run: docker buildx imagetools inspect "$IMAGE:1"
