@@ -13,6 +13,19 @@ inside() {
   return 0
 }
 
+# A path inside a shared folder (storage/app/public, with storage shared too)
+# is shared through that folder already. Linking it as well would reach
+# through the folder's link and remove shared/'s own copy.
+in_shared_dir() {
+  local other
+  while IFS= read -r other; do
+    other="${other%/}"
+    [ -n "$other" ] && [ "$other" != "$1" ] || continue
+    case "$1" in "$other"/*) echo "$other"; return 0 ;; esac
+  done <<< "$DIRS"
+  return 1
+}
+
 # A dot in the last part of the path: .env, .env.production, config.local.php.
 named_like_file() {
   case "${1##*/}" in *.*) return 0 ;; *) return 1 ;; esac
@@ -21,6 +34,7 @@ named_like_file() {
 while IFS= read -r dir; do
   [ -n "$dir" ] || continue
   inside "$dir" || { echo "! Skipped $dir: not a path inside the project"; continue; }
+  if outer=$(in_shared_dir "$dir"); then echo "· $dir is shared with $outer"; continue; fi
   src="$RELEASE/$dir"
   dst="$SHARED/$dir"
   if [ ! -e "$dst" ]; then
@@ -44,6 +58,7 @@ done <<< "$DIRS"
 while IFS= read -r file; do
   [ -n "$file" ] || continue
   inside "$file" || { echo "! Skipped $file: not a path inside the project"; continue; }
+  if outer=$(in_shared_dir "$file"); then echo "· $file is shared with $outer"; continue; fi
   src="$RELEASE/$file"
   dst="$SHARED/$file"
   mkdir -p -- "$(dirname -- "$dst")" "$(dirname -- "$src")"
