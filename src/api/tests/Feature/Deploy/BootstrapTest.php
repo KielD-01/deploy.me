@@ -254,6 +254,21 @@ it('marks runs whose worker went quiet as stalled, and fails the release they we
         ->and($building->refresh()->status)->toBe(ReleaseStatus::Failed);
 });
 
+it('frees a target whose run waits for CI past the hour with nothing coming back for it', function () {
+    // Its re-check job was lost (the queue's store was flushed, say): nothing will pick it up.
+    $lost = Deployment::factory()->create(['status' => DeploymentStatus::WaitingCi, 'heartbeat_at' => now()->subMinutes(75)]);
+    $lost->forceFill(['created_at' => now()->subMinutes(80)])->save();
+    // Within its hour, and one whose re-check sits behind a long deploy: both left alone.
+    Deployment::factory()->create(['status' => DeploymentStatus::WaitingCi, 'heartbeat_at' => now()->subMinutes(30)]);
+    $behind = Deployment::factory()->create(['status' => DeploymentStatus::WaitingCi, 'heartbeat_at' => now()->subMinutes(2)]);
+    $behind->forceFill(['created_at' => now()->subMinutes(80)])->save();
+
+    expect(app(DetectStalledDeployments::class)())->toBe(1)
+        ->and($lost->refresh()->status)->toBe(DeploymentStatus::Stalled)
+        ->and($lost->outcome)->toContain('CI')
+        ->and($behind->refresh()->status)->toBe(DeploymentStatus::WaitingCi);
+});
+
 it('fails the release a run was building when its worker dies', function () {
     $run = Deployment::factory()->create(['kind' => DeploymentKind::Deploy, 'status' => DeploymentStatus::Running]);
     $building = Release::factory()->create(['target_id' => $run->target_id, 'deployment_id' => $run->id, 'status' => ReleaseStatus::Building]);
