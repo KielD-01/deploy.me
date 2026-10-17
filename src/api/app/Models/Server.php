@@ -3,7 +3,10 @@
 namespace App\Models;
 
 use App\Enums\EnvTag;
+use App\Enums\RouteKind;
+use App\Enums\RouteState;
 use App\Enums\ServerStatus;
+use App\Platform\Ssh\Route\Route;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,10 +19,13 @@ use Illuminate\Support\Str;
     'name', 'slug', 'ssh_alias', 'host_name', 'ssh_user', 'port', 'identity_files', 'proxy_jump',
     'env_tag', 'status', 'status_reason', 'default_deploy_path', 'reserved_paths', 'specs', 'capabilities',
     'probe_interval', 'last_probe_at', 'next_probe_at', 'last_seen_at', 'last_error', 'archived_at',
+    'route_kind', 'route', 'route_secret', 'route_state', 'route_detail', 'route_checked_at',
 ])]
 class Server extends Model
 {
     use HasFactory;
+
+    protected $hidden = ['route_secret'];
 
     protected function casts(): array
     {
@@ -36,6 +42,11 @@ class Server extends Model
             'next_probe_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'archived_at' => 'datetime',
+            'route_kind' => RouteKind::class,
+            'route' => 'array',
+            'route_secret' => 'encrypted',
+            'route_state' => RouteState::class,
+            'route_checked_at' => 'datetime',
         ];
     }
 
@@ -62,6 +73,34 @@ class Server extends Model
     public function folderMappings(): HasMany
     {
         return $this->hasMany(FolderMapping::class);
+    }
+
+    public function routeChecks(): HasMany
+    {
+        return $this->hasMany(RouteCheck::class)->orderByDesc('checked_at')->orderByDesc('id');
+    }
+
+    /**
+     * How deploy.me reaches the server: direct, or through the route set on
+     * the server page.
+     */
+    public function connectionRoute(): Route
+    {
+        return Route::fromServer($this);
+    }
+
+    public function hasRoute(): bool
+    {
+        return ($this->route_kind ?? RouteKind::Direct) !== RouteKind::Direct;
+    }
+
+    /**
+     * The last route check found it down: probes, deploys and health checks
+     * wait for it rather than each failing on its own.
+     */
+    public function routeIsDown(): bool
+    {
+        return $this->hasRoute() && $this->route_state !== null && ! $this->route_state->ok();
     }
 
     public function scopeActive(Builder $query): void

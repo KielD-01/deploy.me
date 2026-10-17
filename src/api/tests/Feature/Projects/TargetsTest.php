@@ -55,7 +55,7 @@ it('assigns into a custom folder without preparing it yet', function () {
         ->set('prepare', false)
         ->call('assign')
         ->assertSee('Assigned to Build box. It deploys to /srv/apps/demo.')
-        ->assertSee('custom · server default is /opt/srv');
+        ->assertSee('inside /srv/apps · server default is /opt/srv');
 
     expect(Target::query()->sole()->base_dir)->toBe('/srv/apps');
     Queue::assertNothingPushed();

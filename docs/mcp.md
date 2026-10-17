@@ -107,7 +107,7 @@ For any other client, the command is `docker` and the arguments are
 | Tool | Changes something? | What it answers |
 |---|:---:|---|
 | `list_servers` | — | Every server: status, environment, last seen, CPU and memory |
-| `get_server` | — | One server: specs, tools, the latest probe (load, disks, Compose stacks, busiest processes), its projects |
+| `get_server` | — | One server: specs, tools, how it’s reached (its route and the last route check, never the proxy password), the latest probe (load, disks, Compose stacks, busiest processes), its projects |
 | `probe_server` | — ¹ | Queues a fresh probe of a server |
 | `list_projects` | — | Every project: branch, CI, and per server its health, live commit and last run |
 | `get_project` | — | One project: deploy settings, delivery strategies in order, recent releases and which can be rolled back to |

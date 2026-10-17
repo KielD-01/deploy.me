@@ -354,3 +354,33 @@ function asClassic(): void
 {
     auth()->user()?->forceFill(['ui' => ['theme' => 'classic']])->save();
 }
+
+/**
+ * Starts tests/Fixtures/fake-proxy.php (SOCKS5 or HTTP CONNECT) on a free
+ * local port. Stop it with stopFakeProxy().
+ *
+ * @return array{port: int, process: resource}
+ */
+function fakeProxy(string $kind = 'socks5', ?string $user = null, ?string $password = null): array
+{
+    $portFile = tempnam(sys_get_temp_dir(), 'fake-proxy');
+    unlink($portFile);
+    $command = [PHP_BINARY, __DIR__.'/Fixtures/fake-proxy.php', $kind, $user ?? '-', $password ?? '-', $portFile];
+    $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+
+    for ($i = 0; $i < 100 && ! is_file($portFile); $i++) {
+        usleep(20_000);
+    }
+
+    $port = (int) file_get_contents($portFile);
+    unlink($portFile);
+
+    return ['port' => $port, 'process' => $process];
+}
+
+function stopFakeProxy(array $proxy): void
+{
+    // The proxy leads its own process group, so this takes its forks too.
+    posix_kill(-proc_get_status($proxy['process'])['pid'], SIGKILL);
+    proc_close($proxy['process']);
+}

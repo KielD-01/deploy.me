@@ -50,6 +50,11 @@ x-php: &php
     - /run/deployme:mode=0700,size=16m,uid=${DEPLOYME_UID:-0},gid=${DEPLOYME_GID:-0}
   security_opt:
     - no-new-privileges:true
+  # A server's route can be a SOCKS5 or HTTP proxy on this machine (ssh -D,
+  # tailscaled's userspace proxy). Docker Desktop and OrbStack already answer
+  # to this name; on Linux it needs the host-gateway mapping.
+  extra_hosts:
+    - host.docker.internal:host-gateway
   networks: [proxy-network, internal]
   restart: unless-stopped
 

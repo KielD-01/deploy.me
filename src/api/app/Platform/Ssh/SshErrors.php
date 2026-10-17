@@ -21,6 +21,11 @@ final class SshErrors
         $stderr = $result->stderr;
         $message = trim(preg_replace('/\s+/', ' ', $stderr)) ?: "Exited with code {$result->exitCode}.";
 
+        // deploy.me's own ProxyCommand says in one line why the proxy let it down.
+        if (preg_match('/^deploy\.me: (.+)$/m', $stderr, $proxy) === 1) {
+            return new HostUnreachable(trim($proxy[1]), $stderr, $result->exitCode);
+        }
+
         if ($result->exitCode === 255 || $result->stdout === '') {
             $exception = match (true) {
                 (bool) preg_match('/IDENTIFICATION HAS CHANGED/i', $stderr) => HostKeyChanged::class,

@@ -144,7 +144,7 @@
                                     <span class="ml-auto {{ $healthTone($target->health) }}" title="{{ $target->health_detail }}">{{ Str::lower($target->health->label()) }}</span>
                                 @endif
                             </span>
-                            <span class="t-mute break-all">{{ $target->path }}{{ $target->currentRelease ? ' · '.($target->currentRelease->shortSha() ?? $target->currentRelease->name) : ' · nothing live yet' }}</span>
+                            <span class="t-mute break-all">{{ $target->path }} <span class="t-faint"># {{ $target->folderNote() }}</span>{{ $target->currentRelease ? ' · '.($target->currentRelease->shortSha() ?? $target->currentRelease->name) : ' · nothing live yet' }}</span>
                         </div>
                     @empty
                         <p class="t-mute">Not on a server yet: assign it below.</p>

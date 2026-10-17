@@ -119,6 +119,38 @@ ten busiest processes by CPU, memory and TCP traffic. Its page has five tabs: **
 > `make sandbox` starts a local SSH server with Docker under the alias `sandbox`. It's a
 > safe place to try everything before you point deploy.me at a real machine.
 
+### Reach a server through a VPN, a proxy or a jump host
+
+A server you can't reach directly gets a **connection route** on its **Settings** tab. Every
+probe, deploy, folder sync, upload and health check to it goes that way, because the route
+is written into the ssh config deploy.me compiles (ahead of your `~/.ssh/config`, so it wins
+over a ProxyJump there), and ssh, rsync and git all read that config.
+
+| Route | What it does | What your machine needs |
+|---|---|---|
+| **Direct** | As your `~/.ssh/config` says, ProxyJump included | Nothing |
+| **Jump host** | `ProxyJump` through another host: an alias from `~/.ssh/config`, or `user@host:port` | The jump host's key, like any server |
+| **SOCKS5 proxy** | ssh connects through the proxy, with a user and password if it wants one | A proxy the containers can reach: `ssh -D`, `tailscaled --tun=userspace-networking --socks5-server=…`, an office proxy. One on this machine is `host.docker.internal` |
+| **HTTP proxy** | The same through `CONNECT` (it must allow the ssh port) | As above |
+| **VPN on this machine** | Nothing changes in ssh: the VPN routes the traffic. deploy.me checks it, it never starts it | WireGuard or Tailscale running on the host. Docker Desktop and OrbStack usually send the containers' traffic through the Mac's VPN, and on Linux Docker's NAT does the same (if yours doesn't, Tailscale's userspace SOCKS5 proxy works as a proxy route). Use the server's VPN IP in `HostName` (MagicDNS names don't resolve inside containers), and give a **check address** only the VPN reaches, like its gateway |
+
+The proxy password is stored encrypted and never shown again. It reaches the proxy through
+a small helper that ssh runs as its `ProxyCommand`, which reads it from a private file in
+deploy.me's memory-only runtime folder: never from a command line or a log.
+
+**Check route** (the server's header, or <kbd>n</kbd> in the Console theme) asks the VPN's
+check address, the proxy or the jump host, then the server's ssh port through it, and
+reads its ssh banner. Nothing is signed in to or run on the server. The same check runs
+before every probe and as the first thing a deploy's pre-flight step does:
+
+- **route down**: the VPN, proxy or jump host didn't answer or let deploy.me in. The probe
+  marks the server offline with the reason and tries again within a minute; a deploy stops
+  at pre-flight and changes nothing; scheduled health checks wait.
+- **server unreachable**: the way in works, but the server didn't answer through it.
+
+Each check is kept on the **Checks** tab beside the health checks (for as long as they
+are), and `make doctor` checks every route too.
+
 ## 4. 📦 Import a project
 
 **Projects → Import project** reads a project without cloning it:
@@ -163,10 +195,32 @@ the release folder, or in a one-off or running container of a Compose service.
 
 ## 6. 🎯 Assign it to a server and prepare the folder
 
-On the project's **Targets** tab, click **Assign to server**. Pick a server; the folder is
-`{default path}/{slug}`, or choose another one. Then click **Prepare**. It creates
-`releases/` and `shared/` and uploads the env files, keeping anything an earlier deployment
-left in the folder.
+On the project's **Targets** tab, click **Assign to server**. Pick a server, then where the
+project goes on it:
+
+- **Inside a folder**: `{folder}/{slug}`. The folder starts as the server's default deploy
+  path, and you can pick another.
+- **Exact folder**: the project lives in exactly this folder, whatever its name
+  (`/srv/www/shop-stage`).
+
+The folder is set per server, not per project, because folders are a fact of each server:
+the same project often lives in `/opt/srv/shop` on one and `/srv/www/shop` on another. It
+must be absolute and at least two folders deep, outside the shared infrastructure's
+folder (`/opt/infra`), the system's folders (`/etc`, `/usr`, `/var/lib`, …) and a home
+folder itself, and neither inside nor around another project's folder on that server.
+Changing the server's default deploy path later doesn't move existing targets.
+
+Then click **Prepare**. It creates `releases/` and `shared/` and uploads the env files,
+keeping anything an earlier deployment left in the folder.
+
+**Change folder…** (the target's ⋯ menu) points a target somewhere else while nothing
+deploy.me deployed runs from it: only the record changes, the next deploy or Prepare
+builds the layout in the new folder, and whatever Prepare made in the old one stays on the
+server. A **live** target isn't moved: its `releases/`, `shared/` and the running stack are
+in the old folder, and moving them under a running stack would leave its containers
+pointing at the old paths. To move one, remove the target (nothing on the server changes),
+assign the project again with the new folder, copy `shared/` across on the server, deploy,
+and delete the old folder by hand once it's healthy.
 
 ## 7. 🚀 Deploy
 
@@ -441,7 +495,8 @@ make doctor
 ```
 
 It checks infra, containers, TLS, websockets, the queues, the scheduler, the host mounts,
-every server alias (`ssh -G`, key file permissions, host key) and the GitHub tokens.
+every server alias (`ssh -G`, key file permissions, host key, and its route when it has
+one) and the GitHub tokens.
 
 | Symptom | Where to look |
 |---|---|
@@ -450,6 +505,8 @@ every server alias (`ssh -G`, key file permissions, host key) and the GitHub tok
 | A run sits in **Queued** | `make workers`. The `redis-deploys` worker runs deploys |
 | A run shows **Stalled** | The worker stopped reporting. Check `make logs s=deployme-worker`, then retry |
 | "Another Compose project already runs from this folder" | Preflight refuses to start a second stack beside it. Adopt or convert the folder first |
+| "The route to … is down" | The server's **Checks** tab says which hop failed. Is the VPN connected on this machine? Is the proxy up, and does it take the user and password? A proxy on the host is `host.docker.internal` from the containers |
+| "… doesn't answer through its route" | The VPN, proxy or jump host works but can't reach the server's ssh port: the server's address, its firewall, or the proxy's rules |
 | Host key changed | Expected after rebuilding a server. Check it out of band, then trust the new key on the server's page |
 | `pg_dump` refused by row security | Back up as a role RLS doesn't apply to (`postgres`) in the project's settings |
 

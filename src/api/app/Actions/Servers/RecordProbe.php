@@ -13,6 +13,7 @@ use App\Platform\Ssh\Exceptions\SshException;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -22,7 +23,10 @@ use Throwable;
  */
 class RecordProbe
 {
-    public function __construct(private readonly ServerProber $prober) {}
+    public function __construct(
+        private readonly ServerProber $prober,
+        private readonly CheckRoute $checkRoute,
+    ) {}
 
     /**
      * @param  bool  $retry  after a dropped connection, try once more before
@@ -30,6 +34,14 @@ class RecordProbe
      */
     public function __invoke(Server $server, bool $retry = false): ?ServerSnapshot
     {
+        // A server behind a VPN, proxy or jump host: the route first, so a
+        // route that is down says so instead of "connection closed".
+        $route = ($this->checkRoute)($server, 'probe');
+
+        if ($route !== null && ! $route->state->ok()) {
+            return $this->down($server, $route->state->headline($server->name).": {$route->detail}", $route->detail);
+        }
+
         try {
             return $this->attempt($server);
         } catch (HostUnreachable $e) {
@@ -60,10 +72,15 @@ class RecordProbe
 
     private function fail(Server $server, SshException $e): null
     {
+        return $this->down($server, $e->userMessage(), $e->getMessage());
+    }
+
+    private function down(Server $server, string $reason, ?string $error): null
+    {
         $server->forceFill([
             'status' => ServerStatus::Offline,
-            'status_reason' => $e->userMessage(),
-            'last_error' => $e->getMessage(),
+            'status_reason' => Str::limit($reason, 250),
+            'last_error' => $error,
             'last_probe_at' => now(),
             // Look again within a minute, so a short outage clears quickly.
             'next_probe_at' => $this->nextProbeAt(min(60, $server->probe_interval)),

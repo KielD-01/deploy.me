@@ -19,11 +19,22 @@
                 </div>
                 <p class="text-muted">
                     <span class="mono">{{ $server->connectionLabel() }}</span>
+                    @if ($server->hasRoute())
+                        · via <span class="mono">{{ $route->label() }}</span>
+                        @if ($server->route_state)
+                            <span @class(['text-success' => $server->route_state->ok(), 'text-error' => ! $server->route_state->ok()]) title="{{ $server->route_detail }}">{{ $server->route_state->ok() ? '✓ route up' : '✕ '.$server->route_state->label() }}</span>
+                        @endif
+                    @endif
                     · {{ $server->specs['os'] ?? 'Not probed yet' }}
                     · probed {{ $server->last_probe_at?->diffForHumans() ?? 'never' }}
                 </p>
             </div>
             <div class="flex items-center gap-2">
+                @if ($server->hasRoute())
+                    <button type="button" class="btn btn-sm" wire:click="checkRoute" wire:loading.attr="disabled" wire:target="checkRoute">
+                        <x-icon name="globe" :size="14" wire:loading.class="animate-spin" wire:target="checkRoute" /> Check route
+                    </button>
+                @endif
                 <button type="button" class="btn btn-sm" wire:click="browse" wire:loading.attr="disabled" wire:target="browse"><x-icon name="folder" :size="14" /> Browse files</button>
                 <button type="button" class="btn btn-sm" wire:click="probeNow" wire:loading.attr="disabled" wire:target="probeNow">
                     <x-icon name="refresh" :size="14" wire:loading.class="animate-spin" wire:target="probeNow" /> Probe now
@@ -261,6 +272,41 @@
     @endif
 
     @if ($tab === 'checks')
+        @if ($routeChecks->isNotEmpty() || $server->hasRoute())
+            <section class="card bg-base-100 border border-line" aria-label="Route checks">
+                <header class="flex flex-wrap items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
+                    <h2 class="text-[15px] font-semibold">Route checks</h2>
+                    <span class="text-[13px] text-muted">The VPN, proxy or jump host, then the server through it · before every probe and deploy, and when you ask · kept {{ $checkDays }} days</span>
+                </header>
+                @if ($routeChecks->isEmpty())
+                    <p class="px-4 py-6 text-[13px] text-muted">No route checks yet. The next probe checks it, or <button type="button" class="link" wire:click="checkRoute">check it now</button>.</p>
+                @else
+                    <div class="overflow-x-auto">
+                        <table class="table">
+                            <thead><tr><th>When</th><th>Why</th><th>Result</th><th>What it found</th><th class="text-right">Took</th></tr></thead>
+                            <tbody>
+                                @foreach ($routeChecks as $check)
+                                    <tr wire:key="route-check-{{ $check->id }}">
+                                        <td class="text-[13px] whitespace-nowrap" title="{{ $check->checked_at->toDayDateTimeString() }}">{{ $check->checked_at->diffForHumans() }}</td>
+                                        <td class="text-[13px] text-muted whitespace-nowrap">
+                                            @if ($check->deployment)
+                                                <a href="{{ route('deployments.show', $check->deployment) }}" wire:navigate class="link">{{ $check->deployment->kind->label() }} {{ $check->deployment->number() }}</a>
+                                            @else
+                                                {{ $check->reasonLabel() }}
+                                            @endif
+                                        </td>
+                                        <td><span class="badge badge-sm {{ $check->state->badgeClass() }}">{{ $check->state->label() }}</span></td>
+                                        <td class="text-[13px] text-muted">{{ $check->detail }}</td>
+                                        <td class="text-xs text-muted whitespace-nowrap text-right">{{ $check->duration_ms !== null ? $check->duration_ms.' ms' : '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </section>
+        @endif
+
         <section class="card bg-base-100 border border-line">
             <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
                 <h2 class="text-[15px] font-semibold">Recent health checks</h2>
@@ -296,6 +342,8 @@
     @endif
 
     @if ($tab === 'settings')
+        @include('livewire.servers.partials.route-form')
+
         <form wire:submit="saveSettings" class="card bg-base-100 border border-line max-w-3xl">
             <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
                 <h2 class="text-[15px] font-semibold">Server settings</h2>

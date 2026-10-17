@@ -2,6 +2,7 @@
 
 namespace App\Deploy\Pipeline\Steps;
 
+use App\Actions\Servers\CheckRoute;
 use App\Deploy\Compose;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\AlwaysRuns;
@@ -12,10 +13,11 @@ use App\Support\Format;
 use Illuminate\Support\Str;
 
 /**
- * One round trip before anything changes: the folder can be created and
- * written, there's room, the tools are there, and for Docker projects that
- * Docker works, the networks the stack joins are there, and no other Compose
- * project runs from the folder.
+ * Before anything changes: the way to the server is up (when it's reached
+ * through a jump host, a proxy or a VPN), then one round trip: the folder can
+ * be created and written, there's room, the tools are there, and for Docker
+ * projects that Docker works, the networks the stack joins are there, and no
+ * other Compose project runs from the folder.
  */
 final class Preflight implements AlwaysRuns, Step
 {
@@ -38,6 +40,8 @@ final class Preflight implements AlwaysRuns, Step
 
     public function run(DeployContext $context): ?string
     {
+        $this->checkRoute($context);
+
         if ($context->server->isReserved($context->layout->root)) {
             throw new StepFailed("{$context->layout->root} is reserved for the shared infrastructure.");
         }
@@ -78,6 +82,34 @@ final class Preflight implements AlwaysRuns, Step
         }
 
         return implode(' · ', $parts);
+    }
+
+    /**
+     * A route that is down would fail the first ssh call with a bare
+     * "connection closed": this says which hop let it down, and stops before
+     * anything reached the server.
+     *
+     * @throws StepFailed
+     */
+    private function checkRoute(DeployContext $context): void
+    {
+        $check = app(CheckRoute::class)($context->server, 'deploy', $context->deployment);
+
+        if ($check === null) {
+            return;
+        }
+
+        $route = $context->server->connectionRoute()->label();
+
+        if ($check->state->ok()) {
+            $context->log->note("route  {$route} · {$check->detail} · {$check->duration_ms} ms");
+
+            return;
+        }
+
+        $context->log->note("route  {$route} · ✕ {$check->detail}");
+
+        throw new StepFailed($check->state->headline($context->server->name).": {$check->detail} Nothing on the server changed; check the route from the server’s page, then deploy again.", 19);
     }
 
     /**

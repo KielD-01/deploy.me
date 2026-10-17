@@ -7,6 +7,7 @@ use App\Enums\DeploymentStatus;
 use App\Enums\SyncRunStatus;
 use App\Models\AuditEntry;
 use App\Models\Deployment;
+use App\Models\RouteCheck;
 use App\Models\ServerSnapshot;
 use App\Models\SyncRun;
 use App\Models\TargetHealthCheck;
@@ -22,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 class PruneOldData
 {
     /**
-     * @return array{archived: int, archives_removed: int, snapshots: int, processes: int, syncs: int, health_checks: int, audit: int}
+     * @return array{archived: int, archives_removed: int, snapshots: int, processes: int, syncs: int, health_checks: int, route_checks: int, audit: int}
      */
     public function __invoke(): array
     {
@@ -69,6 +70,10 @@ class PruneOldData
             ->where('checked_at', '<', now()->subDays(Settings::int('health_retention_days')))
             ->delete();
 
+        $routeChecks = RouteCheck::query()
+            ->where('checked_at', '<', now()->subDays(Settings::int('health_retention_days')))
+            ->delete();
+
         // The audit log refuses DELETE unless the transaction says it's the
         // prune; the flag is transaction-local, so it can't leak past this.
         $audit = DB::transaction(function (): int {
@@ -79,7 +84,7 @@ class PruneOldData
 
         return [
             'archived' => $archived, 'archives_removed' => $removed, 'snapshots' => $snapshots, 'processes' => $processes,
-            'syncs' => $syncs, 'health_checks' => $checks, 'audit' => $audit,
+            'syncs' => $syncs, 'health_checks' => $checks, 'route_checks' => $routeChecks, 'audit' => $audit,
         ];
     }
 }

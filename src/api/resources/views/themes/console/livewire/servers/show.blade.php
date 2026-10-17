@@ -58,6 +58,11 @@
             <button type="button" class="con-key" data-key="p" wire:click="probeNow" wire:loading.attr="disabled" wire:target="probeNow">
                 <kbd>p</kbd> <span wire:loading.remove wire:target="probeNow">Probe now</span><span wire:loading wire:target="probeNow" class="t-run">probing…</span>
             </button>
+            @if ($server->hasRoute())
+                <button type="button" class="con-key" data-key="n" wire:click="checkRoute" wire:loading.attr="disabled" wire:target="checkRoute">
+                    <kbd>n</kbd> <span wire:loading.remove wire:target="checkRoute">check route</span><span wire:loading wire:target="checkRoute" class="t-run">checking…</span>
+                </button>
+            @endif
             <button type="button" class="con-key" data-key="b" wire:click="browse" wire:loading.attr="disabled" wire:target="browse"><kbd>b</kbd> browse files</button>
         </nav>
     </header>
@@ -78,7 +83,7 @@
         <h1 class="t-b text-[15px]">{{ $server->name }}</h1>
         <span class="t-v">{{ Str::lower($server->env_tag->label()) }}</span>
         <span class="{{ $statusTone }}">● {{ $server->status?->value ?? 'not probed' }}</span>
-        <span class="t-mute">{{ $server->connectionLabel() }} · {{ $specs['os'] ?? 'not probed yet' }} · probed {{ $server->last_probe_at?->diffForHumans() ?? 'never' }}</span>
+        <span class="t-mute">{{ $server->connectionLabel() }}@if ($server->hasRoute()) · via {{ Str::lower($route->label()) }}@if ($server->route_state) <span class="{{ $server->route_state->tone() }}" title="{{ $server->route_detail }}">{{ $server->route_state->ok() ? '✓ route up' : '✕ '.$server->route_state->label() }}</span>@endif @endif · {{ $specs['os'] ?? 'not probed yet' }} · probed {{ $server->last_probe_at?->diffForHumans() ?? 'never' }}</span>
     </div>
     @if ($server->status !== ServerStatus::Online && $server->status_reason)
         <div role="alert" class="con-line {{ $server->status === ServerStatus::Offline ? 't-err' : 't-warn' }}">{{ $server->status === ServerStatus::Offline ? '✕' : '!' }} {{ $server->status_reason }}</div>
@@ -285,6 +290,7 @@
                         <dt class="t-mute">trusted</dt><dd>{{ $hostKey?->trusted_at?->toFormattedDateString() ?? 'before deploy.me' }}</dd>
                         <dt class="t-mute">key</dt><dd class="truncate">{{ $server->identity_files[0] ?? 'default keys' }}</dd>
                         <dt class="t-mute">sudo</dt><dd class="{{ ($caps['sudo_nopasswd'] ?? false) ? 't-ok' : 't-warn' }}">{{ ($caps['sudo_nopasswd'] ?? false) ? 'passwordless' : 'needs a password' }}</dd>
+                        <dt class="t-mute">route</dt><dd class="truncate {{ $server->route_state?->tone() ?? '' }}" title="{{ $server->route_detail }}">{{ $server->hasRoute() ? Str::lower($route->label()).($server->route_state ? ' · '.$server->route_state->label() : '') : 'direct' }}</dd>
                         <dt class="t-mute">latency</dt><dd>{{ $latest?->ssh_latency_ms !== null ? $latest->ssh_latency_ms.' ms' : '—' }}</dd>
                     </dl>
                     <p class="mt-2 flex flex-wrap gap-x-3" aria-label="Capabilities">
@@ -301,6 +307,38 @@
 
     @if ($tab === 'checks')
         <div class="con-grid">
+            @if ($routeChecks->isNotEmpty() || $server->hasRoute())
+                <section class="con-box con-wide" aria-label="Route checks">
+                    <span class="con-box-t"><b>route</b> · {{ Str::lower($route->label()) }}, then the server through it · before probes and deploys · <span class="t-ok">│</span> up <span class="t-warn">│</span> server unreachable <span class="t-err">│</span> route down</span>
+                    @if ($routeChecks->isEmpty())
+                        <p class="t-mute">No route checks yet · <button type="button" class="t-run hover:underline" wire:click="checkRoute">check now</button></p>
+                    @else
+                        <p class="tracking-[1px] whitespace-pre overflow-x-auto" role="img" aria-label="{{ $routeChecks->filter(fn ($c) => $c->state->ok())->count() }} of the last {{ $routeChecks->count() }} route checks were up">@foreach ($routeChecks->reverse() as $check)<span class="{{ $check->state->tone() }}">│</span>@endforeach</p>
+                        <div class="overflow-x-auto mt-2">
+                            <table class="con-table">
+                                <thead><tr><th>WHEN</th><th>WHY</th><th>RESULT</th><th>WHAT IT FOUND</th><th class="text-right">TOOK</th></tr></thead>
+                                <tbody>
+                                    @foreach ($routeChecks as $check)
+                                        <tr wire:key="route-check-{{ $check->id }}">
+                                            <td class="whitespace-nowrap t-mute" title="{{ $check->checked_at->toDayDateTimeString() }}">{{ $check->checked_at->diffForHumans(short: true) }}</td>
+                                            <td class="whitespace-nowrap t-mute">
+                                                @if ($check->deployment)
+                                                    <a href="{{ route('deployments.show', $check->deployment) }}" wire:navigate class="t-run hover:underline">{{ Str::lower($check->deployment->kind->label()) }} {{ $check->deployment->number() }}</a>
+                                                @else
+                                                    {{ $check->reasonLabel() }}
+                                                @endif
+                                            </td>
+                                            <td class="whitespace-nowrap {{ $check->state->tone() }}">{{ $check->state->label() }}</td>
+                                            <td class="t-mute">{{ $check->detail }}</td>
+                                            <td class="text-right t-mute whitespace-nowrap">{{ $check->duration_ms !== null ? $check->duration_ms.' ms' : '—' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </section>
+            @endif
             <section class="con-box con-wide" aria-label="Recent health checks">
                 <span class="con-box-t"><b>checks</b> · each target’s app services and health URL, asked from this server · kept {{ $checkDays }} days</span>
                 @if ($checks->isEmpty())
@@ -335,6 +373,7 @@
 
     @if ($tab === 'settings')
         <div class="con-grid">
+            @include('livewire.servers.partials.route-form')
             <form wire:submit="saveSettings" class="con-box con-wide con-conf max-w-3xl" aria-label="Server settings">
                 <span class="con-box-t"><b>server.conf</b> · {{ $server->ssh_alias }}@if ($notice)<span class="t-ok">· ✓ {{ $notice }}</span>@endif</span>
                 <div class="grid grid-cols-[14ch_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
@@ -355,6 +394,7 @@
                             <input id="server-path" type="text" wire:model="defaultPath" class="input input-sm grow">
                             <button type="button" class="con-act" wire:click="choosePath" wire:loading.attr="disabled" wire:target="choosePath" aria-label="Browse folders">browse</button>
                         </div>
+                        <span class="t-faint block"># the default for new targets; each target can pick its own folder</span>
                         @error('defaultPath')<span class="t-err block">{{ $message }}</span>@enderror
                     </div>
                     <label for="server-probe" class="t-v">probe</label>

@@ -21,6 +21,8 @@ enum AuditAction: string
     case ServerRemoved = 'server.removed';
     case ProjectRemoved = 'project.removed';
     case TargetRemoved = 'target.removed';
+    case RouteChanged = 'server.route_changed';
+    case TargetFolderChanged = 'target.folder_changed';
     case RemoteCommand = 'ssh.command';
 
     public function label(): string
@@ -38,6 +40,8 @@ enum AuditAction: string
             self::ServerRemoved => 'Removed a server',
             self::ProjectRemoved => 'Removed a project',
             self::TargetRemoved => 'Removed a target',
+            self::RouteChanged => 'Changed how a server is reached',
+            self::TargetFolderChanged => 'Changed a target’s folder',
             self::RemoteCommand => 'Ran a command on a server',
         };
     }
@@ -50,6 +54,8 @@ enum AuditAction: string
             self::CredentialSaved, self::CredentialRemoved, self::AccountCreated, self::PasswordSet, self::PasswordRemoved, self::TwoFactorEnabled, self::TwoFactorDisabled => 'key',
             self::ServerRemoved, self::ProjectRemoved, self::TargetRemoved => 'trash',
             self::RemoteCommand => 'terminal',
+            self::RouteChanged => 'globe',
+            self::TargetFolderChanged => 'folder',
         };
     }
 

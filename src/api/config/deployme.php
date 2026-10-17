@@ -49,6 +49,13 @@ return [
 
         'connect_timeout' => 10,
 
+        // Runs the ProxyCommand helper for servers reached through a SOCKS5 or
+        // HTTP proxy (resources/bin/deployme-ssh-proxy.php).
+        'php_binary' => env('DEPLOYME_PHP_BINARY', '/usr/local/bin/php'),
+
+        // How long a route check waits for each hop (the VPN or proxy, then the server).
+        'route_timeout' => 5,
+
         // A command that prints more than this (stdout and stderr together) is
         // stopped: the worker holds everything a command says in memory.
         'max_output_bytes' => 8 * 1024 * 1024,

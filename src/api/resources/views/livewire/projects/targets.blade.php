@@ -39,12 +39,12 @@
 
         @if ($targets->isEmpty())
             <p class="px-4 py-6 text-[13px] text-muted">
-                Not on any server yet. Assign it to one, and it deploys into <span class="mono">{folder}/{{ $this->project->slug }}</span> there.
+                Not on any server yet. Assign it to one, and it deploys into <span class="mono">{folder}/{{ $this->project->slug }}</span> there, or a folder you name.
             </p>
         @else
             <table class="table">
                 <thead>
-                    <tr><th>Server</th><th>Directory</th><th>Current release</th><th>Health</th><th></th></tr>
+                    <tr><th>Server</th><th>Folder</th><th>Current release</th><th>Health</th><th></th></tr>
                 </thead>
                 <tbody>
                     @foreach ($targets as $target)
@@ -63,7 +63,7 @@
                             <td>
                                 <span class="mono">{{ $target->path }}</span>
                                 <div class="text-xs text-muted">
-                                    {{ $target->usesServerDefault() ? 'server default' : 'custom · server default is '.($target->server->default_deploy_path ?? 'not set') }}
+                                    {{ $target->usesServerDefault() ? 'server default' : $target->folderNote().' · server default is '.($target->server->default_deploy_path ?? 'not set') }}
                                 </div>
                             </td>
                             <td>
@@ -137,6 +137,11 @@
                                                 </li>
                                             @endif
                                             <li>
+                                                <button type="button" wire:click="startMoving({{ $target->id }})" @disabled($active)>
+                                                    <x-icon name="folder" :size="14" /> Change folder…
+                                                </button>
+                                            </li>
+                                            <li>
                                                 <button type="button" wire:click="prepareTarget({{ $target->id }})" @disabled($active)>
                                                     <x-icon name="folder-plus" :size="14" /> {{ $target->bootstrapped_at ? 'Prepare again' : 'Prepare' }}
                                                 </button>
@@ -206,12 +211,30 @@
 
                 <div class="flex flex-col gap-3">
                     <div class="flex flex-col gap-1.5">
-                        <span class="text-[13px] font-medium">Folder</span>
-                        <div class="flex gap-2">
-                            <input type="text" wire:model.live.debounce.300ms="baseDir" class="input grow font-mono" placeholder="/opt/srv" spellcheck="false" @disabled(! $server)>
-                            <button type="button" class="btn btn-square" wire:click="$set('browsing', true)" @disabled(! $server) aria-label="Browse the server’s folders"><x-icon name="folder" /></button>
+                        <div class="flex flex-wrap items-center gap-2.5">
+                            <span class="text-[13px] font-medium">Folder</span>
+                            <div class="join" role="radiogroup" aria-label="Where it deploys">
+                                @foreach (['inside' => 'Inside a folder', 'exact' => 'Exact folder'] as $mode => $label)
+                                    <button type="button" role="radio" aria-checked="{{ $folderMode === $mode ? 'true' : 'false' }}" wire:click="pickFolderMode(@js($mode))" @class(['btn btn-xs join-item', 'btn-active' => $folderMode === $mode])>{{ $label }}</button>
+                                @endforeach
+                            </div>
                         </div>
-                        @error('baseDir')<span class="text-error text-xs">{{ $message }}</span>@enderror
+                        @if ($folderMode === 'exact')
+                            <div class="flex gap-2">
+                                <input type="text" wire:model.live.debounce.300ms="folder" class="input grow font-mono" placeholder="/srv/www/{{ $this->project->slug }}" spellcheck="false" aria-label="Exact folder" @disabled(! $server)>
+                                <button type="button" class="btn btn-square" wire:click="browseFolder('assign')" @disabled(! $server) aria-label="Browse the server’s folders"><x-icon name="folder" /></button>
+                            </div>
+                            <span class="text-xs text-muted">The project lives in exactly this folder, whatever its name: at least two folders deep, not a system or home folder, and not inside another target’s.</span>
+                            @error('folder')<span class="text-error text-xs">{{ $message }}</span>@enderror
+                        @else
+                            <div class="flex items-center gap-2">
+                                <input type="text" wire:model.live.debounce.300ms="baseDir" class="input grow font-mono" placeholder="/opt/srv" spellcheck="false" aria-label="Parent folder" @disabled(! $server)>
+                                <span class="mono text-muted">/ {{ $this->project->slug }}</span>
+                                <button type="button" class="btn btn-square" wire:click="browseFolder('assign')" @disabled(! $server) aria-label="Browse the server’s folders"><x-icon name="folder" /></button>
+                            </div>
+                            @if ($server)<span class="text-xs text-muted">A folder named after the project inside this one. {{ $server->name }}’s default is {{ $server->default_deploy_path ?? 'not set' }}.</span>@endif
+                            @error('baseDir')<span class="text-error text-xs">{{ $message }}</span>@enderror
+                        @endif
                     </div>
 
                     @if ($path)
@@ -244,15 +267,111 @@
         </section>
     @endif
 
-    @if ($browsing && $server)
+    @if ($movingTarget)
+        @php
+            $live = $movingTarget->isLive();
+            $default = $movingTarget->server->default_deploy_path;
+        @endphp
+        <div class="modal modal-open" role="dialog" aria-label="Change the folder">
+            <div class="modal-box max-w-2xl p-0">
+                <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
+                    <h2 class="text-[15px] font-semibold">Change the folder</h2>
+                    <span class="text-[13px] text-muted mono">{{ $this->project->name }} on {{ $movingTarget->server->name }}</span>
+                    <button type="button" class="btn btn-sm btn-ghost btn-square ml-auto" wire:click="stopMoving" aria-label="Close"><x-icon name="x" /></button>
+                </header>
+                @if ($live)
+                    <div class="p-4 flex flex-col gap-3.5">
+                        <div role="alert" class="alert alert-soft alert-warning text-[13px] items-start">
+                            <x-icon name="alert" class="mt-0.5" />
+                            <div class="flex flex-col gap-1.5">
+                                <span class="font-semibold">{{ $this->project->name }} is live in {{ $movingTarget->path }}, so deploy.me won’t move it.</span>
+                                @php
+                                    $releaseCount = $movingTarget->releases()->count();
+                                    $files = $envCount ? $envCount.' env '.Str::plural('file', $envCount) : null;
+                                    $there = $this->project->versionable
+                                        ? $releaseCount.' '.Str::plural('release', $releaseCount).' in releases/ (current → '.$movingTarget->currentRelease?->name.'), shared/'.($files ? ' with '.$files : '')
+                                        : 'the project’s files, deployed in place'.($files ? ', with '.$files : '');
+                                @endphp
+                                <span>
+                                    Running from there: {{ $there }}@if ($this->project->dockerized), and the Compose stack <span class="mono">{{ $this->project->stack_name }}</span>@endif.
+                                    Moving the folder under a running stack would leave its containers pointing at the old paths, and the next start would come up with empty folders.
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-[13px] flex flex-col gap-1.5">
+                            <span class="font-semibold">To move it yourself</span>
+                            <ol class="list-decimal pl-5 text-muted flex flex-col gap-0.5">
+                                <li>Remove this target (nothing on the server changes), then assign {{ $this->project->name }} to {{ $movingTarget->server->name }} again with the new folder.</li>
+                                <li>Copy shared/ across on the server, then deploy: a first release starts the stack from the new folder{{ $this->project->dockerized ? ' (same stack name, so its named volumes carry over)' : '' }}.</li>
+                                <li>Check it’s healthy, then delete {{ $movingTarget->path }} by hand.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 px-4 py-3 border-t border-line">
+                        <button type="button" class="btn btn-primary btn-sm" wire:click="stopMoving">Close</button>
+                    </div>
+                @else
+                    <div class="p-4 flex flex-col gap-3.5">
+                        <div class="flex flex-col gap-1">
+                            <span class="text-[13px] font-medium">Now</span>
+                            <span class="mono">{{ $movingTarget->path }}</span>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <div class="flex flex-wrap items-center gap-2.5">
+                                <span class="text-[13px] font-medium">New folder</span>
+                                <div class="join" role="radiogroup" aria-label="Where it deploys">
+                                    @foreach (['inside' => 'Inside a folder', 'exact' => 'Exact folder'] as $mode => $label)
+                                        <button type="button" role="radio" aria-checked="{{ $moveMode === $mode ? 'true' : 'false' }}" wire:click="pickMoveMode(@js($mode))" @class(['btn btn-xs join-item', 'btn-active' => $moveMode === $mode])>{{ $label }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                @if ($moveMode === 'exact')
+                                    <input type="text" wire:model.live.debounce.300ms="moveFolder" class="input grow font-mono" spellcheck="false" aria-label="New folder">
+                                @else
+                                    <input type="text" wire:model.live.debounce.300ms="moveBase" class="input grow font-mono" placeholder="{{ $default ?? '/opt/srv' }}" spellcheck="false" aria-label="Parent folder">
+                                    <span class="mono text-muted">/ {{ $this->project->slug }}</span>
+                                @endif
+                                <button type="button" class="btn btn-square" wire:click="browseFolder('move')" aria-label="Browse the server’s folders"><x-icon name="folder" /></button>
+                            </div>
+                            @error('moveFolder')<span class="text-error text-xs">{{ $message }}</span>@enderror
+                        </div>
+                        <div class="rounded-box bg-sunk p-3 text-[13px] flex flex-col gap-1">
+                            <span class="font-semibold">Nothing is deployed here yet, so only the next deploy changes.</span>
+                            <span class="text-muted">
+                                @if ($movingTarget->bootstrapped_at)
+                                    The folders Prepare made in {{ $movingTarget->path }} stay on the server; deploy.me doesn’t delete them.
+                                @else
+                                    Nothing on the server changes.
+                                @endif
+                                The next deploy, or Prepare, builds the layout in {{ $movePath ?? 'the new folder' }}.
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 px-4 py-3 border-t border-line">
+                        <button type="button" class="btn btn-ghost btn-sm" wire:click="stopMoving">Cancel</button>
+                        <button type="button" class="btn btn-primary btn-sm" wire:click="changeFolder" wire:loading.attr="disabled" @disabled(! $movePath)>
+                            <x-icon name="check" :size="14" /> {{ $movePath ? 'Use '.$movePath : 'Use this folder' }}
+                        </button>
+                    </div>
+                @endif
+            </div>
+            <div class="modal-backdrop" wire:click="stopMoving"></div>
+        </div>
+    @endif
+
+    @if ($browsing && $browseServer)
+        @php
+            $browseField = $browseFor === 'move' ? ($moveMode === 'exact' ? 'moveFolder' : 'moveBase') : ($folderMode === 'exact' ? 'folder' : 'baseDir');
+        @endphp
         <div class="modal modal-open" role="dialog" aria-label="Choose the folder">
             <div class="modal-box max-w-3xl p-0">
                 <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
                     <h2 class="text-[15px] font-semibold">Choose the folder</h2>
-                    <span class="text-[13px] text-muted mono">{{ $server->ssh_alias }}</span>
+                    <span class="text-[13px] text-muted mono">{{ $browseServer->ssh_alias }}</span>
                     <button type="button" class="btn btn-sm btn-ghost btn-square ml-auto" wire:click="$set('browsing', false)" aria-label="Close"><x-icon name="x" /></button>
                 </header>
-                <livewire:remote.folder-browser :alias="$server->ssh_alias" :reserved="$server->reserved_paths ?? []" wire:model="baseDir" :key="'browse-'.$server->id" />
+                <livewire:remote.folder-browser :alias="$browseServer->ssh_alias" :reserved="$browseServer->reserved_paths ?? []" wire:model="{{ $browseField }}" :key="'browse-'.$browseServer->id.'-'.$browseField" />
                 <div class="flex justify-end gap-2 px-4 py-3 border-t border-line">
                     <button type="button" class="btn btn-primary btn-sm" wire:click="usePath">Use this folder</button>
                 </div>

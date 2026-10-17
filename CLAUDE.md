@@ -102,6 +102,23 @@ doesn't wait for `make migrate`.
   like the sandbox). Host keys are trusted on first use and stored in `ssh_host_keys`
   (`KnownHosts`). Remote work is a script from `resources/ssh-scripts/` sent over stdin
   (`RemoteScript`) — never user data in argv. Tests use `Testing\FakeSshClient`.
+  - **Routes** (`Platform/Ssh/Route`, `servers.route_kind`/`route`/`route_secret`): a server
+    can be reached direct, through a jump host, a SOCKS5 or HTTP proxy, or a VPN on the host.
+    The compiler writes a `Host <alias>` block per route after the enforced options and
+    before the Includes (then `Host *` again: an Include inside a Host block only applies to
+    that host). Jump is `ProxyJump`; a proxy is `ProxyCommand php
+    resources/bin/deployme-ssh-proxy.php <runtime>/routes/<id>.json %h %p`, the file 0600 on
+    the tmpfs, holding the encrypted-at-rest password (`ProxyTunnel` speaks SOCKS5 with RFC
+    1929 auth and HTTP CONNECT). ssh sends a ProxyCommand's stderr to /dev/null under
+    ControlPersist, so the helper also leaves its reason in `<id>.err`, which
+    `ProcessSshClient` puts in front of a 255's stderr. A VPN changes nothing in ssh.
+  - `Actions\Servers\CheckRoute` checks the way in (VPN check address, proxy, or `ssh -W`
+    through the jump host), then the server's ssh banner through it (`RouteProbe`; tests use
+    `Testing\FakeRouteProbe`). Results go to `route_checks` (pruned with the health checks)
+    and the last one onto the server. It runs from the server page, before every probe
+    (`RecordProbe`: down → offline with the reason), first in `Preflight` (a deploy stops,
+    exit 19) and in `deployme:doctor`; `CheckTargetHealth` skips a server whose route is down.
+    `make test-ssh` runs ssh, rsync and checks through `tests/Fixtures/fake-proxy.php`.
 - **Servers** (`app/Platform/Remote`, `app/Livewire/Servers`): `ServerProber` runs
   `probe.sh` (JSON between sentinels), `RecordProbe` stores snapshots and status,
   `ProbeServer` runs on `redis-probes`, the scheduler dispatches due probes each minute,
@@ -153,7 +170,14 @@ doesn't wait for `make migrate`.
   - Local imports stay inside `DEPLOYME_PROJECT_ROOTS` (`ProjectRoots`).
   - Tests use `tempGitRepo()` and `fakeGitHubRepository()` from `tests/Helpers.php`.
 - **Deploys** (`app/Deploy`, `app/Livewire/Deployments`, `app/Livewire/Projects/Targets`):
-  a target is a project on a server at `{base folder}/{slug}`.
+  a target is a project on a server at `{base folder}/{slug}` (the server's default deploy
+  path or another folder), or at an exact folder of its own (`AssignProject` with `exact`).
+  The folder is per target, not per project: folders are a fact of each server.
+  `TargetFolderRules` checks it (FolderMappingRules' path rules, reserved and system
+  folders, home folders, no nesting with another target on the server).
+  `ChangeTargetFolder` re-points a target only while it isn't live (no current release):
+  nothing on the server changes; a live target's releases, shared files and stack stay put,
+  and the refusal says how to move it by hand.
   - `StartDeployment` queues `RunDeployment` on `redis-deploys`. A partial unique index
     allows one active run per target.
   - The deploy dialog asks once. Each opening gets an `attempt`, and `DeployDialog::deploy()`

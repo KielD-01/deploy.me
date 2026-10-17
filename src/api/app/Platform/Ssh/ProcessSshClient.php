@@ -99,7 +99,15 @@ final class ProcessSshClient implements SshClient
             }
         }
 
-        return new SshResult($result->exitCode() ?? 255, $result->output(), $result->errorOutput(), microtime(true) - $started);
+        $exitCode = $result->exitCode() ?? 255;
+        $stderr = $result->errorOutput();
+
+        // ssh hid why the proxy helper gave up: put its reason first.
+        if ($exitCode === 255 && ! str_contains($stderr, 'deploy.me:') && ($why = $this->compiler->routeError($alias)) !== null) {
+            $stderr = "deploy.me: {$why}\n{$stderr}";
+        }
+
+        return new SshResult($exitCode, $result->output(), $stderr, microtime(true) - $started);
     }
 
     /** The last bytes of a stream, so the exception never holds more than that. */

@@ -15,8 +15,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
- * A project assigned to a server. It deploys to {base_dir}/{project slug};
- * the project's settings decide how.
+ * A project assigned to a server. It deploys to `path`: {base folder}/{project
+ * slug} by default (the server's deploy path, or another folder), or a folder
+ * of its own whatever its name. The project's settings decide how.
  */
 #[Fillable([
     'project_id', 'server_id', 'base_dir', 'path', 'health', 'bootstrapped_at', 'last_deployed_at', 'archived_at',
@@ -161,7 +162,30 @@ class Target extends Model
 
     public function usesServerDefault(): bool
     {
-        return rtrim((string) $this->server->default_deploy_path, '/') === rtrim($this->base_dir, '/');
+        return $this->server->default_deploy_path !== null
+            && rtrim($this->path, '/') === self::pathFor($this->server->default_deploy_path, $this->project->slug);
+    }
+
+    /**
+     * Where the folder came from: "server default", "inside /srv/apps" or "exact folder".
+     */
+    public function folderNote(): string
+    {
+        return match (true) {
+            $this->usesServerDefault() => 'server default',
+            basename($this->path) === $this->project->slug => 'inside '.dirname($this->path),
+            default => 'exact folder',
+        };
+    }
+
+    /**
+     * Something deploy.me deployed or adopted runs from the folder: releases,
+     * shared files and a stack that a new folder would leave behind. Such a
+     * target's folder doesn't change.
+     */
+    public function isLive(): bool
+    {
+        return $this->current_release_id !== null;
     }
 
     public static function pathFor(string $baseDir, string $slug): string

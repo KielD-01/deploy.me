@@ -4,11 +4,14 @@ namespace App\Livewire\Servers;
 
 use App\Actions\Deployments\StartDeployment;
 use App\Actions\Projects\AssignProject;
+use App\Actions\Servers\CheckRoute;
 use App\Actions\Servers\RecordProbe;
 use App\Deploy\DeploymentBusy;
 use App\Enums\AuditAction;
 use App\Enums\DeploymentKind;
 use App\Enums\EnvTag;
+use App\Enums\RouteKind;
+use App\Livewire\Concerns\ConfirmsIdentity;
 use App\Models\AuditEntry;
 use App\Models\Project;
 use App\Models\Server;
@@ -18,6 +21,8 @@ use App\Models\Target;
 use App\Models\TargetHealthCheck;
 use App\Platform\Remote\RemoteFs;
 use App\Platform\Ssh\Exceptions\SshException;
+use App\Platform\Ssh\Route\Route;
+use App\Platform\Ssh\SshConfigReader;
 use App\Support\Audit;
 use App\Support\Settings;
 use Illuminate\Contracts\View\View;
@@ -31,8 +36,13 @@ use Livewire\Component;
 
 class Show extends Component
 {
+    use ConfirmsIdentity;
+
     // How many recent health checks the Checks tab lists.
     public const CHECKS = 50;
+
+    // And how many route checks.
+    public const ROUTE_CHECKS = 30;
 
     public Server $server;
 
@@ -57,6 +67,26 @@ class Show extends Component
 
     public int $probeInterval = 300;
 
+    // The route: how deploy.me reaches the server. The password is never
+    // sent to the page; left empty, the saved one stays.
+    public string $routeKind = 'direct';
+
+    public string $routeHost = '';
+
+    public string $routePort = '';
+
+    public string $routeUser = '';
+
+    public string $routePassword = '';
+
+    public string $routeJump = '';
+
+    public string $routeCheckHost = '';
+
+    public string $routeCheckPort = '';
+
+    public ?string $routeNotice = null;
+
     public ?string $notice = null;
 
     public ?string $problem = null;
@@ -67,6 +97,7 @@ class Show extends Component
 
         $this->server = $server;
         $this->fillSettings();
+        $this->fillRoute();
     }
 
     // Probes from the scheduler refresh the page as they land.
@@ -166,6 +197,87 @@ class Show extends Component
         $this->redirectRoute('deployments.show', $deployment, navigate: true);
     }
 
+    /**
+     * Checks the way to the server now: the VPN or proxy or jump host, then
+     * the server through it. Kept like the checks before probes and deploys.
+     */
+    public function checkRoute(CheckRoute $check): void
+    {
+        $this->reset('routeNotice');
+        $result = $check($this->server, 'manual');
+        $this->server->refresh();
+        $this->routeNotice = $result === null ? 'Direct: there’s no route to check.' : null;
+    }
+
+    public function pickRouteKind(string $kind): void
+    {
+        $kind = RouteKind::tryFrom($kind) ?? RouteKind::Direct;
+        $this->routeKind = $kind->value;
+        $this->resetValidation();
+
+        if ($kind->isProxy() && $this->routePort === '') {
+            $this->routePort = (string) $kind->defaultPort();
+        }
+    }
+
+    public function saveRoute(CheckRoute $check): void
+    {
+        $this->reset('routeNotice');
+        $this->resetValidation();
+        $kind = RouteKind::tryFrom($this->routeKind) ?? RouteKind::Direct;
+        $user = trim($this->routeUser) ?: null;
+        // A new password replaces the saved one; no user means no password.
+        $password = $user === null ? null : ($this->routePassword !== '' ? $this->routePassword : $this->server->route_secret);
+        $number = fn (string $value) => ctype_digit(trim($value)) ? (int) trim($value) : null;
+
+        $route = new Route(
+            kind: $kind,
+            host: trim($this->routeHost) ?: null,
+            port: $number($this->routePort),
+            user: $user,
+            password: $kind->isProxy() ? $password : null,
+            jump: trim($this->routeJump) ?: null,
+            checkHost: trim($this->routeCheckHost) ?: null,
+            checkPort: $number($this->routeCheckPort),
+        );
+
+        if (($problem = $route->problem($this->server->ssh_alias)) !== null) {
+            $this->addError($problem[0], $problem[1]);
+
+            return;
+        }
+
+        // Where ssh goes and with which proxy password: a change asks for a passkey.
+        $changed = $kind !== ($this->server->route_kind ?? RouteKind::Direct)
+            || $route->settings() !== $this->server->route
+            || $route->password !== ($this->server->route_secret ?: null);
+
+        if ($changed && ! $this->confirmIdentity(route('servers.show', ['server' => $this->server, 'tab' => 'settings']))) {
+            return;
+        }
+
+        $this->server->forceFill([
+            'route_kind' => $kind,
+            'route' => $route->settings(),
+            'route_secret' => $route->password,
+            'route_state' => null,
+            'route_detail' => null,
+            'route_checked_at' => null,
+        ])->save();
+
+        Audit::record(AuditAction::RouteChanged, [
+            'subject' => $this->server->name.' ('.$this->server->ssh_alias.')',
+            'server_id' => $this->server->id,
+            'detail' => 'now '.$kind->label(),
+        ]);
+
+        // Straight away, so the page says whether the new route works.
+        $check($this->server, 'manual');
+        $this->server->refresh();
+        $this->fillRoute();
+        $this->routeNotice = 'Route saved.';
+    }
+
     public function saveSettings(): void
     {
         $this->validate([
@@ -246,6 +358,19 @@ class Show extends Component
         $this->probeInterval = $this->server->probe_interval;
     }
 
+    private function fillRoute(): void
+    {
+        $route = $this->server->connectionRoute();
+        $this->routeKind = $route->kind->value;
+        $this->routeHost = (string) $route->host;
+        $this->routePort = $route->port !== null ? (string) $route->port : '';
+        $this->routeUser = (string) $route->user;
+        $this->routePassword = '';
+        $this->routeJump = (string) $route->jump;
+        $this->routeCheckHost = (string) $route->checkHost;
+        $this->routeCheckPort = $route->checkPort !== null ? (string) $route->checkPort : '';
+    }
+
     public function render(): View
     {
         $server = $this->server;
@@ -274,6 +399,14 @@ class Show extends Component
                 ->limit(self::CHECKS)
                 ->get(),
             'checkDays' => Settings::int('health_retention_days'),
+            'routeChecks' => $server->hasRoute() || $server->routeChecks()->exists()
+                ? $server->routeChecks()->with('deployment')->limit(self::ROUTE_CHECKS)->get()
+                : collect(),
+            'route' => $server->connectionRoute(),
+            'routeKinds' => RouteKind::cases(),
+            'jumpChoices' => $this->tab === 'settings'
+                ? rescue(fn () => collect(app(SshConfigReader::class)->aliases())->map->name->reject(fn (string $name) => $name === $server->ssh_alias)->values()->all(), [], report: false)
+                : [],
             'trail' => AuditEntry::query()->where('server_id', $server->id)->byHand()->orderByDesc('occurred_at')->orderByDesc('id')->limit(8)->get(),
             'adoptable' => $this->adoptable(),
             'folderCount' => $server->folderMappings()->count(),

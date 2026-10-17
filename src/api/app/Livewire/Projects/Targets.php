@@ -4,6 +4,7 @@ namespace App\Livewire\Projects;
 
 use App\Actions\Deployments\StartDeployment;
 use App\Actions\Projects\AssignProject;
+use App\Actions\Targets\ChangeTargetFolder;
 use App\Deploy\RemoteLayout;
 use App\Enums\AuditAction;
 use App\Enums\DeploymentKind;
@@ -15,6 +16,7 @@ use App\Models\Server;
 use App\Models\Target;
 use App\Support\Audit;
 use Illuminate\Contracts\View\View;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
@@ -37,6 +39,11 @@ class Targets extends Component
 
     public string $baseDir = '';
 
+    // Where it deploys: {baseDir}/{slug} ("inside"), or `folder` itself ("exact").
+    public string $folderMode = 'inside';
+
+    public string $folder = '';
+
     // Deploy the branch once assigned; the deploy creates the folders itself.
     public bool $deployAfter = true;
 
@@ -44,6 +51,19 @@ class Targets extends Component
     public bool $prepare = true;
 
     public bool $browsing = false;
+
+    // Which folder the browser fills in: the assign form's, or a move's.
+    public string $browseFor = 'assign';
+
+    // Changing a target's folder: which target, and the new folder.
+    #[Locked]
+    public ?int $moving = null;
+
+    public string $moveMode = 'exact';
+
+    public string $moveBase = '';
+
+    public string $moveFolder = '';
 
     public ?string $notice = null;
 
@@ -90,13 +110,74 @@ class Targets extends Component
         if ($server !== null) {
             $this->serverId = $server->id;
             $this->baseDir = $server->default_deploy_path ?: '/opt/srv';
+            $this->folder = Target::pathFor($this->baseDir, $this->project->slug);
             $this->resetValidation();
         }
+    }
+
+    public function pickFolderMode(string $mode): void
+    {
+        $this->folderMode = $mode === 'exact' ? 'exact' : 'inside';
+        $this->resetValidation();
+    }
+
+    public function browseFolder(string $for = 'assign'): void
+    {
+        $this->browseFor = $for === 'move' ? 'move' : 'assign';
+        $this->browsing = true;
     }
 
     public function usePath(): void
     {
         $this->browsing = false;
+    }
+
+    public function startMoving(int $id): void
+    {
+        $this->reset('notice', 'problem');
+        $target = $this->project->targets()->active()->with(['project', 'server'])->findOrFail($id);
+        $this->resetValidation();
+        $this->moving = $target->id;
+        $this->moveMode = 'exact';
+        $this->moveBase = dirname($target->path);
+        $this->moveFolder = $target->path;
+    }
+
+    public function stopMoving(): void
+    {
+        $this->reset('moving', 'browsing');
+        $this->resetValidation();
+    }
+
+    public function pickMoveMode(string $mode): void
+    {
+        $this->moveMode = $mode === 'inside' ? 'inside' : 'exact';
+        $this->resetValidation();
+    }
+
+    public function changeFolder(ChangeTargetFolder $change): void
+    {
+        $target = $this->project->targets()->active()->find((int) $this->moving);
+
+        if ($target === null) {
+            $this->moving = null;
+
+            return;
+        }
+
+        $exact = $this->moveMode === 'exact';
+        $from = $target->path;
+
+        try {
+            $change($target, $exact ? $this->moveFolder : $this->moveBase, $exact);
+        } catch (ValidationException $e) {
+            $this->addError('moveFolder', (string) collect($e->errors())->flatten()->first());
+
+            return;
+        }
+
+        $this->reset('moving', 'browsing');
+        $this->notice = "{$target->server->name} now deploys to {$target->path}. Nothing on the server changed; whatever was prepared in {$from} stays there.";
     }
 
     public function assign(AssignProject $assign, StartDeployment $start): void
@@ -109,8 +190,9 @@ class Targets extends Component
             return;
         }
 
-        $target = $assign($this->project, $server, $this->baseDir);
-        $this->reset('assigning', 'browsing');
+        $exact = $this->folderMode === 'exact';
+        $target = $assign($this->project, $server, $exact ? $this->folder : $this->baseDir, $exact);
+        $this->reset('assigning', 'browsing', 'folderMode', 'folder');
 
         if ($this->deployAfter) {
             $this->startRun($start, $target, DeploymentKind::Deploy);
@@ -209,7 +291,10 @@ class Targets extends Component
     {
         $project = $this->project;
         $server = $this->serverId !== null ? Server::query()->find((int) $this->serverId) : null;
-        $path = $server !== null && str_starts_with(trim($this->baseDir), '/') ? Target::pathFor(trim($this->baseDir), $project->slug) : null;
+        $chosen = $this->folderMode === 'exact' ? rtrim(trim($this->folder), '/') : (str_starts_with(trim($this->baseDir), '/') ? Target::pathFor(trim($this->baseDir), $project->slug) : '');
+        $path = $server !== null && str_starts_with($chosen, '/') ? $chosen : null;
+        $moving = $this->moving !== null ? $project->targets()->active()->with(['server', 'currentRelease', 'project'])->find($this->moving) : null;
+        $movePath = $this->moveMode === 'exact' ? rtrim(trim($this->moveFolder), '/') : (str_starts_with(trim($this->moveBase), '/') ? Target::pathFor(trim($this->moveBase), $project->slug) : '');
 
         return view('livewire.projects.targets', [
             'targets' => $project->targets()->active()->with(['project', 'server', 'latestDeployment', 'activeDeployment', 'currentRelease'])->orderBy('id')->get(),
@@ -218,6 +303,9 @@ class Targets extends Component
             'path' => $path,
             'preview' => $path !== null ? (new RemoteLayout($path, $project->versionable))->preview($project->keep_releases, $project->envFiles()->pluck('path')->all()) : [],
             'envCount' => $project->envFiles()->count(),
+            'movingTarget' => $moving,
+            'movePath' => str_starts_with($movePath, '/') ? $movePath : null,
+            'browseServer' => $this->browseFor === 'move' ? $moving?->server : $server,
         ]);
     }
 }

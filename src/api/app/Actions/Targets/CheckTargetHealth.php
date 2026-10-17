@@ -29,6 +29,13 @@ class CheckTargetHealth
     public function __invoke(Target $target): ?TargetHealth
     {
         $target->loadMissing(['project', 'server', 'currentRelease']);
+
+        // The way to the server is down: every check would fail the same way
+        // and call the app unhealthy. The probe retries the route each minute.
+        if ($target->server->routeIsDown()) {
+            return null;
+        }
+
         $project = $target->project;
         $release = $target->currentRelease;
         $started = microtime(true);

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\Servers\CheckRoute;
 use App\Models\Credential;
 use App\Models\Server;
 use App\Models\SshHostKey;
@@ -154,6 +155,20 @@ class DoctorCommand extends Command
 
             $this->check("{$alias}: the keys ssh would offer are private", fn () => self::keyPermissions($target), fatal: false);
             $this->check("{$alias}: its host key is trusted", fn () => self::hostKeyKnown($alias, $target));
+
+            if ($server->hasRoute()) {
+                $route = $server->connectionRoute();
+
+                if ($route->kind->isProxy()) {
+                    $this->check("{$alias}: the proxy helper can run", fn () => is_executable((string) config('deployme.ssh.php_binary')) ?: config('deployme.ssh.php_binary').' is missing (DEPLOYME_PHP_BINARY)');
+                }
+
+                $this->check("{$alias}: the route ({$route->label()}) is up", function () use ($server) {
+                    $check = app(CheckRoute::class)($server, 'doctor');
+
+                    return $check->state->ok() ?: $check->detail;
+                });
+            }
         }
     }
 

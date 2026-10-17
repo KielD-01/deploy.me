@@ -28,9 +28,14 @@ final readonly class SshAlias
     /**
      * Aliases end up as an ssh argument; anything that could read as an option is refused.
      */
+    public static function isValid(string $alias): bool
+    {
+        return preg_match('/^[A-Za-z0-9_][A-Za-z0-9._@-]{0,254}$/', $alias) === 1;
+    }
+
     public static function assertValid(string $alias): void
     {
-        if (! preg_match('/^[A-Za-z0-9_][A-Za-z0-9._@-]{0,254}$/', $alias)) {
+        if (! self::isValid($alias)) {
             throw new InvalidArgumentException("Invalid ssh alias [{$alias}].");
         }
     }

@@ -2,6 +2,7 @@
 
 namespace App\Mcp\Tools;
 
+use App\Enums\RouteKind;
 use App\Mcp\Describe;
 use App\Mcp\Find;
 use App\Mcp\Tool;
@@ -39,6 +40,14 @@ class GetServer extends Tool
         return [
             ...Describe::server($server),
             'host' => $server->connectionLabel(),
+            // How deploy.me reaches it, without the proxy's password.
+            'route' => [
+                'kind' => ($server->route_kind ?? RouteKind::Direct)->value,
+                'via' => $server->hasRoute() ? $server->connectionRoute()->label() : null,
+                'state' => $server->route_state?->value,
+                'detail' => $server->route_detail,
+                'checked_at' => $server->route_checked_at?->toIso8601String(),
+            ],
             'default_deploy_path' => $server->default_deploy_path,
             'probe_interval_minutes' => $server->probe_interval,
             'specs' => $server->specs,
