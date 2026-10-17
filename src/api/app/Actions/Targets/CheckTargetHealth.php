@@ -70,6 +70,9 @@ class CheckTargetHealth
         $health = $failed === [] ? TargetHealth::Healthy : TargetHealth::Unhealthy;
         $detail = Str::limit(implode(' · ', $failed === [] ? $passed : $failed), 250);
         $changed = $target->health !== $health || $target->health_detail !== $detail;
+        // An alert is for going down or coming back, not for a new wording of
+        // the same failure, nor for a first check that finds the app fine.
+        $alert = $target->health !== $health && ($health === TargetHealth::Unhealthy || $target->health === TargetHealth::Unhealthy);
 
         $target->update([
             'health' => $health,
@@ -90,6 +93,9 @@ class CheckTargetHealth
         // Open pages refresh when there's something new to show, not every check.
         if ($changed) {
             rescue(fn () => TargetHealthChanged::dispatch($target->id, $target->project_id, $health->value), report: false);
+        }
+
+        if ($alert) {
             rescue(fn () => Alert::healthChanged($target, $health), report: false);
         }
 

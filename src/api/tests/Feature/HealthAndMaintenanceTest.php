@@ -31,6 +31,7 @@ use App\Platform\Ssh\SshResult;
 use App\Platform\Ssh\Testing\FakeSshClient;
 use App\Support\Settings;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
@@ -77,6 +78,31 @@ it('checks a deployed target’s health from its server, and remembers since whe
 
     // Open pages hear about the two changes, not about every check.
     Event::assertDispatchedTimes(TargetHealthChanged::class, 2);
+});
+
+it('alerts when health changes, not when only the failure’s wording does', function () {
+    Http::preventStrayRequests();
+    Http::fake(['api.telegram.org/*' => Http::response(['ok' => true])]);
+    Settings::setString('telegram_bot_token', '123456:test-token');
+    Settings::setString('telegram_chat_id', '4242');
+    $target = liveTarget(['health_url' => 'https://demo.test/up']);
+
+    $this->ssh->on('box', 'deploy-health', FakeSshClient::ok("✓ answered 200\n::deployme::code=200\n"));
+    app(CheckTargetHealth::class)($target->refresh());
+    Http::assertNothingSent();
+
+    foreach (['HTTP 502', 'HTTP 503', 'HTTP 502'] as $answer) {
+        $this->ssh->on('box', 'deploy-health', new SshResult(30, "✗ gave {$answer}\n::deployme::last={$answer}\n", '', 5.0));
+        app(CheckTargetHealth::class)($target->refresh());
+    }
+
+    $this->ssh->on('box', 'deploy-health', FakeSshClient::ok("✓ answered 204\n::deployme::code=204\n"));
+    app(CheckTargetHealth::class)($target->refresh());
+
+    // One for going down, one for coming back.
+    Http::assertSentCount(2);
+    Http::assertSent(fn ($request) => str_contains($request['text'], 'stopped answering') && str_contains($request['text'], '502'));
+    Http::assertSent(fn ($request) => str_contains($request['text'], 'answering again'));
 });
 
 it('checks a Docker project’s app services too', function () {
