@@ -1,3 +1,21 @@
-# The PHP image only copies core/local/php/*; keep everything else out of the build context.
+# The runtime image only copies core/local/php/*; the production image (target
+# app) also copies src/api, without what's built, generated or secret.
 *
 !core/local/php/
+!src/api/
+src/api/.env
+src/api/.env.*
+src/api/auth.json
+src/api/vendor/
+src/api/node_modules/
+src/api/storage/
+src/api/public/build/
+src/api/public/hot
+src/api/public/storage
+src/api/public/fonts-manifest.dev.json
+src/api/bootstrap/cache/*.php
+src/api/tests/
+src/api/phpunit.xml
+src/api/.phpunit.cache/
+src/api/.phpunit.result.cache
+**/.DS_Store

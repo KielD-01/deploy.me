@@ -19,6 +19,9 @@ x-php: &php
   build:
     context: .
     dockerfile: core/local/php/Dockerfile
+    # Development mode: the runtime only, the code is mounted below.
+    # compose.prod.yml builds the `app` target instead.
+    target: runtime
     args:
       # The ready-made base (Docker Hub), or deployme-php-base:local built here (bin/build).
       DEPLOYME_PHP_BASE: ${DEPLOYME_PHP_BASE:-romanovich0195/deployme-php:1}

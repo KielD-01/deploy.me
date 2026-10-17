@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Build the PHP image this machine runs (deployme-php:local).
+# Build the PHP image this machine runs: deployme-php:local in development mode
+# (the runtime; the code is mounted), deployme-php:prod in production mode
+# (bin/configure --mode prod: the `app` target, with the code, its --no-dev
+# dependencies and the built assets inside, so a code change needs this again).
 #
 # The heavy base (core/local/php/Dockerfile.base: PHP extensions compiled in,
 # ssh, git, supervisor) comes ready-made from Docker Hub for amd64 and arm64,
@@ -32,5 +35,10 @@ if [ "$base" = "$local_base" ]; then
     docker build -f core/local/php/Dockerfile.base -t "$local_base" .
 fi
 
-deployme_say "Building deployme-php:local on $base"
+# compose.prod.yml (in COMPOSE_FILE in production mode) picks the target and tag.
+if [ "$(deployme_env DEPLOYME_MODE)" = prod ]; then
+    deployme_say "Building deployme-php:prod on $base (the app, its dependencies and assets)"
+else
+    deployme_say "Building deployme-php:local on $base"
+fi
 DEPLOYME_PHP_BASE=$base deployme_compose build
