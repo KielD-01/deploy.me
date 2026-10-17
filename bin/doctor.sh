@@ -44,6 +44,13 @@ ws_upgrade() {
   [ "$code" = 101 ]
 }
 
+MODE=$(deployme_mode)
+if [ "$MODE" = prod ]; then
+  echo "Mode: production (the code is baked into the image: make build && make up after a change)"
+else
+  echo "Mode: development (the code is mounted from src/api)"
+fi
+
 echo "Infra ($STACK stack, $(deployme_os))"
 check "$NETWORK network exists" docker network inspect "$NETWORK"
 for c in "$PG" "$CACHE" "$EDGE"; do check "$c is running" running "$c"; done
@@ -53,6 +60,14 @@ check "the edge's local CA is on this machine ($CA)" ca_present
 
 echo "deploy.me"
 for c in deployme-web deployme-worker deployme-reverb; do check "$c is running" running "$c"; done
+# The mode ./.env names is the one the containers were started in (else: make up).
+# A container from before modes existed has no DEPLOYME_MODE: that was dev.
+in_mode() {
+  local running_mode
+  running_mode=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' deployme-web 2>/dev/null | sed -n 's/^DEPLOYME_MODE=//p')
+  [ "${running_mode:-dev}" = "$MODE" ]
+}
+check "deployme-web runs in $MODE mode" in_mode
 check "no foreign container holds a deployme-* name" alias_owner_ok
 check "$URL/up answers over TLS" curl -fsS -o /dev/null --max-time 5 --cacert "$CA" "$URL/up"
 check "websocket upgrade reaches Reverb through the edge" ws_upgrade

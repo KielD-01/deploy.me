@@ -33,7 +33,7 @@ init: .env db-create build up assets setup doctor ## First run: database, image,
 db-create: .env ## Create the deployme role and databases (shared or own Postgres)
 	bin/db-create.sh
 
-build: .env ## Build the PHP image (pulls its base from Docker Hub, or compiles it)
+build: .env ## Build the PHP image (in prod mode: with the code and assets; then make up)
 	bin/build
 
 up: .env ## Start the stack
@@ -63,10 +63,18 @@ artisan: .env ## Run artisan (c="migrate:status")
 composer: .env ## Run composer (c="require vendor/pkg")
 	$(WEB) composer $(c)
 
-assets: .env ## Build frontend assets into public/build
-	$(DC) run --rm --no-deps deployme-vite sh -c "npm install --no-audit --no-fund && npm run build && chown -R $(OWNER) public/build"
+assets: .env ## Build frontend assets into public/build (in prod mode: part of make build)
+	@if grep -qs '^DEPLOYME_MODE=prod$$' .env; then \
+		echo "Production mode: the assets are built into the image. After a change: make build && make up"; \
+	else \
+		$(DC) run --rm --no-deps deployme-vite sh -c "npm install --no-audit --no-fund && npm run build && chown -R $(OWNER) public/build"; \
+	fi
 
-dev: .env ## Start the Vite dev server with HMR
+dev: .env ## Start the Vite dev server with HMR (development mode only)
+	@if grep -qs '^DEPLOYME_MODE=prod$$' .env; then \
+		echo "make dev needs development mode, which reads the code from src/api: bin/configure --mode dev && make build && make up" >&2; \
+		exit 1; \
+	fi
 	$(DC) --profile dev up -d deployme-vite
 
 setup: .env ## Generate keys and run migrations

@@ -22,12 +22,14 @@ class DoctorCommand extends Command
 {
     protected $signature = 'deployme:doctor';
 
-    protected $description = 'Check Postgres, Valkey, Reverb, queues, the scheduler, host mounts, every server alias and the GitHub tokens';
+    protected $description = 'Check the mode (dev or prod), Postgres, Valkey, Reverb, queues, the scheduler, host mounts, every server alias and the GitHub tokens';
 
     private int $failures = 0;
 
     public function handle(): int
     {
+        $this->mode();
+
         $this->check('Postgres answers', fn () => DB::select('select 1 as ok')[0]->ok === 1);
         $this->check('Migrations are up to date', fn () => $this->pendingMigrations() === [] ?: 'pending: '.implode(', ', $this->pendingMigrations()));
         $this->check('Valkey answers', fn () => (bool) Redis::connection()->ping());
@@ -74,6 +76,52 @@ class DoctorCommand extends Command
         }
 
         return $this->failures === 0 ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * Production mode runs the image's code, so it should run it the way
+     * production does: debug off, every cache built, OPcache trusting the files.
+     * In development mode debug on is the point, and the caches are cleared at
+     * start on purpose.
+     */
+    private function mode(): void
+    {
+        if (config('deployme.mode') !== 'prod') {
+            $this->line('  <fg=gray>Development mode: the code is read live from src/api</>');
+
+            return;
+        }
+
+        $this->line('  <fg=gray>Production mode: the code is the image’s (make build && make up after a change)</>');
+
+        $this->check('APP_DEBUG is off', fn () => ! config('app.debug')
+            ?: 'APP_DEBUG=true in src/api/.env shows a stack trace to anyone who hits an error: run bin/configure --mode prod, then make restart');
+
+        $this->check('APP_ENV is production', fn () => app()->isProduction()
+            ?: 'APP_ENV is '.app()->environment().': run bin/configure --mode prod, then make restart');
+
+        $this->check('Config, routes and events are cached', function () {
+            $missing = array_keys(array_filter([
+                'config' => app()->configurationIsCached(),
+                'routes' => app()->routesAreCached(),
+                'events' => app()->eventsAreCached(),
+            ], fn (bool $cached) => ! $cached));
+
+            return $missing === [] ?: 'not cached: '.implode(', ', $missing).' (each container caches them when it starts: see its log, then make restart)';
+        });
+
+        $this->check('Views are compiled', function () {
+            $folder = (string) config('view.compiled');
+
+            return glob($folder.'/*.php') !== [] ?: "none in {$folder} (deployme-web compiles them when it starts: see its log)";
+        });
+
+        $this->check('OPcache doesn’t re-check file timestamps', function () {
+            $value = ini_get('opcache.validate_timestamps');
+
+            return ($value !== false && ! filter_var($value, FILTER_VALIDATE_BOOLEAN))
+                ?: 'opcache.validate_timestamps is on: the image’s php-prod.ini is missing (make build && make up)';
+        });
     }
 
     /**

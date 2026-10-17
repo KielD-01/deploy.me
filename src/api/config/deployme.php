@@ -91,4 +91,8 @@ return [
     // The supervisor program list baked into the PHP image.
     'supervisor_queues_conf' => env('DEPLOYME_SUPERVISOR_QUEUES_CONF', '/etc/supervisor/conf.d/queues.conf'),
 
+    // dev: the code is mounted from src/api and edited live. prod: it's baked
+    // into the image (compose.prod.yml), cached at start, debug off.
+    'mode' => env('DEPLOYME_MODE', 'dev') === 'prod' ? 'prod' : 'dev',
+
 ];
