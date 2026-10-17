@@ -2,11 +2,16 @@
 
 use App\Actions\Servers\DispatchDueProbes;
 use App\Actions\Servers\RecordProbe;
+use App\Enums\AuditAction;
+use App\Enums\AuditOutcome;
 use App\Enums\ServerStatus;
 use App\Events\ServerProbed;
 use App\Jobs\ProbeServer;
 use App\Livewire\Servers\Show;
+use App\Models\AuditEntry;
 use App\Models\Server;
+use App\Models\User;
+use App\Platform\Ssh\AuditingSshClient;
 use App\Platform\Ssh\Exceptions\HostUnreachable;
 use App\Platform\Ssh\SshClient;
 use App\Platform\Ssh\SshResult;
@@ -205,4 +210,34 @@ it('counts the next probe from the minute that starts it, so the interval doesnâ
     ProbeServer::dispatchSync($server->id);
 
     expect($server->refresh()->next_probe_at->equalTo(Carbon::parse('2026-10-15 17:11:00')))->toBeTrue();
+});
+
+it('leaves a scheduled probe that succeeds out of the audit log, and records one that fails', function () {
+    $server = Server::factory()->create();
+    $this->app->instance(SshClient::class, new AuditingSshClient($this->ssh));
+    $this->ssh->on($server->ssh_alias, 'ping', FakeSshClient::ok())->on($server->ssh_alias, 'probe', probeOutput());
+
+    ProbeServer::dispatchSync($server->id);
+
+    expect($server->snapshots()->count())->toBe(1)
+        ->and(AuditEntry::query()->count())->toBe(0);
+
+    $this->ssh->on($server->ssh_alias, 'ping', new HostUnreachable('ssh: connect to host 203.0.113.10 port 22: Connection timed out'));
+
+    ProbeServer::dispatchSync($server->id);
+
+    expect(AuditEntry::query()->where('action', AuditAction::RemoteCommand->value)->pluck('outcome')->unique()->all())
+        ->toBe([AuditOutcome::Failed]);
+});
+
+it('audits a probe someone runs by hand', function () {
+    $server = Server::factory()->create();
+    $this->actingAs(User::factory()->create(['name' => 'Roman']));
+    $this->app->instance(SshClient::class, new AuditingSshClient($this->ssh));
+    $this->ssh->on($server->ssh_alias, 'ping', FakeSshClient::ok())->on($server->ssh_alias, 'probe', probeOutput());
+
+    app(RecordProbe::class)($server);
+
+    expect(AuditEntry::query()->orderBy('id')->pluck('subject')->all())->toBe(["ping on {$server->ssh_alias}", "probe on {$server->ssh_alias}"])
+        ->and(AuditEntry::query()->pluck('actor')->unique()->all())->toBe(['Roman']);
 });

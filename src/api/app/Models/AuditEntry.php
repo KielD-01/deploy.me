@@ -39,10 +39,13 @@ class AuditEntry extends Model
     }
 
     /**
-     * The deliberate acts, without the commands deploys and probes run.
+     * The deliberate acts, without the commands deploys and probes run
+     * (AuditAction::RemoteCommand, 'ssh.command').
      */
     public function scopeByHand(Builder $query): void
     {
-        $query->where('action', '!=', AuditAction::RemoteCommand->value);
+        // A literal, not a binding: the partial index on `action <> 'ssh.command'`
+        // is only used when the planner can see that this is the same condition.
+        $query->whereRaw("action <> 'ssh.command'");
     }
 }

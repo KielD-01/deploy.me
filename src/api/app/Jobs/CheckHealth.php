@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Actions\Targets\CheckTargetHealth;
 use App\Models\Target;
+use App\Platform\Ssh\AuditingSshClient;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -41,6 +42,6 @@ class CheckHealth implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $check($target);
+        AuditingSshClient::scheduled(fn () => $check($target));
     }
 }

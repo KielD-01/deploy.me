@@ -141,6 +141,44 @@ it('records every command run on a server, and how it ended, without the script�
         ->and(AuditEntry::query()->where('detail', 'like', '%super-secret%')->exists())->toBeFalse();
 });
 
+it('leaves out the routine looks the scheduler takes when they succeed, and keeps the ones that fail', function () {
+    auth()->forgetGuards();
+    $inner = new FakeSshClient;
+    $inner->on('box', 'probe', FakeSshClient::ok("fine\n"));
+    $inner->on('box', 'deploy-health', new SshResult(1, '', 'down', 1.0));
+    $inner->on('box', 'deploy-lease', FakeSshClient::ok("✓ Locked\n"));
+    $client = new AuditingSshClient($inner);
+
+    AuditingSshClient::scheduled(function () use ($client) {
+        $client->run('box', RemoteScript::file('probe', []));
+        $client->run('box', RemoteScript::file('deploy-health', ['URL' => 'https://x.test']));
+        $client->run('box', RemoteScript::file('deploy-lease', []));
+    });
+
+    expect(AuditEntry::query()->orderBy('id')->pluck('outcome', 'subject')->all())
+        ->toBe(['deploy-health on box' => AuditOutcome::Failed, 'deploy-lease on box' => AuditOutcome::Ok]);
+
+    // Outside the scheduler's jobs (a deploy's health step, say) it is audited as before.
+    $client->run('box', RemoteScript::file('probe', []));
+
+    expect(AuditEntry::query()->where('subject', 'probe on box')->count())->toBe(1);
+});
+
+it('keeps a person’s probe in the log, even inside the scheduler’s jobs', function () {
+    $inner = new FakeSshClient;
+    $inner->on('box', 'probe', FakeSshClient::ok("fine\n"));
+    $client = new AuditingSshClient($inner);
+
+    AuditingSshClient::scheduled(fn () => $client->run('box', RemoteScript::file('probe', [])));
+
+    expect(AuditEntry::query()->sole())->actor->toBe('Roman');
+});
+
+it('has a partial index for the by-hand listing', function () {
+    expect(DB::selectOne("select indexdef from pg_indexes where indexname = 'audit_log_by_hand_index'")->indexdef)
+        ->toContain("<> 'ssh.command'");
+});
+
 it('records a command that never reached the server', function () {
     $inner = new FakeSshClient;
     $inner->on('box', 'deploy-lease', new HostUnreachable('box is not answering.'));

@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Actions\Servers\RecordProbe;
 use App\Models\Server;
+use App\Platform\Ssh\AuditingSshClient;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -34,7 +35,7 @@ class ProbeServer implements ShouldBeUnique, ShouldQueue
         $server = Server::query()->active()->find($this->serverId);
 
         if ($server !== null) {
-            $record($server, retry: true);
+            AuditingSshClient::scheduled(fn () => $record($server, retry: true));
         }
     }
 }
