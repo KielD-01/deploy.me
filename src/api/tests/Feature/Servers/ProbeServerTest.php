@@ -126,6 +126,29 @@ it('marks a server unreachable without losing its history, and looks again withi
     Sleep::assertSleptTimes(1);
 });
 
+it('refuses a probe report over 2 MB, as a failed probe with a reason', function () {
+    $server = Server::factory()->create();
+    $payload = json_encode([...json_decode(probeFixture(), true), 'padding' => str_repeat('x', 3 * 1024 * 1024)]);
+    $this->ssh->on($server->ssh_alias, 'ping', FakeSshClient::ok())
+        ->on($server->ssh_alias, 'probe', FakeSshClient::ok("__DEPLOYME_PROBE_BEGIN__\n{$payload}\n__DEPLOYME_PROBE_END__\n"));
+
+    ProbeServer::dispatchSync($server->id);
+    $server->refresh();
+
+    expect($server->status)->toBe(ServerStatus::Offline)
+        ->and($server->status_reason)->toContain('The probe reported 3.0 MB, more than the 2 MB it may')
+        ->and($server->snapshots()->count())->toBe(0);
+
+    // Just under the cap still goes through.
+    $ok = json_encode([...json_decode(probeFixture(), true), 'padding' => str_repeat('x', 1024 * 1024)]);
+    $this->ssh->on($server->ssh_alias, 'probe', FakeSshClient::ok("__DEPLOYME_PROBE_BEGIN__\n{$ok}\n__DEPLOYME_PROBE_END__\n"));
+
+    ProbeServer::dispatchSync($server->id);
+
+    expect($server->refresh()->status)->toBe(ServerStatus::Online)
+        ->and($server->snapshots()->count())->toBe(1);
+});
+
 it('tries once more before calling a server offline', function () {
     $server = Server::factory()->create();
     $attempts = 0;

@@ -36,6 +36,10 @@ return [
         'agent_socket' => env('SSH_AUTH_SOCK'),
 
         'connect_timeout' => 10,
+
+        // A command that prints more than this (stdout and stderr together) is
+        // stopped: the worker holds everything a command says in memory.
+        'max_output_bytes' => 8 * 1024 * 1024,
     ],
 
     'git' => [

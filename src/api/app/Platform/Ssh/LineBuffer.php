@@ -8,6 +8,9 @@ namespace App\Platform\Ssh;
  */
 final class LineBuffer
 {
+    /** The longest unfinished line kept while waiting for its end. */
+    public const MAX_PARTIAL = 65536;
+
     /** @var array<string, string> */
     private array $partial = ['out' => '', 'err' => ''];
 
@@ -19,6 +22,13 @@ final class LineBuffer
         $stream = $type === 'err' ? 'err' : 'out';
         $parts = preg_split('/\r\n|\n|\r/', $this->partial[$stream].$chunk);
         $this->partial[$stream] = (string) array_pop($parts);
+
+        // A stream that never ends its line (a minified blob, binary) would
+        // otherwise grow here without bound: past the cap it comes out as a line.
+        if (strlen($this->partial[$stream]) > self::MAX_PARTIAL) {
+            $parts[] = $this->partial[$stream];
+            $this->partial[$stream] = '';
+        }
 
         return array_map(fn (string $line) => [$stream, $line], $parts);
     }
