@@ -99,3 +99,15 @@ it('samples the network only once the CPU second is over, so its work isn’t co
     expect(file($tmp.'/order', FILE_IGNORE_NEW_LINES))->toBe(['sleep', 'net'])
         ->and(ProbeResult::fromJson((string) $json)->processes()['net_note'])->toBeNull();
 });
+
+it('still answers when df hangs on a stuck network mount', function () {
+    $tmp = tempProject(['bin/df' => "#!/bin/sh\nexec sleep 120\n"]);
+    chmod("{$tmp}/bin/df", 0755);
+
+    $script = RemoteScript::file('probe', ['NET_SAMPLER' => "echo ok\n"], shell: 'sh');
+    $run = Process::env(['PATH' => "{$tmp}/bin:".getenv('PATH')])->timeout(20)->input($script->render())->run(['sh', '-s']);
+    $json = (new SshResult($run->exitCode(), $run->output(), $run->errorOutput(), 0))->between('__DEPLOYME_PROBE_BEGIN__', '__DEPLOYME_PROBE_END__');
+
+    expect($json)->not->toBeNull()
+        ->and(ProbeResult::fromJson((string) $json)->processes())->not->toBeNull();
+})->skip(! is_dir('/proc/self'), 'needs a Linux /proc');

@@ -127,7 +127,7 @@ mem() { awk -v k="$1:" '$1 == k { printf "%.0f", $2 * 1024; exit }' /proc/meminf
 
 # Real filesystems only: no pseudo filesystems, no Docker container layers
 # (overlay unless it's /), no bind-mounted files or host shares.
-disks=$(df -B1 --output=source,fstype,size,used,avail,target -x tmpfs -x devtmpfs -x squashfs -x efivarfs -x fakeowner -x virtiofs -x 9p 2>/dev/null \
+disks=$(T df -B1 --output=source,fstype,size,used,avail,target -x tmpfs -x devtmpfs -x squashfs -x efivarfs -x fakeowner -x virtiofs -x 9p 2>/dev/null \
   | awk 'NR > 1 && !($2 == "overlay" && $6 != "/") && $6 !~ /^\/(boot|snap|run|dev|sys|proc|etc)(\/|$)/ { printf "%s{\"source\":\"%s\",\"fstype\":\"%s\",\"size\":%s,\"used\":%s,\"available\":%s,\"mount\":\"%s\"}", (n++ ? "," : ""), $1, $2, $3, $4, $5, $6 }')
 
 osr() { ( . /etc/os-release 2>/dev/null; eval "printf '%s' \"\${$1:-}\"" ); }
