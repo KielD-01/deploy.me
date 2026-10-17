@@ -457,16 +457,17 @@ final class Shell
             return (new Output)->error('open status · tail <run> · htop <server> · git <project>');
         }
 
-        $arg = $args[1] ?? null;
-        match ($kind) {
-            'tail' => $arg === null ?: Find::deployment($arg),
-            'htop' => $arg === null ?: Find::server($arg),
-            'git' => $arg === null ?: Find::project($arg),
-            default => null,
+        // The panes look up a slug (or a run's id): what the name found, not
+        // the name as it was typed.
+        $arg = ($args[1] ?? null) === null ? null : match ($kind) {
+            'tail' => (string) Find::deployment($args[1])->id,
+            'htop' => Find::server($args[1])->slug,
+            'git' => Find::project($args[1])->slug,
+            default => ltrim($args[1], '#'),
         };
 
-        $out = (new Output)->line(['▸ ', 't-run'], 'opened ', [$kind.($arg !== null ? ' '.ltrim($arg, '#') : ''), 't-b']);
-        $out->open = ['kind' => $kind, 'arg' => $arg !== null ? ltrim($arg, '#') : null];
+        $out = (new Output)->line(['▸ ', 't-run'], 'opened ', [$kind.($arg !== null ? ' '.$arg : ''), 't-b']);
+        $out->open = ['kind' => $kind, 'arg' => $arg];
 
         return $out;
     }

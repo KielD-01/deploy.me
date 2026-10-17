@@ -144,6 +144,20 @@ it('probes, opens panes, goes to pages and completes names', function () {
         ->and($shell->complete('open htop p'))->toBe(['open htop prod-eu']);
 });
 
+it('opens a pane on what a name found, however it was typed', function () {
+    $target = shellTarget();
+    $target->project->update(['name' => 'ShopFront']);
+    $target->server->update(['name' => 'Prod EU', 'ssh_alias' => 'prod-eu-alias']);
+    $shell = app(Shell::class);
+
+    // The panes look projects and servers up by slug.
+    expect($shell->run('open git shopfront')->open)->toBe(['kind' => 'git', 'arg' => 'shop'])
+        ->and($shell->run('open htop prod-eu-alias')->open)->toBe(['kind' => 'htop', 'arg' => 'prod-eu']);
+
+    Livewire::test(\App\Livewire\Console\Git::class, ['pane' => 'p1', 'arg' => $shell->run('open git shopfront')->open['arg']])
+        ->assertSet('projectId', $target->project_id);
+});
+
 it('runs commands from its pane, asks there, and opens the run in another pane', function () {
     shellTarget();
 
