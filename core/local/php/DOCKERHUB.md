@@ -11,15 +11,25 @@ the app's config files and your user on top in about a second.
 
 ## Tags
 
+Semantic versions. Each build gets a version of its own, and the shorter tags move to the
+newest build in their line:
+
 | Tag | What it is |
 |---|---|
-| `1` | What deploy.me installs use. Moves with every rebuild of this line |
-| `latest` | The same image as `1` |
-| `sha-<commit>` | One build, pinned to the deploy.me commit it came from |
+| `1.0.3` | One build, never pushed again. Pin this to never change under you |
+| `1.0` | The newest build of 1.0: the same contents, with the latest security fixes |
+| `1` | The newest build of 1.x. What deploy.me installs use |
+| `latest` | The same image as the newest `1` |
+| `sha-<commit>` | One build, by the deploy.me commit it came from |
+
+- **MINOR** goes up when the image adds or changes something (a tool, an extension).
+- **MAJOR** goes up when an image built on it could break (another PHP major, an extension gone).
+- **PATCH** is every rebuild in between.
 
 Every tag is multi-arch: **linux/amd64** and **linux/arm64** (Apple silicon, Graviton,
 Raspberry Pi 4/5). Images are rebuilt when `Dockerfile.base` changes and every Monday, to
-pick up FrankenPHP and Debian security fixes.
+pick up FrankenPHP and Debian security fixes. Each one is labelled with its version and
+commit (`org.opencontainers.image.version`, `.revision`).
 
 ## What's inside
 
@@ -55,7 +65,8 @@ irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 | 
 Building on top of it yourself:
 
 ```dockerfile
-FROM romanovich0195/deployme-php:1
+FROM romanovich0195/deployme-php:1        # follows every 1.x build
+# FROM romanovich0195/deployme-php:1.0.0  # or one build, exactly
 ```
 
 Prefer to compile it? Run `bin/configure --build-from-source && make build` in deploy.me,

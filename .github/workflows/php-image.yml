@@ -4,9 +4,17 @@
 # compile takes half an hour), then one tag points at both.
 #
 # Needs the repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a Docker
-# Hub access token with write access). Tags: 1 (what installs use), latest, and
-# sha-<commit>. Rebuilt weekly too, for FrankenPHP and Debian security fixes.
-# The Docker Hub page's overview is core/local/php/DOCKERHUB.md, synced each run.
+# Hub access token with write access). Rebuilt weekly too, for FrankenPHP and
+# Debian security fixes. The Docker Hub page's overview is
+# core/local/php/DOCKERHUB.md, synced each run.
+#
+# Versions: core/local/php/VERSION holds MAJOR.MINOR, bumped by hand — MINOR
+# when Dockerfile.base adds or changes something, MAJOR when an image built on
+# it could break (another PHP major, an extension gone). Every publish is the
+# next PATCH of that line, counted from what Docker Hub already has, so a weekly
+# rebuild is 1.0.1, 1.0.2… and no full version is ever pushed twice. Tags:
+# MAJOR.MINOR.PATCH (fixed), MAJOR.MINOR and MAJOR (moving; installs use MAJOR),
+# latest, and sha-<commit>.
 name: PHP base image
 
 on:
@@ -14,6 +22,7 @@ on:
     branches: [main]
     paths:
       - core/local/php/Dockerfile.base
+      - core/local/php/VERSION
       - core/local/php/DOCKERHUB.md
       - .github/workflows/php-image.yml
   schedule:
@@ -38,7 +47,58 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       ready: ${{ steps.secrets.outputs.ready }}
+      version: ${{ steps.version.outputs.version }}
+      minor: ${{ steps.version.outputs.minor }}
+      major: ${{ steps.version.outputs.major }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A change to what the image holds is a new MINOR (or MAJOR): the same
+      # version can't stand for two different Dockerfiles.
+      - name: Dockerfile.base changed, so VERSION did too
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        run: |
+          changed=$(git diff --name-only "${{ github.event.before }}" "$GITHUB_SHA" -- core/local/php/Dockerfile.base core/local/php/VERSION)
+          if printf '%s\n' "$changed" | grep -qx core/local/php/Dockerfile.base && ! printf '%s\n' "$changed" | grep -qx core/local/php/VERSION; then
+            echo "::error file=core/local/php/VERSION::Dockerfile.base changed: bump the MINOR (or MAJOR) in core/local/php/VERSION."
+            exit 1
+          fi
+
+      - id: version
+        name: Work out the version
+        run: |
+          line=$(tr -d '[:space:]' < core/local/php/VERSION)
+          [[ "$line" =~ ^[0-9]+\.[0-9]+$ ]] || { echo "::error file=core/local/php/VERSION::VERSION holds MAJOR.MINOR, like 1.0 (got '$line')."; exit 1; }
+          major=${line%%.*}
+
+          # What deploy.me pulls has to be this line's MAJOR.
+          for file in core/local/php/Dockerfile docker-compose.local.yml bin/build bin/configure; do
+            if grep -o 'deployme-php:[0-9][0-9.]*' "$file" | grep -vqx "deployme-php:$major"; then
+              echo "::error file=$file::It pulls another major than VERSION's $major."
+              exit 1
+            fi
+          done
+
+          # The next PATCH: one past the highest MAJOR.MINOR.N on Docker Hub.
+          repo=${IMAGE}
+          url="https://hub.docker.com/v2/repositories/${repo}/tags?page_size=100&name=${line}."
+          last=-1
+          while [ -n "$url" ] && [ "$url" != null ]; do
+            page=$(curl -fsS --retry 3 "$url")
+            for patch in $(jq -r --arg line "$line" '.results[].name | select(test("^" + ($line | gsub("\\."; "\\.")) + "\\.[0-9]+$")) | split(".")[2]' <<< "$page"); do
+              [ "$patch" -gt "$last" ] && last=$patch
+            done
+            url=$(jq -r '.next' <<< "$page")
+          done
+          version="$line.$((last + 1))"
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "minor=$line" >> "$GITHUB_OUTPUT"
+          echo "major=$major" >> "$GITHUB_OUTPUT"
+          echo "::notice::Publishing ${IMAGE}:${version}"
+
       - id: secrets
         env:
           USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -83,6 +143,12 @@ jobs:
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.platform }}
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          labels: |
+            org.opencontainers.image.title=deployme-php
+            org.opencontainers.image.version=${{ needs.check.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.licenses=MIT
 
       - name: Keep the digest for the manifest
         run: |
@@ -98,8 +164,12 @@ jobs:
           retention-days: 1
 
   publish:
-    needs: build
+    needs: [check, build]
     runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      MINOR: ${{ needs.check.outputs.minor }}
+      MAJOR: ${{ needs.check.outputs.major }}
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -120,11 +190,14 @@ jobs:
           sources=()
           for digest in *; do sources+=("$IMAGE@sha256:$digest"); done
           docker buildx imagetools create \
-            -t "$IMAGE:1" -t "$IMAGE:latest" -t "$IMAGE:sha-${GITHUB_SHA::7}" \
+            -t "$IMAGE:$VERSION" -t "$IMAGE:$MINOR" -t "$IMAGE:$MAJOR" -t "$IMAGE:latest" -t "$IMAGE:sha-${GITHUB_SHA::7}" \
             "${sources[@]}"
 
       - name: Check it
-        run: docker buildx imagetools inspect "$IMAGE:1"
+        run: |
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
+          echo "### ${IMAGE}:${VERSION}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Also tagged ${MINOR}, ${MAJOR}, latest and sha-${GITHUB_SHA::7}." >> "$GITHUB_STEP_SUMMARY"
 
   # The repository's page on Docker Hub: a one-line summary and the overview.
   # Separate from the build, so a failed build doesn't leave the page stale.

@@ -12,8 +12,12 @@ and health checks on queue workers run by supervisor.
 ## Layout
 
 - `core/local/php/` — PHP image (FrankenPHP 8.5): `Dockerfile.base` (extensions, tools) is
-  published to Docker Hub as `romanovich0195/deployme-php:1` for amd64/arm64 by
-  `.github/workflows/php-image.yml` (needs the DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets);
+  published to Docker Hub as `romanovich0195/deployme-php` for amd64/arm64 by
+  `.github/workflows/php-image.yml` (needs the DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets).
+  Semver: `core/local/php/VERSION` holds MAJOR.MINOR (bump MINOR with any Dockerfile.base
+  change — CI refuses one without it — MAJOR for a breaking one); every publish is the next
+  PATCH counted from Docker Hub, tagged X.Y.Z, X.Y, X and latest. Installs pull `:1` (the
+  workflow checks the Dockerfile, compose file and bin/ scripts name VERSION's major);
   `Dockerfile` adds the entrypoint, git askpass helper, supervisor programs (queue workers +
   scheduler) and the machine's user on top. `bin/build` pulls the base, or compiles it
   (`deployme-php-base:local`) when it can't or `.env` says `DEPLOYME_PHP_BASE`.
