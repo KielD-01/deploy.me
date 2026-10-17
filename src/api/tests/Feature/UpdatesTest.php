@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Schedule;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    // CI builds no assets: a page asks Vite for a manifest that isn't there.
+    $this->withoutVite();
     Http::preventStrayRequests();
     config([
         'deployme.version' => '1.0.1',
