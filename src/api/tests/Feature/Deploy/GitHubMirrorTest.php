@@ -1,9 +1,17 @@
 <?php
 
+use App\Actions\Deployments\DetectStalledDeployments;
 use App\Deploy\Delivery\GitHubMirror;
+use App\Deploy\Delivery\SourceBuilder;
+use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\StepFailed;
+use App\Enums\DeliveryStrategyKey;
+use App\Enums\DeploymentStatus;
+use App\Enums\ProjectSource;
 use App\Models\Credential;
+use App\Models\Deployment;
 use App\Models\Project;
+use App\Platform\Ssh\Testing\FakeSshClient;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 
@@ -66,4 +74,27 @@ it('says what git said when the fetch fails', function () {
 
     expect(fn () => app(GitHubMirror::class)->sync($project))
         ->toThrow(StepFailed::class, 'Couldn’t fetch KielD-01/demo from GitHub: fatal: could not read Username');
+});
+
+it('keeps a deploy’s heartbeat going while git clones the mirror, so a long clone isn’t taken for a dead worker', function () {
+    $credential = Credential::factory()->create(['login' => 'KielD-01']);
+    $target = demoTarget(['source' => ProjectSource::Github, 'github_owner' => 'KielD-01', 'github_repo' => 'demo', 'credential_id' => $credential->id]);
+    $deployment = Deployment::factory()->create(['target_id' => $target->id, 'status' => DeploymentStatus::Running, 'heartbeat_at' => now()]);
+    $context = DeployContext::for($deployment, new FakeSshClient);
+
+    // The first clone of a big repository takes minutes, and says nothing (--quiet).
+    Process::fake([
+        '*clone*' => function () {
+            $this->travel(3)->minutes();
+
+            return Process::describe()->iterations(3);
+        },
+        '*rev-parse*' => Process::result(str_repeat('a', 40)."\n"),
+        '*' => Process::result(),
+    ]);
+
+    app(SourceBuilder::class)->build($context, DeliveryStrategyKey::PushArchive, null);
+
+    expect(app(DetectStalledDeployments::class)())->toBe(0)
+        ->and($deployment->refresh()->status)->toBe(DeploymentStatus::Running);
 });

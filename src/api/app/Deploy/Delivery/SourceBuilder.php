@@ -50,10 +50,12 @@ final class SourceBuilder
     private function export(DeployContext $context, ?string $commit): Source
     {
         $project = $context->project;
+        // git says nothing for minutes on a big repository: the run still reports.
+        $beat = fn () => $context->tick();
 
         if ($project->source === ProjectSource::Github) {
             $context->log->note("Fetching {$project->githubFullName()} from GitHub");
-            $repository = $this->mirror->sync($project);
+            $repository = $this->mirror->sync($project, $beat);
         } else {
             $repository = $this->roots->resolve((string) $project->local_path)
                 ?? throw new StepFailed(Format::homePath($project->local_path).' isn’t there any more.');
@@ -77,7 +79,7 @@ final class SourceBuilder
                 throw new StepFailed("Couldn’t create {$dir} in the worker.");
             }
 
-            $this->git->mustRun($repository, ['archive', '--format=tar', '-o', $tar, $sha], timeout: 900);
+            $this->git->mustRun($repository, ['archive', '--format=tar', '-o', $tar, $sha], timeout: 900, while: $beat);
             $unpack = Process::timeout(900)->run(['tar', '-xf', $tar, '-C', $dir]);
 
             if (! $unpack->successful()) {

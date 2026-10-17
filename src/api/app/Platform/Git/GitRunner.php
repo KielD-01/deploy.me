@@ -6,6 +6,7 @@ use App\Platform\Ssh\SshConfigCompiler;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
+use Throwable;
 
 /**
  * Runs git with a clean, predictable configuration: none of the system's,
@@ -37,18 +38,39 @@ final class GitRunner
     /**
      * @param  list<string>  $args
      * @param  array{username: string, token: string}|null  $auth  answers https prompts through GIT_ASKPASS
+     * @param  callable|null  $while  called every moment while git runs (a deploy's heartbeat); what it throws stops git
      */
-    public function run(string $cwd, array $args, ?array $auth = null, int $timeout = 60, ?callable $onOutput = null): ProcessResult
+    public function run(string $cwd, array $args, ?array $auth = null, int $timeout = 60, ?callable $onOutput = null, ?callable $while = null): ProcessResult
     {
         if (in_array($args[0] ?? '', self::NETWORK, true)) {
             $this->ssh->compile();
         }
 
         try {
-            return Process::path($cwd)
+            $pending = Process::path($cwd)
                 ->timeout($timeout)
-                ->env($this->environment($auth))
-                ->run([(string) config('deployme.git.binary', 'git'), ...$args], $onOutput);
+                ->env($this->environment($auth));
+            $command = [(string) config('deployme.git.binary', 'git'), ...$args];
+
+            if ($while === null) {
+                return $pending->run($command, $onOutput);
+            }
+
+            $process = $pending->start($command, $onOutput);
+
+            try {
+                while ($process->running()) {
+                    $process->ensureNotTimedOut();
+                    $while();
+                    usleep(200_000);
+                }
+            } catch (Throwable $e) {
+                $process->stop(5);
+
+                throw $e;
+            }
+
+            return $process->wait();
         } catch (ProcessTimedOutException) {
             throw new GitFailed('git '.($args[0] ?? '')." didn’t finish within {$timeout} s.", 124);
         }
@@ -62,9 +84,9 @@ final class GitRunner
      *
      * @throws GitFailed
      */
-    public function mustRun(string $cwd, array $args, ?array $auth = null, int $timeout = 60, ?callable $onOutput = null): string
+    public function mustRun(string $cwd, array $args, ?array $auth = null, int $timeout = 60, ?callable $onOutput = null, ?callable $while = null): string
     {
-        $result = $this->run($cwd, $args, $auth, $timeout, $onOutput);
+        $result = $this->run($cwd, $args, $auth, $timeout, $onOutput, $while);
 
         if (! $result->successful()) {
             throw GitFailed::from($result, $args);
