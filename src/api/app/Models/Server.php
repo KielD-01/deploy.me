@@ -78,10 +78,21 @@ class Server extends Model
     }
 
     /**
-     * A path is reserved if it is, or is inside, one of this server's reserved paths.
+     * A path is reserved if it is, or is inside, one of this server's reserved
+     * paths — however it's spelled: /opt/./infra and //opt/infra are /opt/infra.
      */
     public function isReserved(string $path): bool
     {
+        $parts = [];
+        foreach (explode('/', $path) as $part) {
+            match ($part) {
+                '', '.' => null,
+                '..' => array_pop($parts),
+                default => $parts[] = $part,
+            };
+        }
+        $path = '/'.implode('/', $parts);
+
         foreach ([...config('deployme.reserved_paths', []), ...($this->reserved_paths ?? [])] as $reserved) {
             if ($path === $reserved || str_starts_with(rtrim($path, '/').'/', rtrim($reserved, '/').'/')) {
                 return true;

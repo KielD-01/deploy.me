@@ -58,6 +58,25 @@ it('refuses to push into the shared infrastructure', function () {
     expect(FolderMapping::query()->count())->toBe(0);
 });
 
+it('refuses the shared infrastructure however its path is spelled', function (string $remote) {
+    Livewire::test(Folders::class, ['serverId' => $this->server->id])
+        ->call('startAdding')
+        ->set('name', 'Caddy')
+        ->set('localPath', $this->local)
+        ->set('remotePath', $remote)
+        ->call('save')
+        ->assertHasErrors('remotePath');
+
+    expect(FolderMapping::query()->count())->toBe(0)
+        ->and($this->server->isReserved($remote))->toBeTrue();
+})->with(['/opt/./infra/caddy', '//opt/infra/caddy', '/opt//infra', '/opt/infra/.']);
+
+it('still tells a neighbour of the shared infrastructure apart from it', function () {
+    expect($this->server->isReserved('/opt/infra2'))->toBeFalse()
+        ->and($this->server->isReserved('/opt/srv/../infra'))->toBeTrue()
+        ->and($this->server->isReserved('/opt/infra-old/x'))->toBeFalse();
+});
+
 it('asks for a passkey before deleting at the destination, and keeps the form meanwhile', function () {
     Livewire::test(Folders::class, ['serverId' => $this->server->id])
         ->call('startAdding')
