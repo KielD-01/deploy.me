@@ -44,17 +44,22 @@ export default ({ id, live, steps }) => ({
             });
         }
 
-        const channel = window.Echo?.private(`deployments.${id}`);
-        channel?.listen('.log', (event) => this.receive(event));
-        channel?.listen('.updated', (event) => {
+        // Kept, so destroy() drops this log's own listeners: Livewire and any
+        // other pane showing the run listen on the same channel.
+        this.onLog = (event) => this.receive(event);
+        this.onUpdated = (event) => {
             this.live = ACTIVE.includes(event.status);
             if (!this.live) this.fetchMissing();
-        });
+        };
+        const channel = window.Echo?.private(`deployments.${id}`);
+        channel?.listen('.log', this.onLog);
+        channel?.listen('.updated', this.onUpdated);
     },
 
     destroy() {
-        // Livewire listens on the same channel, so only drop this component's listener.
-        window.Echo?.private(`deployments.${id}`)?.stopListening('.log');
+        const channel = window.Echo?.private(`deployments.${id}`);
+        channel?.stopListening('.log', this.onLog);
+        channel?.stopListening('.updated', this.onUpdated);
     },
 
     async fetchMissing() {
