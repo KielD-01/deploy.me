@@ -104,7 +104,7 @@ final class SshConfigCompiler
             '  RequestTTY no',
             '  ControlMaster auto',
             "  ControlPath {$this->runtimeDir}/cm/%C",
-            '  ControlPersist 60s',
+            '  ControlPersist 150s',
             '  LogLevel ERROR',
             '',
         ];

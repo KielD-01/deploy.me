@@ -27,6 +27,13 @@ it('puts the enforced options before the user config', function () {
         ->not->toContain('missing.conf');
 });
 
+it('keeps a connection open for longer than the health-check interval, so a check reuses it', function () {
+    preg_match('/ControlPersist (\d+)s/', compiler($this->dir)->render(), $match);
+
+    // Settings -> Schedules' default health_interval is 60 s.
+    expect((int) $match[1])->toBeGreaterThan(60)->toBe(150);
+});
+
 it('switches the agent off when there is no socket', function () {
     expect(compiler($this->dir, null)->render())->toContain('IdentityAgent none');
 });
