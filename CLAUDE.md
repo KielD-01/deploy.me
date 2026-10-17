@@ -52,8 +52,10 @@ doesn't wait for `make migrate`.
 ## How it fits together
 
 - **Sign-in is a passkey or a password** (Fortify passkeys → `laravel/passkeys`, browser
-  side `@laravel/passkeys` in `resources/js/passkeys.js`). One account; no registration or
-  email resets. `deployme:enroll` prints a one-time link (`App\Auth\EnrollmentLinks`) that
+  side `@laravel/passkeys` in `resources/js/passkeys.js`). One account; no email resets.
+  While none exists the sign-in page offers `/setup` (`SetupController`, under a cache lock,
+  off with `DEPLOYME_WEB_SETUP=false`), which creates it and goes on like an enroll link.
+  `deployme:enroll` prints a one-time link (`App\Auth\EnrollmentLinks`) that
   signs in and counts as a confirmation; Settings → Account then registers a passkey or sets
   a password. Password sign-in accepts only a password its owner chose
   (`users.password_set_at`; until then the column holds a random value), five tries a minute,

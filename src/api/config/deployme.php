@@ -10,6 +10,10 @@ return [
 
     'host_user' => env('DEPLOYME_HOST_USER'),
 
+    // While no account exists, the sign-in page offers to create it (/setup).
+    // Off: only `make enroll` creates it, so nothing local can claim it first.
+    'web_setup' => (bool) env('DEPLOYME_WEB_SETUP', true),
+
     'ssh' => [
         'binary' => env('DEPLOYME_SSH_BINARY', 'ssh'),
         'keygen_binary' => env('DEPLOYME_SSH_KEYGEN_BINARY', 'ssh-keygen'),

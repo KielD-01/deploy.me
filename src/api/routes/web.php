@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DeploymentLogController;
 use App\Http\Controllers\EnrollController;
+use App\Http\Controllers\SetupController;
 use App\Livewire;
 use Illuminate\Support\Facades\Route;
 
@@ -22,6 +23,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/deployments/{deployment}/log.txt', DeploymentLogController::class)->name('deployments.log');
     Route::livewire('/audit', Livewire\Audit\Index::class)->name('audit');
     Route::livewire('/settings', Livewire\Settings\Index::class)->name('settings');
+});
+
+// First run in the browser, while no account exists (SetupController::available()).
+Route::middleware(['web', 'guest'])->group(function () {
+    Route::get('/setup', [SetupController::class, 'show'])->name('setup');
+    Route::post('/setup', [SetupController::class, 'store'])->middleware('throttle:10,1')->name('setup.store');
 });
 
 // One-time link from `php artisan deployme:enroll`: signs in to register a passkey.

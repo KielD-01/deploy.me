@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Auth\EnrollmentLinks;
+use App\Enums\AuditAction;
 use App\Models\User;
+use App\Support\Audit;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -58,7 +60,11 @@ class EnrollCommand extends Command
             return null;
         }
 
-        // Nobody knows this password and password sign-in is disabled; the column just can't be empty.
-        return User::query()->create([...$data, 'password' => Str::random(64)]);
+        // Nobody knows this password, and password sign-in refuses it until a real
+        // one is chosen (User::hasPassword()); the column just can't be empty.
+        $user = User::query()->create([...$data, 'password' => Str::random(64)]);
+        Audit::record(AuditAction::AccountCreated, ['subject' => $user->email, 'detail' => 'by make enroll', 'user' => $user]);
+
+        return $user;
     }
 }

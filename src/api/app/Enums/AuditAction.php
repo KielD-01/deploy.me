@@ -13,6 +13,7 @@ enum AuditAction: string
     case LockBroken = 'lock.broken';
     case CredentialSaved = 'credential.saved';
     case CredentialRemoved = 'credential.removed';
+    case AccountCreated = 'account.created';
     case PasswordSet = 'password.set';
     case PasswordRemoved = 'password.removed';
     case TwoFactorEnabled = 'two_factor.enabled';
@@ -29,6 +30,7 @@ enum AuditAction: string
             self::LockBroken => 'Broke a deploy lock',
             self::CredentialSaved => 'Saved a GitHub token',
             self::CredentialRemoved => 'Removed a GitHub token',
+            self::AccountCreated => 'Created the account',
             self::PasswordSet => 'Set the sign-in password',
             self::PasswordRemoved => 'Removed the sign-in password',
             self::TwoFactorEnabled => 'Turned on authenticator codes',
@@ -45,7 +47,7 @@ enum AuditAction: string
         return match ($this) {
             self::HostKeyTrusted => 'shield',
             self::LockBroken => 'lock',
-            self::CredentialSaved, self::CredentialRemoved, self::PasswordSet, self::PasswordRemoved, self::TwoFactorEnabled, self::TwoFactorDisabled => 'key',
+            self::CredentialSaved, self::CredentialRemoved, self::AccountCreated, self::PasswordSet, self::PasswordRemoved, self::TwoFactorEnabled, self::TwoFactorDisabled => 'key',
             self::ServerRemoved, self::ProjectRemoved, self::TargetRemoved => 'trash',
             self::RemoteCommand => 'terminal',
         };

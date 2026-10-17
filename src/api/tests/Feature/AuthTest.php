@@ -10,6 +10,8 @@ it('sends guests to the sign-in page', function () {
 });
 
 it('offers a passkey first and a password beside it', function () {
+    User::factory()->create();
+
     $this->get('/login')
         ->assertOk()
         ->assertSeeInOrder(['Sign in with a passkey', 'Sign in with password'])

@@ -1,4 +1,17 @@
 <x-layouts.guest title="Sign in">
+@if (\App\Http\Controllers\SetupController::available())
+    {{-- First run: no account yet, so nothing below could sign anyone in. --}}
+    <div class="flex flex-col gap-1">
+        <h1 class="text-[22px] leading-7 font-semibold">Welcome to deploy.me</h1>
+        <p class="text-muted">There’s no account on this machine yet. Create yours: it’s the only one, and it signs in with a passkey or a password.</p>
+    </div>
+
+    <a href="{{ route('setup') }}" class="btn btn-primary w-full"><x-icon name="user" /> Create your account</a>
+
+    <p class="text-xs text-muted">
+        Or run <code class="font-mono">make enroll</code> in a terminal for a one-time link.
+    </p>
+@else
     <div class="flex flex-col gap-1">
         <h1 class="text-[22px] leading-7 font-semibold">Sign in</h1>
         <p class="text-muted">Use the passkey on this device, like Touch ID, or your password.</p>
@@ -36,6 +49,7 @@
     </form>
 
     <p class="text-xs text-muted">
-        First time here, or lost your way in? Run <code class="font-mono">make enroll</code> in a terminal for a one-time link.
+        Lost your way in? Run <code class="font-mono">make enroll</code> in a terminal for a one-time link.
     </p>
+@endif
 </x-layouts.guest>

@@ -11,7 +11,9 @@ deploy.me runs in Docker on your own machine, the same way on all three systems:
 | **Local CA trusted in** | the login keychain | the system store + NSS (Chrome) | WSL **and** Windows (Edge, Chrome) |
 | **Nightly backup** | launchd | systemd user timer, or cron | systemd in WSL, or cron |
 
-You end up at **https://deployme.localhost**, signing in with a passkey or a password.
+You end up at **https://deployme.localhost**, signing in with a passkey or a password. If
+you set it up by hand rather than with `bin/install`, the first visit there creates your
+account.
 
 - [Before you start](#before-you-start)
 - [macOS](#-macos)

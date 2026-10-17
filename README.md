@@ -349,8 +349,9 @@ flowchart LR
 ## 🛡️ Security model
 
 - 🔑 **Passkeys first, a password if you need one.** The password needs at least 12
-  characters, is rate-limited, and can require an authenticator code. Nobody can register:
-  the one account comes from `make enroll`, and the last way in can't be removed. Trusting
+  characters, is rate-limited, and can require an authenticator code. There's one account:
+  the first visit (or `make enroll`) creates it, then the page is gone, and the last way in
+  can't be removed. Trusting
   a host key, touching env files, deleting during a sync, adding or removing tokens, and
   changing how you sign in all ask you to confirm it's you again.
 - 🤫 **Secrets never go in argv or logs.** Remote scripts receive them over stdin, git gets

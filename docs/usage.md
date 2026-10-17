@@ -60,14 +60,17 @@ two stack modes, are in **[install.md](install.md)**.
 
 ## 2. 🔑 Sign in: passkey or password
 
-deploy.me has one account per machine. Nobody can register on the site itself: the account
-and its first way in come from a one-time link.
+deploy.me has one account per machine. There are two ways to create it:
 
-```bash
-make enroll
-```
+- **In the browser.** While there's no account, https://deployme.localhost offers
+  **Create your account**: your name and email, then the next step.
+- **In a terminal.** `make enroll` prints a one-time link that works once, for 15 minutes.
 
-The link works once, for 15 minutes. Open it and choose how you'll sign in:
+Once the account exists, the browser page is gone and nobody can create another.
+`bin/install` uses the terminal way. To allow only that way, put `DEPLOYME_WEB_SETUP=false`
+in `src/api/.env`: then nothing on your machine can claim the account before you do.
+
+Either way, you then choose how you'll sign in:
 
 - **A passkey** (recommended): Touch ID, Windows Hello, iCloud Keychain, 1Password, a phone
   or a security key.
