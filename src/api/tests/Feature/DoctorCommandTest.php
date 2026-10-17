@@ -19,6 +19,11 @@ beforeEach(function () {
 
     $this->keys = sys_get_temp_dir().'/deployme-doctor-'.bin2hex(random_bytes(4));
     File::ensureDirectoryExists($this->keys);
+
+    // The ssh config the doctor reads is this test's, not the machine's: the
+    // test container has none, and CI has no ~/.ssh at all.
+    File::put("{$this->keys}/config", "Host box\n  HostName box.example.com\n");
+    config(['deployme.ssh.source_config' => "{$this->keys}/config"]);
 });
 
 afterEach(fn () => File::deleteDirectory($this->keys));
@@ -78,10 +83,7 @@ it('says which key file is too readable, without failing the run over it', funct
         // One expectation per line: each matches a single write.
         ->expectsOutputToContain("! box: the keys ssh would offer are private — {$key} is 644, ssh wants 600")
         ->assertSuccessful();
-})->skip(
-    fn () => function_exists('posix_geteuid') && posix_geteuid() === 0,
-    'root can read any key file, so ssh has nothing to complain about (the PHP image runs as root)',
-);
+});
 
 it('says when a server’s host key is trusted nowhere', function () {
     Server::factory()->create(['ssh_alias' => 'box']);
