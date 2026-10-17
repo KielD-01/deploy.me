@@ -112,6 +112,27 @@ it('logs in again when a rollback runs the old release’s script', function () 
         ->and(scriptVar($run, 'DOCKER_CONFIG_DIR'))->toBe(scriptVar($login, 'DIR'));
 });
 
+it('runs the old release’s script again when a deploy switches back on its own', function () {
+    Credential::factory()->create();
+    $target = blueGreenTarget();
+    $first = blueGreenRun($target)->release;
+
+    // The next release goes live through its script, then fails its health check.
+    $target->project->update(['health_url' => 'https://example.dev/up', 'auto_rollback' => true]);
+    $this->ssh->on('box', 'deploy-health', new \App\Platform\Ssh\SshResult(30, "✗ gave HTTP 502\n::deployme::last=HTTP 502\n", '', 1.0));
+    $before = count($this->ssh->calls);
+    $failed = blueGreenRun($target->refresh());
+    $runs = collect(array_slice($this->ssh->calls, $before))->pluck('script')->filter(fn ($script) => $script->name === 'deploy-run-script')->values();
+
+    // current switching back moves no container the script started: the old
+    // release's script brings its stack back.
+    expect($failed->status)->toBe(DeploymentStatus::RolledBack, (string) $failed->outcome)
+        ->and($runs)->toHaveCount(2)
+        ->and(scriptVar($runs[0], 'DIR'))->toBe($failed->release->path)
+        ->and(scriptVar($runs[1], 'DIR'))->toBe($first->path)
+        ->and(scriptVar($runs[1], 'RELEASE'))->toBe($first->name);
+});
+
 it('logs in and pulls the old release’s images when a Compose project rolls back', function () {
     Credential::factory()->create();
     $target = blueGreenTarget();

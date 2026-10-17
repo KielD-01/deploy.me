@@ -12,7 +12,8 @@ use App\Models\Release;
  * Cleanup: once the new release went live, the release that was live before
  * goes back — current switches to its folder, or, deploying in place, its
  * image pins go back where Compose reads them — and a Docker project's app
- * services are recreated from it. A failure switches back if the project
+ * services are recreated from it, or the project's own deploy script runs
+ * from it again. A failure switches back if the project
  * rolls back automatically; a cancel always does, since whoever cancelled
  * asked for the deploy to stop, not to stay half done.
  */
@@ -55,6 +56,10 @@ final class RollBack implements Step
         }
 
         $context->memo['rolled_back'] = $previous;
+
+        if ($context->layout->versionable && Activate::usesScript($context)) {
+            $done[] = Activate::runScript($context, $previous);
+        }
 
         if (Compose::builtin($context->project)) {
             RecreateServices::recreate($context, $previous);

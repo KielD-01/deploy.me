@@ -30,7 +30,7 @@ final class Activate implements Step
     public function shouldRun(DeployContext $context): bool
     {
         return ($context->memo['release'] ?? null) instanceof Release
-            && ($context->layout->versionable || (! $this->switchOnly && $this->usesScript($context)));
+            && ($context->layout->versionable || (! $this->switchOnly && self::usesScript($context)));
     }
 
     public function run(DeployContext $context): ?string
@@ -45,24 +45,34 @@ final class Activate implements Step
             $done[] = "current → releases/{$release->name}";
         }
 
-        if (! $this->switchOnly && $this->usesScript($context)) {
-            $script = (string) $context->project->activation_script;
+        if (! $this->switchOnly && self::usesScript($context)) {
             $context->memo['live'] = true;
-
-            $context->script('deploy-run-script', [
-                'DIR' => $release->path,
-                'SCRIPT' => $script,
-                'RELEASE' => $release->name,
-                'COMMIT' => (string) $release->commit_sha,
-                'TARGET' => $context->layout->root,
-                // The deploy's registry login, so the script's own pulls work.
-                'DOCKER_CONFIG_DIR' => (string) ($context->memo['registry_config'] ?? ''),
-            ], timeout: 1800)->throwIfFailed("{$script} failed.");
-
-            $done[] = "ran {$script}";
+            $done[] = self::runScript($context, $release);
         }
 
         return implode(' · ', $done);
+    }
+
+    /**
+     * The project's own deploy script, from a release's folder. Switching back
+     * runs the old release's again: current moving moves no container the
+     * script started.
+     */
+    public static function runScript(DeployContext $context, Release $release): string
+    {
+        $script = (string) $context->project->activation_script;
+
+        $context->script('deploy-run-script', [
+            'DIR' => $release->path,
+            'SCRIPT' => $script,
+            'RELEASE' => $release->name,
+            'COMMIT' => (string) $release->commit_sha,
+            'TARGET' => $context->layout->root,
+            // The deploy's registry login, so the script's own pulls work.
+            'DOCKER_CONFIG_DIR' => (string) ($context->memo['registry_config'] ?? ''),
+        ], timeout: 1800)->throwIfFailed("{$script} failed.");
+
+        return "ran {$script}";
     }
 
     public static function switchTo(DeployContext $context, Release $release): void
@@ -73,7 +83,7 @@ final class Activate implements Step
         ], timeout: 60)->throwIfFailed("Couldn’t point current at {$release->name}.");
     }
 
-    private function usesScript(DeployContext $context): bool
+    public static function usesScript(DeployContext $context): bool
     {
         return $context->project->activation === Activation::Script && (string) $context->project->activation_script !== '';
     }
