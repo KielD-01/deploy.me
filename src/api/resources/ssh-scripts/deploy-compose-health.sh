@@ -29,8 +29,13 @@ echo "Waiting for ${SERVICES:+$(echo $SERVICES) in }stack $STACK (up to $TIMEOUT
 while :; do
   waiting=""
   found=0
-  while IFS=$'\t' read -r service state health; do
+  # A one-off (a `compose run` left behind without --rm) is listed under its
+  # service's name, and an exited one isn't the service being down.
+  oneoffs=" $(docker ps -a --filter "label=com.docker.compose.project=$STACK" --filter label=com.docker.compose.oneoff=True --format '{{.Names}}' 2>/dev/null | tr '\n' ' ') "
+  while IFS=$'\t' read -r service state health name; do
     [ -n "$service" ] || continue
+    [ -z "$name" ] || case "$oneoffs" in *" $name "*) continue ;; esac
+    [ "$health" != "-" ] || health=""
     [ "$wanted" = " " ] || case "$wanted" in *" $service "*) ;; *) continue ;; esac
     found=$(( found + 1 ))
     now_status="$state${health:+, $health}"
@@ -42,7 +47,7 @@ while :; do
       running/healthy|running/) ;;
       *) waiting="$waiting $service ($now_status)" ;;
     esac
-  done < <(docker compose "${args[@]}" ps --all --format '{{.Service}}	{{.State}}	{{.Health}}' 2>/dev/null)
+  done < <(docker compose "${args[@]}" ps --all --format '{{.Service}}	{{.State}}	{{if .Health}}{{.Health}}{{else}}-{{end}}	{{.Name}}' 2>/dev/null)
 
   now=$(date +%s)
   if [ "$found" -gt 0 ] && [ -z "$waiting" ]; then
