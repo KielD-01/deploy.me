@@ -24,6 +24,7 @@ use App\Platform\Ssh\RemoteScript;
 use App\Platform\Ssh\SshClient;
 use App\Platform\Ssh\Testing\FakeSshClient;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
@@ -293,6 +294,33 @@ it('goes ahead with the next strategy when you don’t want to wait', function (
     expect($waiting->refresh()->status)->toBe(DeploymentStatus::Succeeded, (string) $waiting->outcome)
         ->and($waiting->strategy)->toBe('push_archive')
         ->and($waiting->strategy_trace[0])->toMatchArray(['key' => 'ghcr_image', 'state' => 'not_needed']);
+});
+
+it('runs a waiting run once, even when two workers pick it up at the same time', function () {
+    Queue::fake();
+    $this->actingAs(User::factory()->create());
+    $repo = tempGitRepo(['compose.yaml' => "services: {}\n"]);
+    Credential::factory()->create();
+    fakeGitHubCi($this, repoHead($repo));
+    $this->ci = ['status' => 'in_progress', 'conclusion' => null, 'images' => false];
+    $waiting = strategyRun(ghcrTarget($repo));
+
+    // "Deploy now" queues the run again; the 20 s re-check is queued already.
+    Livewire::test(RunPage::class, ['deployment' => $waiting])->call('deployNow');
+
+    // The second worker takes its job while the first is still resolving the commit.
+    $second = false;
+    DB::listen(function ($query) use (&$second, $waiting) {
+        if (! $second && str_starts_with($query->sql, 'update "deployments"') && str_contains($query->sql, '"strategy_trace"')) {
+            $second = true;
+            (new RunDeployment($waiting->id))->handle(app(PipelineRunner::class));
+        }
+    });
+    (new RunDeployment($waiting->id))->handle(app(PipelineRunner::class));
+
+    expect($second)->toBeTrue()
+        ->and(Release::query()->where('deployment_id', $waiting->id)->count())->toBe(1)
+        ->and($waiting->refresh()->status)->toBe(DeploymentStatus::Succeeded, (string) $waiting->outcome);
 });
 
 it('gives up on CI after an hour', function () {

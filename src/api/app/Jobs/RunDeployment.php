@@ -8,6 +8,7 @@ use App\Events\DeploymentUpdated;
 use App\Models\Deployment;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
@@ -34,14 +35,27 @@ class RunDeployment implements ShouldQueue
 
     public function handle(PipelineRunner $runner): void
     {
-        $deployment = Deployment::query()->find($this->deploymentId);
+        // A run waiting for CI can be in the queue twice ("Deploy now" beside
+        // the 20 s re-check), and it stays waiting until its commit resolves:
+        // the second worker to pick it up leaves it to the first.
+        $lock = Cache::lock("deployme:run-deployment:{$this->deploymentId}", self::TIMEOUT + 300);
 
-        // Cancelled while it waited in the queue (or for CI).
-        if ($deployment === null || ! in_array($deployment->status, [DeploymentStatus::Queued, DeploymentStatus::WaitingCi], true)) {
+        if (! $lock->get()) {
             return;
         }
 
-        $runner->run($deployment);
+        try {
+            $deployment = Deployment::query()->find($this->deploymentId);
+
+            // Cancelled while it waited in the queue (or for CI).
+            if ($deployment === null || ! in_array($deployment->status, [DeploymentStatus::Queued, DeploymentStatus::WaitingCi], true)) {
+                return;
+            }
+
+            $runner->run($deployment);
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
