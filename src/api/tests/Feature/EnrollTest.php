@@ -40,3 +40,37 @@ it('refuses links it never issued', function () {
 
     $this->assertGuest();
 });
+
+it('lets only one of two requests that arrive at once use a link', function () {
+    // A store where a second request reads the link while the first one has
+    // read it but not yet removed it.
+    $store = new class extends Illuminate\Cache\ArrayStore
+    {
+        public ?Closure $meanwhile = null;
+
+        public function get($key)
+        {
+            $value = parent::get($key);
+
+            if ($this->meanwhile !== null && str_starts_with((string) $key, 'deployme:enroll:')) {
+                [$then, $this->meanwhile] = [$this->meanwhile, null];
+                $then();
+            }
+
+            return $value;
+        }
+    };
+    Illuminate\Support\Facades\Cache::extend('racy', fn () => Illuminate\Support\Facades\Cache::repository($store));
+    config(['cache.stores.racy' => ['driver' => 'racy'], 'cache.default' => 'racy']);
+
+    $links = app(EnrollmentLinks::class);
+    $token = basename(parse_url($links->create(User::factory()->create()), PHP_URL_PATH));
+    $second = null;
+    $store->meanwhile = function () use ($links, $token, &$second) {
+        $second = $links->consume($token);
+    };
+
+    $first = $links->consume($token);
+
+    expect(array_filter([$first, $second]))->toHaveCount(1);
+});

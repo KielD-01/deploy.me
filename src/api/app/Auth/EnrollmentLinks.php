@@ -31,9 +31,16 @@ final class EnrollmentLinks
      */
     public function consume(string $token): ?User
     {
-        $id = Cache::pull($this->key($token));
+        $key = $this->key($token);
+        $id = Cache::get($key);
 
-        return $id ? User::query()->find($id) : null;
+        // pull() is a get and then a forget: two requests at once could both
+        // get. Only the one whose forget removed the key counts.
+        if (! $id || ! Cache::forget($key)) {
+            return null;
+        }
+
+        return User::query()->find($id);
     }
 
     private function key(string $token): string
