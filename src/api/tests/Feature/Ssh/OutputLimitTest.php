@@ -48,7 +48,11 @@ it('ships with an 8 MB limit, and says so in the message', function () {
 
 it('stops a command that never stops printing, keeping only the end of its output', function (?int $tickEvery) {
     config(['deployme.ssh.max_output_bytes' => 300_000]);
-    ($this->fakeSsh)("echo 'something went wrong early' >&2\nexec yes 'abcdefghijklmnopqrstuvwxyz0123456789'");
+    // A bounded flood, not an endless one: Symfony's pipe reader keeps reading
+    // while chunks come back full and hands the callback the lot afterwards, so
+    // a `yes` that outruns PHP on a loaded machine arrives as one chunk of
+    // hundreds of MB and the test, not the limit, runs out of memory.
+    ($this->fakeSsh)("echo 'something went wrong early' >&2\nyes 'abcdefghijklmnopqrstuvwxyz0123456789' | head -c 24000000");
 
     $lines = 0;
     $started = microtime(true);
@@ -90,7 +94,7 @@ it('lets a command that prints less than the limit through untouched', function 
 
 it('counts output even when nobody is listening for lines', function () {
     config(['deployme.ssh.max_output_bytes' => 200_000]);
-    ($this->fakeSsh)("exec yes 'abcdefghijklmnopqrstuvwxyz'");
+    ($this->fakeSsh)("yes 'abcdefghijklmnopqrstuvwxyz' | head -c 24000000");
 
     expect(fn () => ($this->client)()->run('box', RemoteScript::inline('spam', 'true'), timeout: 60))
         ->toThrow(SshOutputTooLarge::class);
