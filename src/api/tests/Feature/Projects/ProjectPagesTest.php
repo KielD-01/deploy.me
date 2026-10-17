@@ -8,6 +8,7 @@ use App\Livewire\Projects\Hooks;
 use App\Livewire\Projects\Show;
 use App\Models\Credential;
 use App\Models\Project;
+use App\Models\ProjectEnvFile;
 use App\Models\Release;
 use App\Models\User;
 use App\Platform\Detection\WorkflowAnalyzer;
@@ -305,4 +306,24 @@ it('needs a service for hooks that run in a container', function () {
         ->set('service', '')
         ->call('save')
         ->assertHasErrors('service');
+});
+
+it('asks again for a passkey once the confirmation is old, before showing another file’s values', function () {
+    $project = Project::factory()->create();
+    $first = $project->envFiles()->create(['path' => '.env', 'role' => 'app', ...ProjectEnvFile::contentAttributes("APP_KEY=base64:first-secret\n")]);
+    $second = $project->envFiles()->create(['path' => 'src/api/.env', 'role' => 'app', ...ProjectEnvFile::contentAttributes("APP_KEY=base64:second-secret\n")]);
+    session(['auth.password_confirmed_at' => time()]);
+
+    $environment = Livewire::test(Environment::class, ['projectId' => $project->id])
+        ->call('select', $first->id)
+        ->call('reveal')
+        ->assertSee('base64:first-secret');
+
+    // The tab stays open past the confirmation's lifetime (it goes by time(), not Carbon).
+    session(['auth.password_confirmed_at' => time() - (int) config('auth.password_timeout', 10800) - 60]);
+
+    $environment->call('select', $second->id)
+        ->assertDontSee('base64:second-secret')
+        ->call('reveal')
+        ->assertRedirect(route('password.confirm'));
 });

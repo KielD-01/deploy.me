@@ -270,6 +270,12 @@ class Environment extends Component
     {
         $file = $this->file;
 
+        // Revealing lasts as long as the confirmation it took: a tab left open
+        // past it shows the values masked again, whichever file it opens.
+        if ($this->revealed && ! $this->editing && ! $this->identityConfirmed()) {
+            $this->revealed = false;
+        }
+
         return view('livewire.projects.environment', [
             'files' => $this->project->envFiles()->get(),
             'file' => $file,
