@@ -9,14 +9,14 @@ it('sends guests to the sign-in page', function () {
     $this->get('/')->assertRedirect('/login');
 });
 
-it('offers passkey sign-in and no password form', function () {
+it('offers a passkey first and a password beside it', function () {
     $this->get('/login')
         ->assertOk()
-        ->assertSee('Sign in with a passkey')
-        ->assertDontSee('type="password"', false);
+        ->assertSeeInOrder(['Sign in with a passkey', 'Sign in with password'])
+        ->assertSee('type="password"', false);
 });
 
-it('rejects password sign-in', function () {
+it('refuses a password nobody chose, the random one an account starts with', function () {
     $user = User::factory()->create(['password' => 'a-password-nobody-should-use']);
 
     $this->post('/login', ['email' => $user->email, 'password' => 'a-password-nobody-should-use'])
@@ -64,8 +64,9 @@ it('renders every page for a signed-in user', function (string $uri, string $hea
     ['/settings?tab=account', 'Passkeys'],
 ]);
 
-it('has no registration, password reset or authenticator codes', function () {
+it('has no registration or email password reset: make enroll is the way back in', function () {
     $this->get('/register')->assertNotFound();
     $this->get('/forgot-password')->assertNotFound();
-    $this->get('/two-factor-challenge')->assertNotFound();
+    // The code prompt only follows a correct password.
+    $this->get('/two-factor-challenge')->assertRedirect('/login');
 });

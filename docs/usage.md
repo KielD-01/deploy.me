@@ -5,7 +5,7 @@ running it in production: deploys, rollbacks, blue/green, alerts and backups. Ea
 chapter stands on its own, so skip to the one you need.
 
 - [1. Install](#1--install)
-- [2. Sign in with a passkey](#2--sign-in-with-a-passkey)
+- [2. Sign in: passkey or password](#2--sign-in-passkey-or-password)
 - [3. Add a server](#3--add-a-server)
 - [4. Import a project](#4--import-a-project)
 - [5. Tune the project's settings](#5--tune-the-projects-settings)
@@ -49,7 +49,7 @@ On Windows, run this in PowerShell instead:
 5. `deployme:setup` generates `APP_KEY` and the Reverb credentials, and migrates.
 6. `bin/trust-ca` trusts the edge's local CA in your browsers.
 7. `make doctor` checks everything.
-8. It prints your passkey link.
+8. It prints the link that sets up your passkey or password.
 
 Each OS has its own notes: Linux UIDs, WSL and your Windows `.ssh`, Firefox. Those, and the
 two stack modes, are in **[install.md](install.md)**.
@@ -58,21 +58,37 @@ two stack modes, are in **[install.md](install.md)**.
 > **Back up `APP_KEY`** from `src/api/.env` and keep it in a password manager. GitHub tokens
 > and env files are encrypted with it, and they can't be read without it.
 
-## 2. 🔑 Sign in with a passkey
+## 2. 🔑 Sign in: passkey or password
 
-deploy.me signs you in with a passkey only. There are no passwords.
+deploy.me has one account per machine. Nobody can register on the site itself: the account
+and its first way in come from a one-time link.
 
 ```bash
 make enroll
 ```
 
-This prints a one-time link that works for 15 minutes. Open it, register a passkey
-(Touch ID, iCloud Keychain, 1Password, a hardware key…), and you're in at
-**https://deployme.localhost**. Run `make enroll` again whenever you add a device or lose
-a passkey.
+The link works once, for 15 minutes. Open it and choose how you'll sign in:
 
-Sensitive actions ask for the passkey again. These include trusting a host key, revealing
-or editing env files, deleting files during a sync, and removing a GitHub token.
+- **A passkey** (recommended): Touch ID, Windows Hello, iCloud Keychain, 1Password, a phone
+  or a security key.
+- **A password**, for a device that can't use passkeys: at least 12 characters, under
+  Settings → Account → Password.
+
+You can have both, and several passkeys. Under **Settings → Account**:
+
+- **Authenticator codes** (optional) make password sign-in also ask for a 6-digit code
+  from an app such as Google Authenticator, 1Password or Aegis. You get recovery codes for
+  when the phone is lost. A passkey never needs a code.
+- **The last way in can't be removed.** Removing the only passkey, or the only password,
+  is refused until there's another way in.
+- **Lost your way in?** `make enroll` again prints a new link that signs you in. There's no
+  email reset.
+
+Password sign-in allows five tries a minute, and so does the code prompt.
+
+Sensitive actions ask you to confirm it's you again, with a passkey or the password.
+These include trusting a host key, revealing or editing env files, deleting files during a
+sync, removing a GitHub token, and changing how you sign in.
 
 ## 3. 💻 Add a server
 

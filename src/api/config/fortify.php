@@ -116,6 +116,7 @@ return [
 
     'limiters' => [
         'login' => 'login',
+        'two-factor' => 'two-factor',
         'passkeys' => 'passkeys',
     ],
 
@@ -160,15 +161,19 @@ return [
     |
     */
 
-    // A single local user who signs in with a passkey. The first passkey is
-    // registered through a one-time link from `php artisan deployme:enroll`.
-    // No passwords, registration, email resets or authenticator codes.
-    // Managing passkeys requires a fresh confirmation ("confirm it's you"),
-    // which a passkey provides too.
+    // A single local user who signs in with a passkey or, on a device that
+    // can't use one, a password (optionally with an authenticator code). The
+    // account and its first way in come from a one-time link printed by
+    // `php artisan deployme:enroll`: no registration page and no email resets.
+    // Managing passkeys and authenticator codes requires a fresh confirmation
+    // ("confirm it's you"), which a passkey or the password provides.
     'features' => [
         Features::passkeys([
             'confirmPassword' => true,
         ]),
+        Features::twoFactorAuthentication([
+            'confirm' => true,
+            'confirmPassword' => true,
+        ]),
     ],
-
 ];

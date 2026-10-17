@@ -26,7 +26,7 @@ class EnrollCommand extends Command
             return self::FAILURE;
         }
 
-        $this->components->info('Open this link within '.EnrollmentLinks::TTL_MINUTES.' minutes to register a passkey. It works once.');
+        $this->components->info('Open this link within '.EnrollmentLinks::TTL_MINUTES.' minutes to set up a passkey or a password. It works once.');
         $this->line('  '.$links->create($user));
         $this->newLine();
 

@@ -2,7 +2,7 @@
 # deploy.me's guided install, for macOS, Linux and Windows (run it inside WSL2;
 # bin/install.ps1 gets you there from PowerShell). It checks what it needs,
 # describes this machine (bin/configure), builds and starts the stack, trusts
-# the local CA and prints the link that registers your passkey.
+# the local CA and prints the link that sets up your passkey or password.
 #
 #   bin/install                          detect everything
 #   bin/install --stack standalone       deploy.me's own Postgres, Valkey and edge
@@ -112,13 +112,13 @@ fi
 deployme_say "Checking everything"
 bin/doctor.sh || deployme_warn "Some checks failed: see above, and docs/install.md#troubleshooting"
 
-deployme_say "Register your passkey"
+deployme_say "Set up how you sign in"
 make enroll
 
 cat <<DONE
 
   deploy.me is running at https://deployme.localhost
-  Open the link above, register a passkey, then add a server.
+  Open the link above, set up a passkey (or a password), then add a server.
 
   make help      every command      docs/install.md   this machine's notes
   make doctor    check everything   docs/usage.md     the user guide

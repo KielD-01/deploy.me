@@ -145,7 +145,7 @@ roll back and cancel, and the client asks you before each one.
 </table>
 
 Also included: 🔁 one-way **folder mappings** (Mac ↔ server, rsync, previews, capped
-deletes), 🔑 **passkey-only sign-in**, and 💾 nightly **backups** of deploy.me itself.
+deletes), 🔑 **passkey or password sign-in** (with optional authenticator codes), and 💾 nightly **backups** of deploy.me itself.
 
 ## 🚀 Quick start
 
@@ -199,7 +199,7 @@ irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 | 
 - describes your machine in `.env` (`bin/configure`);
 - builds and starts the stack;
 - trusts the local CA in your browsers (macOS keychain, Linux NSS, Windows' store);
-- prints a one-time link that registers your **passkey**.
+- prints a one-time link that sets up your **passkey** or a password.
 
 The per-OS notes, the two stack modes and troubleshooting are in
 **[docs/install.md](docs/install.md)**.
@@ -338,7 +338,7 @@ flowchart LR
 |---|---|
 | `make up` · `make down` · `make restart` | Start, stop or restart the stack |
 | `make ps` · `make logs s=deployme-worker` | Status; follow logs (`s=` for one service) |
-| `make enroll` | A one-time link to register a passkey |
+| `make enroll` | A one-time link to set up a passkey or password (first run, or a lost way in) |
 | `make doctor` | Check infra, containers, TLS, websockets, every server alias and the GitHub tokens |
 | `make dev` · `make assets` | Vite with HMR · build the frontend |
 | `make test` · `make sandbox` · `make test-ssh` | The Pest suite · start the SSH sandbox · run the real-SSH tests against it |
@@ -348,8 +348,11 @@ flowchart LR
 
 ## 🛡️ Security model
 
-- 🔑 **Passkey-only sign-in.** Trusting a host key, touching env files, deleting during a
-  sync, and adding or removing tokens all ask for the passkey again.
+- 🔑 **Passkeys first, a password if you need one.** The password needs at least 12
+  characters, is rate-limited, and can require an authenticator code. Nobody can register:
+  the one account comes from `make enroll`, and the last way in can't be removed. Trusting
+  a host key, touching env files, deleting during a sync, adding or removing tokens, and
+  changing how you sign in all ask you to confirm it's you again.
 - 🤫 **Secrets never go in argv or logs.** Remote scripts receive them over stdin, git gets
   tokens only through `GIT_ASKPASS`, and the step logger redacts before anything is stored
   or broadcast.

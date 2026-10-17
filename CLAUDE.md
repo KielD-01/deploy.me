@@ -38,7 +38,7 @@ and health checks on queue workers run by supervisor.
 bin/install    # guided first run on macOS/Linux/WSL2 (configure, init, trust-ca, enroll)
 make configure # re-describe this machine (.env, compose.host.yml)
 make init      # first run: database, image, containers, assets, setup, doctor
-make enroll    # one-time link to register a passkey (first run, or a lost passkey)
+make enroll    # one-time link to set up a passkey or password (first run, or a lost way in)
 make up        # start · make down · make logs s=deployme-worker
 make test      # Pest, in the container, against deployme_test
 make sandbox   # local SSH server (alias "sandbox") · make test-ssh for real-ssh tests
@@ -51,10 +51,15 @@ doesn't wait for `make migrate`.
 
 ## How it fits together
 
-- **Sign-in is passkey only** (Fortify passkeys → `laravel/passkeys`, browser side
-  `@laravel/passkeys` in `resources/js/passkeys.js`). Password sign-in is disabled.
-  `deployme:enroll` prints a one-time link (`App\Auth\EnrollmentLinks`). Sensitive
-  routes use `password.confirm`, which a passkey confirmation satisfies.
+- **Sign-in is a passkey or a password** (Fortify passkeys → `laravel/passkeys`, browser
+  side `@laravel/passkeys` in `resources/js/passkeys.js`). One account; no registration or
+  email resets. `deployme:enroll` prints a one-time link (`App\Auth\EnrollmentLinks`) that
+  signs in and counts as a confirmation; Settings → Account then registers a passkey or sets
+  a password. Password sign-in accepts only a password its owner chose
+  (`users.password_set_at`; until then the column holds a random value), five tries a minute,
+  and asks for an authenticator code when Fortify 2FA is confirmed on (optional, recovery
+  codes). `DeletePasskeyKeepingAWayIn` and `removePassword` never remove the last way in.
+  Sensitive routes use `password.confirm`, which a passkey or the password satisfies.
 - **SSH** (`app/Platform/Ssh`): every call runs the system `ssh -F /run/deployme/ssh/config`
   (`SshConfigCompiler`: enforced options, then the user's `~/.ssh/config`, then extras
   like the sandbox). Host keys are trusted on first use and stored in `ssh_host_keys`

@@ -202,14 +202,14 @@
         <section class="card bg-base-100 border border-line max-w-3xl">
             <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
                 <h2 class="text-[15px] leading-[22px] font-semibold">Passkeys</h2>
-                <span class="text-[13px] text-muted">How you sign in and confirm sensitive actions</span>
+                <span class="text-[13px] text-muted">Touch ID, Windows Hello, a phone, a security key</span>
             </header>
 
-            @if ($enroll && $passkeys->isEmpty())
+            @if ($enroll && $passkeys->isEmpty() && ! $user->hasPassword())
                 <div class="p-4 pb-0">
                     <div role="alert" class="alert alert-soft alert-info text-[13px]">
                         <x-icon name="info" />
-                        You’re signed in with a one-time link. Register a passkey now: it’s how you’ll sign in from here on.
+                        You’re signed in with a one-time link. Register a passkey now, or set a password below if this device can’t use passkeys: it’s how you’ll sign in from here on.
                     </div>
                 </div>
             @endif
@@ -225,11 +225,15 @@
                                 · {{ $passkey->last_used_at ? 'last used '.$passkey->last_used_at->diffForHumans() : 'not used yet' }}
                             </span>
                         </div>
-                        <button type="button" class="btn btn-xs btn-ghost text-error"
-                                x-data="passkeyRemove(@js(route('passkey.destroy', $passkey)), @js($passkey->name))"
-                                x-on:click="remove" x-bind:disabled="busy">
-                            <x-icon name="trash" :size="12" /> Remove
-                        </button>
+                        @if ($passkeys->count() > 1 || $user->hasPassword())
+                            <button type="button" class="btn btn-xs btn-ghost text-error"
+                                    x-data="passkeyRemove(@js(route('passkey.destroy', $passkey)), @js($passkey->name))"
+                                    x-on:click="remove" x-bind:disabled="busy">
+                                <x-icon name="trash" :size="12" /> Remove
+                            </button>
+                        @else
+                            <span class="text-xs text-muted" title="Set a password or add another passkey first">Your only way in</span>
+                        @endif
                     </div>
                 @empty
                     <p class="px-4 py-3 text-[13px] text-muted border-b border-line">No passkeys yet.</p>
@@ -249,5 +253,92 @@
                 <p class="text-error text-[13px]" x-show="error" x-text="error" x-cloak></p>
             </form>
         </section>
+
+        <section class="card bg-base-100 border border-line max-w-3xl">
+            <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
+                <h2 class="text-[15px] leading-[22px] font-semibold">Password</h2>
+                <span class="text-[13px] text-muted">For devices that can’t use a passkey</span>
+                @if ($user->hasPassword())
+                    <span class="badge badge-soft badge-success badge-sm ml-auto">Set {{ $user->password_set_at->forViewer()->toFormattedDateString() }}</span>
+                @else
+                    <span class="badge badge-ghost badge-sm ml-auto">Not set</span>
+                @endif
+            </header>
+            <form class="p-4 flex flex-col gap-3" wire:submit="savePassword">
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-[13px] font-medium">{{ $user->hasPassword() ? 'New password' : 'Password' }}</span>
+                        <input type="password" wire:model="password" autocomplete="new-password" minlength="12" class="input w-full">
+                    </label>
+                    <label class="flex flex-col gap-1.5">
+                        <span class="text-[13px] font-medium">Repeat it</span>
+                        <input type="password" wire:model="passwordConfirmation" autocomplete="new-password" minlength="12" class="input w-full">
+                    </label>
+                </div>
+                <p class="text-xs text-muted">At least 12 characters. You sign in with {{ $user->email }} and this password; a passkey keeps working too.</p>
+                <div class="flex items-center gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm"><x-icon name="key" :size="14" /> {{ $user->hasPassword() ? 'Change password' : 'Set password' }}</button>
+                    @if ($user->hasPassword())
+                        @if ($passkeys->isNotEmpty())
+                            <button type="button" class="btn btn-ghost btn-sm text-error" wire:click="removePassword" wire:confirm="Remove the password? You’ll sign in with a passkey only.">Remove password</button>
+                        @else
+                            <span class="text-xs text-muted">Your only way in: add a passkey before removing it.</span>
+                        @endif
+                    @endif
+                </div>
+            </form>
+        </section>
+
+        @if ($user->hasPassword())
+            <section class="card bg-base-100 border border-line max-w-3xl">
+                <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
+                    <h2 class="text-[15px] leading-[22px] font-semibold">Authenticator codes</h2>
+                    <span class="text-[13px] text-muted">A code from an app on top of the password</span>
+                    @if ($user->hasTwoFactor())
+                        <span class="badge badge-soft badge-success badge-sm ml-auto">On</span>
+                    @else
+                        <span class="badge badge-ghost badge-sm ml-auto">Off</span>
+                    @endif
+                </header>
+                <div class="p-4 flex flex-col gap-3">
+                    @if ($user->hasTwoFactor())
+                        <p class="text-[13px]">Signing in with the password asks for a code from your authenticator app. Passkeys don’t need one.</p>
+                        @if ($recoveryCodes !== [])
+                            <div class="flex flex-col gap-1.5">
+                                <span class="text-[13px] font-medium">Recovery codes: each works once, if you lose the app</span>
+                                <div class="grid grid-cols-2 gap-1 font-mono text-[13px] bg-sunk rounded-box p-3">
+                                    @foreach ($recoveryCodes as $code)
+                                        <span>{{ $code }}</span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                        <div class="flex items-center gap-2">
+                            <button type="button" class="btn btn-sm" wire:click="newRecoveryCodes">New recovery codes</button>
+                            <button type="button" class="btn btn-ghost btn-sm text-error" wire:click="disableTwoFactor" wire:confirm="Turn off authenticator codes?">Turn off</button>
+                        </div>
+                    @elseif ($user->two_factor_secret)
+                        <p class="text-[13px]">Scan this with Google Authenticator, 1Password, Aegis or any authenticator app, then enter the code it shows.</p>
+                        <div class="flex flex-wrap items-start gap-4">
+                            <div class="bg-white p-2 rounded-box border border-line">{!! $user->twoFactorQrCodeSvg() !!}</div>
+                            <div class="flex flex-col gap-2 grow min-w-[200px]">
+                                <span class="text-xs text-muted">Or type this key in: <span class="font-mono select-all">{{ decrypt($user->two_factor_secret) }}</span></span>
+                                <form class="flex items-end gap-2" wire:submit="confirmTwoFactor">
+                                    <label class="flex flex-col gap-1.5 grow">
+                                        <span class="text-[13px] font-medium">Code</span>
+                                        <input type="text" wire:model="twoFactorCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" class="input w-full font-mono tracking-widest">
+                                    </label>
+                                    <button type="submit" class="btn btn-primary">Turn on</button>
+                                </form>
+                                <button type="button" class="link text-[13px] self-start" wire:click="disableTwoFactor">Cancel</button>
+                            </div>
+                        </div>
+                    @else
+                        <p class="text-[13px]">Optional. With it on, signing in with the password also asks for a 6-digit code from an app on your phone.</p>
+                        <div><button type="button" class="btn btn-sm" wire:click="enableTwoFactor"><x-icon name="shield" :size="14" /> Set up authenticator codes</button></div>
+                    @endif
+                </div>
+            </section>
+        @endif
     @endif
 </div>

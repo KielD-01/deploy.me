@@ -72,7 +72,7 @@ dev: .env ## Start the Vite dev server with HMR
 setup: .env ## Generate keys and run migrations
 	$(WEB) php artisan deployme:setup
 
-enroll: .env ## Print a one-time link to register a passkey (first run, or a lost passkey)
+enroll: .env ## Print a one-time link to set up a passkey or password (first run, or a lost way in)
 	$(WEB) php artisan deployme:enroll
 
 test: .env ## Run the test suite

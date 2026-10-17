@@ -81,7 +81,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('passkeyRemove', (url, name) => ({
         busy: false,
         async remove() {
-            if (!window.confirm(`Remove “${name}”? If it’s your last passkey, you’ll need \`make enroll\` to sign in again.`)) return;
+            if (!window.confirm(`Remove “${name}”?`)) return;
             this.busy = true;
             const response = await fetch(url, {
                 method: 'DELETE',
@@ -89,6 +89,13 @@ document.addEventListener('alpine:init', () => {
             });
             if (response.status === 423) {
                 window.location.assign(confirmUrl);
+                return;
+            }
+            // The last way in stays (DeletePasskeyKeepingAWayIn).
+            if (response.status === 422) {
+                const body = await response.json().catch(() => ({}));
+                window.alert(body?.errors?.passkey?.[0] ?? body?.message ?? 'That passkey can’t be removed.');
+                this.busy = false;
                 return;
             }
             window.location.assign(window.location.pathname);

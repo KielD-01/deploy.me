@@ -14,7 +14,13 @@ use App\Support\Alert;
 use App\Support\Audit;
 use App\Support\Settings;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
+use Laravel\Fortify\Actions\DisableTwoFactorAuthentication;
+use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
+use Laravel\Fortify\Actions\GenerateNewRecoveryCodes;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -29,7 +35,7 @@ class Index extends Component
     #[Url]
     public string $tab = 'github';
 
-    // Set by the one-time enrollment link: prompt for the first passkey.
+    // Set by the one-time enrollment link: prompt for the first passkey or password.
     #[Url]
     public bool $enroll = false;
 
@@ -48,6 +54,18 @@ class Index extends Component
     public string $telegramChatId = '';
 
     public bool $telegramSet = false;
+
+    // Account → Password: never kept after a save, whatever happens.
+    public string $password = '';
+
+    public string $passwordConfirmation = '';
+
+    // Account → Authenticator: the code that proves the app is set up, and the
+    // recovery codes, shown once right after they're made.
+    public string $twoFactorCode = '';
+
+    /** @var list<string> */
+    public array $recoveryCodes = [];
 
     public ?string $notice = null;
 
@@ -212,6 +230,138 @@ class Index extends Component
         $credential->delete();
         Audit::record(AuditAction::CredentialRemoved, ['subject' => "GitHub token for {$credential->login}", 'detail' => $credential->token_hint]);
         $this->notice = "Removed {$credential->login}’s token.";
+    }
+
+    /**
+     * Sets or changes the sign-in password: a second way in, for a device that
+     * can't use a passkey. The enrollment link counts as the confirmation.
+     */
+    public function savePassword(): void
+    {
+        $password = $this->password;
+        $confirmation = $this->passwordConfirmation;
+        $this->reset('password', 'passwordConfirmation', 'notice', 'problem');
+
+        if (! $this->confirmIdentity(route('settings', ['tab' => 'account']))) {
+            return;
+        }
+
+        $validator = Validator::make(
+            ['password' => $password, 'password_confirmation' => $confirmation],
+            ['password' => ['required', 'string', 'min:12', 'max:200', 'confirmed']],
+            ['password.min' => 'Use at least 12 characters.', 'password.confirmed' => 'The two passwords don’t match.'],
+        );
+
+        if ($validator->fails()) {
+            $this->problem = $validator->errors()->first();
+
+            return;
+        }
+
+        $user = auth()->user();
+        $had = $user->hasPassword();
+        $user->forceFill(['password' => $password, 'password_set_at' => now()])->save();
+        Audit::record(AuditAction::PasswordSet, ['subject' => $user->email, 'detail' => $had ? 'changed' : 'first set']);
+        $this->notice = $had ? 'Password changed.' : 'Password set. You can sign in with it on any device.';
+    }
+
+    /**
+     * Back to passkeys only. Authenticator codes go with the password they guarded.
+     */
+    public function removePassword(DisableTwoFactorAuthentication $disable): void
+    {
+        $this->reset('notice', 'problem');
+
+        if (! $this->confirmIdentity(route('settings', ['tab' => 'account']))) {
+            return;
+        }
+
+        $user = auth()->user();
+
+        if (! $user->passkeys()->exists()) {
+            $this->problem = 'Your password is your only way in. Add a passkey first.';
+
+            return;
+        }
+
+        $disable($user);
+        // A random value nobody knows, as before a password was chosen.
+        $user->forceFill(['password' => Str::random(64), 'password_set_at' => null])->save();
+        Audit::record(AuditAction::PasswordRemoved, ['subject' => $user->email]);
+        $this->notice = 'Password removed. You sign in with a passkey only.';
+    }
+
+    public function enableTwoFactor(EnableTwoFactorAuthentication $enable): void
+    {
+        $this->reset('notice', 'problem', 'twoFactorCode', 'recoveryCodes');
+
+        if (! $this->confirmIdentity(route('settings', ['tab' => 'account']))) {
+            return;
+        }
+
+        if (! auth()->user()->hasPassword()) {
+            $this->problem = 'Authenticator codes guard the password: set one first.';
+
+            return;
+        }
+
+        $enable(auth()->user());
+    }
+
+    public function confirmTwoFactor(ConfirmTwoFactorAuthentication $confirm): void
+    {
+        $code = preg_replace('/\s+/', '', $this->twoFactorCode);
+        $this->reset('notice', 'problem', 'twoFactorCode');
+
+        if (! $this->confirmIdentity(route('settings', ['tab' => 'account']))) {
+            return;
+        }
+
+        $user = auth()->user();
+
+        try {
+            $confirm($user, $code);
+        } catch (ValidationException) {
+            $this->problem = 'That code didn’t match. Check the app’s clock, and use the newest code.';
+
+            return;
+        }
+
+        $this->recoveryCodes = $user->fresh()->recoveryCodes();
+        Audit::record(AuditAction::TwoFactorEnabled, ['subject' => $user->email]);
+        $this->notice = 'Authenticator codes are on. Keep the recovery codes below somewhere safe.';
+    }
+
+    public function newRecoveryCodes(GenerateNewRecoveryCodes $generate): void
+    {
+        $this->reset('notice', 'problem');
+
+        if (! $this->confirmIdentity(route('settings', ['tab' => 'account']))) {
+            return;
+        }
+
+        $generate(auth()->user());
+        $this->recoveryCodes = auth()->user()->fresh()->recoveryCodes();
+        $this->notice = 'New recovery codes. The old ones no longer work.';
+    }
+
+    public function disableTwoFactor(DisableTwoFactorAuthentication $disable): void
+    {
+        $this->reset('notice', 'problem', 'twoFactorCode', 'recoveryCodes');
+
+        if (! $this->confirmIdentity(route('settings', ['tab' => 'account']))) {
+            return;
+        }
+
+        $user = auth()->user();
+        $wasOn = $user->hasTwoFactor();
+        $disable($user);
+
+        if ($wasOn) {
+            Audit::record(AuditAction::TwoFactorDisabled, ['subject' => $user->email]);
+        }
+
+        $this->notice = $wasOn ? 'Authenticator codes are off.' : null;
     }
 
     public function render(SshConfigReader $sshConfig, SshConfigCompiler $compiler): View
