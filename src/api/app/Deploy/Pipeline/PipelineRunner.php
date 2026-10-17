@@ -183,7 +183,7 @@ class PipelineRunner
         // The outcome goes to the run pages, to Telegram and to MCP answers.
         $outcome = $context->log->redactor->redact((string) $outcome);
         $context->log->note($mark.$outcome);
-        $context->log->flush();
+        $context->log->close();
 
         $this->finish($deployment, $status, $outcome);
     }
@@ -288,12 +288,13 @@ class PipelineRunner
             $deployment->steps()->where('status', StepStatus::Pending)->update(['status' => StepStatus::Skipped]);
             $outcome = 'CI didn’t publish anything within an hour. '.$waiting->getMessage();
             $context->log->note('✗ '.$outcome);
-            $context->log->flush();
+            $context->log->close();
             $this->finish($deployment, DeploymentStatus::Failed, $outcome);
 
             return;
         }
 
+        $context->log->close();
         $deployment->forceFill(['status' => DeploymentStatus::WaitingCi, 'heartbeat_at' => now()])->save();
         $this->announce($deployment);
 

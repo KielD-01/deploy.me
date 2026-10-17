@@ -142,6 +142,7 @@ final class DeployContext
         if ($now - $this->heartbeatAt >= self::HEARTBEAT_EVERY) {
             $this->heartbeatAt = $now;
             Deployment::query()->whereKey($this->deployment->id)->update(['heartbeat_at' => now()]);
+            $this->log->saveCount();
         }
 
         if ($now - $this->cancelCheckedAt >= (int) config('deployme.deploy.cancel_check_ms', 2000) / 1000) {

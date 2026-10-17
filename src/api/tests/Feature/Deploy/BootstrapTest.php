@@ -287,7 +287,7 @@ it('cleans terminal codes and masks tokens in the log', function () {
 
     $log->line("\e[32mOK\e[0m pulled with ghp_abcdefghijklmnopqrstuvwxyz0123");
     $log->line('fetched https://user:pass@example.com/repo.git');
-    $log->flush();
+    $log->close();
 
     expect($deployment->logLines()->pluck('line')->all())->toBe(['OK pulled with ••••••', 'fetched https://example.com/repo.git'])
         ->and($deployment->refresh()->log_lines)->toBe(2);

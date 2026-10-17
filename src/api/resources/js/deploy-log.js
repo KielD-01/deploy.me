@@ -1,7 +1,9 @@
 // The run page's log. Lines arrive over Reverb as the runner writes them;
 // anything missed (the first load, a batch too big to broadcast, a reconnect)
 // is fetched from the Livewire component. Text only ever goes in via
-// textContent, and the pane keeps the last 5000 lines. Each line comes with the
+// textContent, and the pane keeps the last `keep` lines (Deployment::LOG_PANE_LINES:
+// a first load starts that far from the end, so a long run's log doesn't arrive
+// whole only to be trimmed). Each line comes with the
 // UTC instant it was logged at, shown on this browser's clock.
 //
 // A page can fold the log by step (the Console theme's run page): each step's
@@ -10,7 +12,6 @@
 // is open by itself (running, failed). A step someone folded or unfolded stays
 // that way. Lines of no step, or of one the page has no fold for yet, stay in
 // x-ref="lines".
-const MAX_LINES = 5000;
 
 const clock = (at) => {
     const time = new Date(at);
@@ -19,7 +20,7 @@ const clock = (at) => {
 };
 
 // active: the statuses of a run still going (DeploymentStatus::ACTIVE), from the page.
-export default ({ id, live, active, steps }) => ({
+export default ({ id, live, active, keep, page, steps }) => ({
     live,
     steps,
     step: '',
@@ -73,7 +74,7 @@ export default ({ id, live, active, steps }) => ({
             do {
                 batch = await this.$wire.linesAfter(this.lastSeq);
                 this.append(batch);
-            } while (batch.length === 2000);
+            } while (batch.length === page);
         } finally {
             this.loading = false;
         }
@@ -126,7 +127,7 @@ export default ({ id, live, active, steps }) => ({
         this.count += lines.length;
         this.rows += lines.length;
         // The oldest go first, wherever they are.
-        while (this.rows > MAX_LINES) {
+        while (this.rows > keep) {
             this.$root.querySelector('.log-line')?.remove();
             this.rows--;
         }

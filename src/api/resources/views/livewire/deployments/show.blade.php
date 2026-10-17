@@ -262,7 +262,7 @@
         </div>
 
         <section class="card bg-base-100 border border-line overflow-hidden" wire:ignore
-                 x-data="deployLog({ id: {{ $deployment->id }}, live: @js($deployment->isActive()), active: @js(DeploymentStatus::ACTIVE), steps: @js((object) $steps->pluck('label', 'key')->all()) })">
+                 x-data="deployLog({ id: {{ $deployment->id }}, live: @js($deployment->isActive()), active: @js(DeploymentStatus::ACTIVE), keep: {{ \App\Models\Deployment::LOG_PANE_LINES }}, page: {{ \App\Models\Deployment::LOG_PAGE }}, steps: @js((object) $steps->pluck('label', 'key')->all()) })">
             <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">
                 <h2 class="text-[15px] font-semibold">Log</h2>
                 <span class="text-[13px] text-muted"><span x-show="live" class="text-info">streaming live · </span><span x-text="count">0</span> lines</span>

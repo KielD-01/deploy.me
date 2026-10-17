@@ -48,6 +48,7 @@ class DetectStalledDeployments
                 'status' => DeploymentStatus::Stalled,
                 'finished_at' => now(),
                 'outcome' => 'The deploy worker stopped reporting. The folder may still be locked; the next run takes that lock over.',
+                'log_lines' => $deployment->loggedLines(),
             ]);
             $deployment->failUnfinishedRelease();
 

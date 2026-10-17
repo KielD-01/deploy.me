@@ -18,7 +18,7 @@
                 @if ($current)<span class="t-mute text-[11px]">{{ strtolower($current->label) }}{{ $current->detail ? ' · '.\Illuminate\Support\Str::limit($current->detail, 60) : '' }}</span>@endif
             @endif
         </div>
-        <div class="flex-1 min-h-0 flex flex-col" wire:key="log-{{ $run->id }}" x-data="deployLog({ id: {{ $run->id }}, live: @js($run->isActive()), active: @js(\App\Enums\DeploymentStatus::ACTIVE), steps: {} })">
+        <div class="flex-1 min-h-0 flex flex-col" wire:key="log-{{ $run->id }}" x-data="deployLog({ id: {{ $run->id }}, live: @js($run->isActive()), active: @js(\App\Enums\DeploymentStatus::ACTIVE), keep: {{ \App\Models\Deployment::LOG_PANE_LINES }}, page: {{ \App\Models\Deployment::LOG_PAGE }}, steps: {} })">
             <div x-ref="pane" x-on:scroll="follow = atBottom()" class="flex-1 min-h-0 overflow-y-auto px-3 py-1 text-[12px] leading-5">
                 <div x-ref="lines" wire:ignore></div>
             </div>

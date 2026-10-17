@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Console;
 
-use App\Deploy\Logging\StepLogger;
 use App\Enums\DeploymentStatus;
 use App\Enums\StepStatus;
 use App\Livewire\Console\Concerns\LoadsAfterThePage;
@@ -54,10 +53,7 @@ class Tail extends Component
     {
         $run = $this->deploymentId !== null ? Deployment::query()->find($this->deploymentId) : null;
 
-        return $run === null ? [] : $run->logLines(max(0, $seq), 2000)
-            ->map(fn (object $line) => [(int) $line->seq, $line->stream, $line->step_key, StepLogger::instant((string) $line->logged_at), $line->line])
-            ->values()
-            ->all();
+        return $run?->linesForPane($seq) ?? [];
     }
 
     private function pick(): ?int

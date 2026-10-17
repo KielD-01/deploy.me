@@ -11,7 +11,9 @@ use Throwable;
 /**
  * A deployment's log: lines from the server and deploy.me's own notes,
  * cleaned of terminal codes, redacted, numbered, written in batches (one
- * insert per flush) and broadcast to the run page as they're written.
+ * insert per flush) and broadcast to the run page as they're written. The
+ * run's line count (deployments.log_lines) follows less often: with the
+ * heartbeat, at each step, and at the end (saveCount()).
  */
 final class StepLogger
 {
@@ -38,11 +40,17 @@ final class StepLogger
 
     private ?string $step = null;
 
+    // The last line in the database, and the count the run row last got.
+    private int $written;
+
+    private int $counted;
+
     public function __construct(
         private readonly Deployment $deployment,
         public readonly SecretRedactor $redactor = new SecretRedactor,
     ) {
         $this->seq = (int) DB::table('deployment_logs')->where('deployment_id', $deployment->id)->max('seq');
+        $this->written = $this->counted = $this->seq;
         $this->flushedAt = microtime(true);
     }
 
@@ -52,6 +60,7 @@ final class StepLogger
     public function forStep(?string $key): void
     {
         $this->flush();
+        $this->saveCount();
         $this->step = $key;
     }
 
@@ -89,7 +98,7 @@ final class StepLogger
         $this->bytes = 0;
 
         DB::table('deployment_logs')->insert($rows);
-        DB::table('deployments')->where('id', $this->deployment->id)->update(['log_lines' => $this->seq]);
+        $this->written = $this->seq;
 
         $lines = array_map(
             fn (array $row) => [$row['seq'], $row['stream'], $row['step_key'], self::instant($row['logged_at']), $row['line']],
@@ -107,6 +116,28 @@ final class StepLogger
             // The log is in the database either way; the page catches up on reload.
             Log::warning('Could not broadcast deploy log lines', ['deployment' => $this->deployment->id, 'error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Writes what's buffered and the run's line count: the last flush of a run.
+     */
+    public function close(): void
+    {
+        $this->flush();
+        $this->saveCount();
+    }
+
+    /**
+     * deployments.log_lines: the lines in the database so far, when that changed.
+     */
+    public function saveCount(): void
+    {
+        if ($this->written === $this->counted) {
+            return;
+        }
+
+        DB::table('deployments')->where('id', $this->deployment->id)->update(['log_lines' => $this->written]);
+        $this->counted = $this->written;
     }
 
     /**

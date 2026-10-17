@@ -74,6 +74,7 @@ class RunDeployment implements ShouldQueue
             'status' => DeploymentStatus::Failed,
             'finished_at' => now(),
             'outcome' => 'The deploy worker stopped: '.($exception?->getMessage() ?: 'no reason given').'.',
+            'log_lines' => $deployment->loggedLines(),
         ]);
         $deployment->failUnfinishedRelease();
 

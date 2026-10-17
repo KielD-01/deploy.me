@@ -7,7 +7,6 @@ use App\Actions\Deployments\StartDeployment;
 use App\Deploy\Conversion\Conversion;
 use App\Deploy\Delivery\VerdictState;
 use App\Deploy\Logging\LogArchive;
-use App\Deploy\Logging\StepLogger;
 use App\Deploy\Pipeline\ResumePlanner;
 use App\Deploy\ScriptRun;
 use App\Enums\DeliveryStrategyKey;
@@ -278,10 +277,7 @@ class Show extends Component
     #[Renderless]
     public function linesAfter(int $seq): array
     {
-        return $this->deployment->logLines(max(0, $seq), 2000)
-            ->map(fn (object $line) => [(int) $line->seq, $line->stream, $line->step_key, StepLogger::instant((string) $line->logged_at), $line->line])
-            ->values()
-            ->all();
+        return $this->deployment->linesForPane($seq);
     }
 
     public function render(): View
