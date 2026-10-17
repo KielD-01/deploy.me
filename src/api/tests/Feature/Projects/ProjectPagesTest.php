@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Platform\Detection\WorkflowAnalyzer;
 use App\Support\HookPresets;
 use Illuminate\Support\Facades\DB;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -326,4 +327,14 @@ it('asks again for a passkey once the confirmation is old, before showing anothe
         ->assertDontSee('base64:second-secret')
         ->call('reveal')
         ->assertRedirect(route('password.confirm'));
+});
+
+it('takes a commit for the deploy dialog only through its own pick', function () {
+    $dialog = Livewire::test(DeployDialog::class, ['projectId' => Project::factory()->create()->id]);
+
+    // Straight into the preview's GitHub requests otherwise.
+    expect(fn () => $dialog->set('commit', '../../orgs/x'))->toThrow(CannotUpdateLockedPropertyException::class);
+
+    $dialog->call('pickCommit', '../../orgs/x')->assertSet('commit', '')
+        ->call('pickCommit', 'abc1234')->assertSet('commit', 'abc1234');
 });

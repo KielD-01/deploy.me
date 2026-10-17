@@ -46,6 +46,8 @@ class DeployDialog extends Component
     public array $targetIds = [];
 
     // Empty: the branch's latest commit (or the folder as it is).
+    // Only pickCommit() sets it: it goes into the preview's GitHub requests.
+    #[Locked]
     public string $commit = '';
 
     // Docker projects that migrate: back up first, or skip the migrations.
