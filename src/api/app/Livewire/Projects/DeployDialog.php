@@ -3,11 +3,10 @@
 namespace App\Livewire\Projects;
 
 use App\Actions\Deployments\StartDeployment;
-use App\Deploy\Compose;
 use App\Deploy\Delivery\DeliveryResolver;
 use App\Deploy\Delivery\Resolution;
 use App\Deploy\DeploymentBusy;
-use App\Deploy\Pipeline\Steps\BackupDatabase;
+use App\Deploy\DeploymentRefused;
 use App\Enums\CiState;
 use App\Enums\DeploymentKind;
 use App\Models\Credential;
@@ -141,13 +140,19 @@ class DeployDialog extends Component
             return false;
         }
 
-        // A folder an earlier deployment still runs from is converted first.
-        $unconverted = $targets->filter->needsConversion();
+        // Nothing starts while one of the picked targets can't take a deploy.
+        $refused = $targets->reject(function (Target $target) use ($start) {
+            try {
+                $start->check($target, DeploymentKind::Deploy);
 
-        if ($unconverted->isNotEmpty()) {
-            $one = $unconverted->count() === 1;
-            $this->problem = $unconverted->map(fn ($target) => $target->server->name)->implode(', ')
-                .($one ? ' still runs' : ' still run').' from an earlier deployment. Convert '.($one ? 'that folder' : 'those folders').' first: it’s on the Targets tab.';
+                return true;
+            } catch (DeploymentRefused) {
+                return false;
+            }
+        });
+
+        if ($refused->isNotEmpty()) {
+            $this->problem = DeploymentRefused::unconverted($refused)->getMessage();
 
             return false;
         }
@@ -167,6 +172,11 @@ class DeployDialog extends Component
                 Cache::put($key, $runs, now()->addHour());
             } catch (DeploymentBusy) {
                 $busy[] = $target->server->name;
+            } catch (DeploymentRefused $e) {
+                // It changed since the check above.
+                $this->problem = $e->getMessage();
+
+                return false;
             }
         }
 
@@ -230,23 +240,18 @@ class DeployDialog extends Component
     }
 
     /**
+     * What the dialog asks for; StartDeployment fills in the defaults (a
+     * backup when the project can have one, the migrations run).
+     *
      * @return array<string, mixed>
      */
     private function options(): array
     {
-        $options = $this->commit !== '' ? ['commit' => $this->commit] : [];
-
-        if ($this->migrates()) {
-            $options['backup'] = $this->backup && BackupDatabase::available($this->project);
-            $options['skip_migrations'] = $this->skipMigrations;
-        }
-
-        return $options;
-    }
-
-    private function migrates(): bool
-    {
-        return Compose::builtin($this->project) && (string) $this->project->migrate_service !== '';
+        return array_filter([
+            'commit' => $this->commit !== '' ? $this->commit : null,
+            'backup' => $this->backup ? null : false,
+            'skip_migrations' => $this->skipMigrations ? true : null,
+        ], fn ($value) => $value !== null);
     }
 
     /**
@@ -295,8 +300,8 @@ class DeployDialog extends Component
             'sinceMigrations' => $sinceMigrations,
             'resolution' => $this->resolution,
             'ci' => $this->ci,
-            'migrates' => $this->migrates(),
-            'canBackup' => BackupDatabase::available($this->project),
+            'migrates' => StartDeployment::migrates($this->project),
+            'canBackup' => StartDeployment::canBackUp($this->project),
         ]);
     }
 }

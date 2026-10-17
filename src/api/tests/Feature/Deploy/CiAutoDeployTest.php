@@ -8,6 +8,7 @@ use App\Models\Deployment;
 use App\Models\Release;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 
 // Deployment #254: main's head was 602b3b8, already live, and GitHub's list
@@ -167,4 +168,17 @@ it('asks again on the next poll when GitHub can’t compare', function () {
     app(PollCi::class)($this->target->project);
 
     expect(Deployment::query()->sole()->options)->toBe(['commit' => $this->head]);
+});
+
+it('never auto-deploys into a folder an earlier deployment still runs from', function () {
+    $this->listed = [deployRun(45, $this->head)];
+    $this->target->update(['folder_scan' => ['foreign' => ['count' => 4, 'names' => ['.env'], 'seen_at' => now()->toIso8601String()]]]);
+    Log::spy();
+
+    app(PollCi::class)($this->target->project);
+
+    expect($this->target->project->refresh()->ci_state)->toBe(CiState::Passing)
+        ->and(Deployment::query()->count())->toBe(0);
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context = []) => $message === 'CI auto-deploy refused'
+        && str_contains($context['reason'] ?? '', 'still runs from an earlier deployment'));
 });

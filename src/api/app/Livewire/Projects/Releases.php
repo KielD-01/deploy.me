@@ -3,12 +3,11 @@
 namespace App\Livewire\Projects;
 
 use App\Actions\Deployments\StartDeployment;
-use App\Deploy\DeploymentBusy;
 use App\Enums\DeploymentKind;
 use App\Enums\ReleaseStatus;
+use App\Livewire\Concerns\StartsRuns;
 use App\Models\Project;
 use App\Models\Release;
-use App\Models\Target;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
@@ -21,6 +20,8 @@ use Livewire\Component;
  */
 class Releases extends Component
 {
+    use StartsRuns;
+
     // Enough history for a page; older ones live on in the deployments list.
     public const SHOWN = 50;
 
@@ -65,7 +66,7 @@ class Releases extends Component
             return;
         }
 
-        $this->startRun($release->target, DeploymentKind::Rollback, ['release_id' => $release->id], $start);
+        $this->startRun($start, $release->target, DeploymentKind::Rollback, ['release_id' => $release->id]);
     }
 
     public function redeploy(int $releaseId, StartDeployment $start): void
@@ -78,23 +79,7 @@ class Releases extends Component
             return;
         }
 
-        $this->startRun($release->target, DeploymentKind::Redeploy, ['commit' => $release->commit_sha], $start);
-    }
-
-    /**
-     * @param  array<string, mixed>  $options
-     */
-    private function startRun(Target $target, DeploymentKind $kind, array $options, StartDeployment $start): void
-    {
-        try {
-            $deployment = $start($target, $kind, auth()->user(), $options);
-        } catch (DeploymentBusy $e) {
-            $this->problem = $e->getMessage();
-
-            return;
-        }
-
-        $this->redirectRoute('deployments.show', $deployment, navigate: true);
+        $this->startRun($start, $release->target, DeploymentKind::Redeploy, ['commit' => $release->commit_sha]);
     }
 
     private function release(int $id): Release

@@ -4,6 +4,7 @@ namespace App\Actions\Projects;
 
 use App\Actions\Deployments\StartDeployment;
 use App\Deploy\DeploymentBusy;
+use App\Deploy\DeploymentRefused;
 use App\Enums\CiState;
 use App\Enums\DeploymentKind;
 use App\Events\ProjectCiUpdated;
@@ -128,6 +129,8 @@ class PollCi
                 app(StartDeployment::class)($target, DeploymentKind::Deploy, null, ['commit' => $sha], 'ci');
             } catch (DeploymentBusy) {
                 // The run that's going finishes first; the next green build deploys.
+            } catch (DeploymentRefused $e) {
+                Log::warning('CI auto-deploy refused', ['project' => $project->id, 'target' => $target->id, 'commit' => $sha, 'reason' => $e->getMessage()]);
             }
         }
     }

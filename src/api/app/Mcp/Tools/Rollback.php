@@ -4,6 +4,7 @@ namespace App\Mcp\Tools;
 
 use App\Actions\Deployments\StartDeployment;
 use App\Deploy\DeploymentBusy;
+use App\Deploy\DeploymentRefused;
 use App\Enums\DeploymentKind;
 use App\Mcp\Describe;
 use App\Mcp\Find;
@@ -67,7 +68,7 @@ class Rollback extends Tool
 
         try {
             $run = app(StartDeployment::class)($target, DeploymentKind::Rollback, User::query()->first(), ['release_id' => $release->id], $this->trigger);
-        } catch (DeploymentBusy $e) {
+        } catch (DeploymentBusy|DeploymentRefused $e) {
             throw new ToolFailed($e->getMessage());
         }
 

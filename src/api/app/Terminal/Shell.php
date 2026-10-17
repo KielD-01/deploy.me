@@ -2,8 +2,7 @@
 
 namespace App\Terminal;
 
-use App\Deploy\Compose;
-use App\Deploy\Pipeline\Steps\BackupDatabase;
+use App\Actions\Deployments\StartDeployment;
 use App\Enums\DeploymentStatus;
 use App\Enums\TargetHealth;
 use App\Mcp\Find;
@@ -284,7 +283,7 @@ final class Shell
         }
 
         $target = Find::target($project, $args[1] ?? null);
-        $migrates = Compose::builtin($project) && (string) $project->migrate_service !== '';
+        $migrates = StartDeployment::migrates($project);
 
         if (! isset($flags['commit'])) {
             $commits = BranchCommits::recent($project, 8);
@@ -301,7 +300,7 @@ final class Shell
             $flags['commit'] = '';
         }
 
-        if ($migrates && BackupDatabase::available($project) && ! isset($flags['backup']) && ! isset($flags['no-backup'])) {
+        if (StartDeployment::canBackUp($project) && ! isset($flags['backup']) && ! isset($flags['no-backup'])) {
             return self::pick('Back up the database before migrating?', $state + ['flags' => $flags, 'key' => 'flag:backup'], [
                 ['value' => 'yes', 'label' => 'yes, pg_dump first', 'hint' => 'keeps '.$project->backup_keep],
                 ['value' => 'no', 'label' => 'no'],
@@ -309,7 +308,7 @@ final class Shell
         }
 
         $commit = (string) $flags['commit'];
-        $backup = $migrates && ! isset($flags['no-backup']) && ($flags['backup'] ?? 'yes') !== 'no';
+        $backup = StartDeployment::canBackUp($project) && ! isset($flags['no-backup']) && ($flags['backup'] ?? 'yes') !== 'no';
 
         if (! ($flags['yes'] ?? false)) {
             $plan = app(Tools\PlanDeploy::class)->call(array_filter(['project' => $project->slug, 'commit' => $commit]));

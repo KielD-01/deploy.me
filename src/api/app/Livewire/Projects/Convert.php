@@ -5,9 +5,9 @@ namespace App\Livewire\Projects;
 use App\Actions\Deployments\StartDeployment;
 use App\Deploy\Conversion\Conversion;
 use App\Deploy\Conversion\ConversionPlanner;
-use App\Deploy\DeploymentBusy;
 use App\Enums\DeploymentKind;
 use App\Jobs\ReadTargetFolder;
+use App\Livewire\Concerns\StartsRuns;
 use App\Models\Project;
 use App\Models\Release;
 use App\Models\Target;
@@ -26,6 +26,8 @@ use Livewire\Component;
  */
 class Convert extends Component
 {
+    use StartsRuns;
+
     // A read older than this is done again when the page opens.
     private const FRESH_FOR = 600;
 
@@ -109,15 +111,7 @@ class Convert extends Component
 
         $conversion = ConversionPlanner::conversion($target->project, $plan, $this->restart);
 
-        try {
-            $run = $start($target, DeploymentKind::Convert, auth()->user(), ['conversion' => $conversion->toArray()]);
-        } catch (DeploymentBusy $e) {
-            $this->problem = $e->getMessage();
-
-            return;
-        }
-
-        $this->redirectRoute('deployments.show', $run, navigate: true);
+        $this->startRun($start, $target, DeploymentKind::Convert, ['conversion' => $conversion->toArray()]);
     }
 
     /**

@@ -3,9 +3,8 @@
 namespace App\Mcp\Tools;
 
 use App\Actions\Deployments\StartDeployment;
-use App\Deploy\Compose;
 use App\Deploy\DeploymentBusy;
-use App\Deploy\Pipeline\Steps\BackupDatabase;
+use App\Deploy\DeploymentRefused;
 use App\Enums\DeploymentKind;
 use App\Mcp\Describe;
 use App\Mcp\Find;
@@ -55,20 +54,17 @@ class Deploy extends Tool
         $target = Find::target($project, $this->string($arguments, 'server'));
         $commit = PlanDeploy::commit($this->string($arguments, 'commit'));
 
-        if ($target->needsConversion()) {
-            throw new ToolFailed("{$target->server->name} still runs {$project->name} from an earlier deployment. Convert that folder first: it’s on the project’s Targets tab.");
-        }
-
-        $options = $commit !== null ? ['commit' => $commit] : [];
-
-        if (Compose::builtin($project) && (string) $project->migrate_service !== '') {
-            $options['backup'] = $this->bool($arguments, 'backup', true) && BackupDatabase::available($project);
-            $options['skip_migrations'] = $this->bool($arguments, 'skip_migrations', false);
-        }
+        // What was asked for; StartDeployment fills in the defaults and
+        // refuses a target that can't take a deploy.
+        $options = array_filter([
+            'commit' => $commit,
+            'backup' => $this->bool($arguments, 'backup', true) ? null : false,
+            'skip_migrations' => $this->bool($arguments, 'skip_migrations', false) ? true : null,
+        ], fn ($value) => $value !== null);
 
         try {
             $run = app(StartDeployment::class)($target, DeploymentKind::Deploy, User::query()->first(), $options, $this->trigger);
-        } catch (DeploymentBusy $e) {
+        } catch (DeploymentBusy|DeploymentRefused $e) {
             throw new ToolFailed($e->getMessage());
         }
 

@@ -6,7 +6,6 @@ use App\Actions\Deployments\CancelDeployment;
 use App\Actions\Deployments\StartDeployment;
 use App\Deploy\Conversion\Conversion;
 use App\Deploy\Delivery\VerdictState;
-use App\Deploy\DeploymentBusy;
 use App\Deploy\Logging\LogArchive;
 use App\Deploy\Logging\StepLogger;
 use App\Deploy\Pipeline\ResumePlanner;
@@ -16,6 +15,7 @@ use App\Enums\DeploymentKind;
 use App\Enums\DeploymentStatus;
 use App\Jobs\RunDeployment;
 use App\Livewire\Concerns\ConfirmsIdentity;
+use App\Livewire\Concerns\StartsRuns;
 use App\Models\Credential;
 use App\Models\Deployment;
 use App\Models\Release;
@@ -36,7 +36,7 @@ use Livewire\Component;
  */
 class Show extends Component
 {
-    use ConfirmsIdentity;
+    use ConfirmsIdentity, StartsRuns;
 
     public Deployment $deployment;
 
@@ -82,7 +82,7 @@ class Show extends Component
             }
         }
 
-        $this->startRun($run->kind, $options, $start);
+        $this->startRun($start, $run->target, $run->kind, $options);
     }
 
     /**
@@ -98,21 +98,13 @@ class Show extends Component
             return;
         }
 
-        try {
-            $next = $start($run->target, $run->kind, auth()->user(), $run->options ?? [], 'retry', [
-                'retry_of_id' => $run->id,
-                'resume_from' => $point->key,
-                'strategy' => $run->strategy,
-                'commit_sha' => $run->commit_sha,
-                'commit_message' => $run->commit_message,
-            ]);
-        } catch (DeploymentBusy $e) {
-            $this->problem = $e->getMessage();
-
-            return;
-        }
-
-        $this->redirectRoute('deployments.show', $next, navigate: true);
+        $this->startRun($start, $run->target, $run->kind, $run->options ?? [], 'retry', [
+            'retry_of_id' => $run->id,
+            'resume_from' => $point->key,
+            'strategy' => $run->strategy,
+            'commit_sha' => $run->commit_sha,
+            'commit_message' => $run->commit_message,
+        ]);
     }
 
     /**
@@ -135,7 +127,7 @@ class Show extends Component
     public function rollBack(StartDeployment $start): void
     {
         if (($release = $this->rollbackTarget()) !== null) {
-            $this->startRun(DeploymentKind::Rollback, ['release_id' => $release->id], $start);
+            $this->startRun($start, $this->deployment->target, DeploymentKind::Rollback, ['release_id' => $release->id]);
         }
     }
 
@@ -146,7 +138,7 @@ class Show extends Component
     public function undoConversion(StartDeployment $start): void
     {
         if (($release = $this->convertedRelease()) !== null) {
-            $this->startRun(DeploymentKind::UndoConvert, ['release_id' => $release->id], $start);
+            $this->startRun($start, $this->deployment->target, DeploymentKind::UndoConvert, ['release_id' => $release->id]);
         }
     }
 
@@ -174,22 +166,6 @@ class Show extends Component
 
         $run->forceFill(['options' => [...($run->options ?? []), 'backup_removed_at' => now()->toIso8601String()]])->save();
         $this->notice = "Removed {$backup}.";
-    }
-
-    /**
-     * @param  array<string, mixed>  $options
-     */
-    private function startRun(DeploymentKind $kind, array $options, StartDeployment $start): void
-    {
-        try {
-            $next = $start($this->deployment->target, $kind, auth()->user(), $options);
-        } catch (DeploymentBusy $e) {
-            $this->problem = $e->getMessage();
-
-            return;
-        }
-
-        $this->redirectRoute('deployments.show', $next, navigate: true);
     }
 
     private function canRetry(): bool

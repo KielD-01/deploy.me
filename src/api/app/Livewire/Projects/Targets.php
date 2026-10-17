@@ -4,12 +4,12 @@ namespace App\Livewire\Projects;
 
 use App\Actions\Deployments\StartDeployment;
 use App\Actions\Projects\AssignProject;
-use App\Deploy\DeploymentBusy;
 use App\Deploy\RemoteLayout;
 use App\Enums\AuditAction;
 use App\Enums\DeploymentKind;
 use App\Enums\ServerStatus;
 use App\Livewire\Concerns\ConfirmsIdentity;
+use App\Livewire\Concerns\StartsRuns;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\Target;
@@ -26,7 +26,7 @@ use Livewire\Component;
  */
 class Targets extends Component
 {
-    use ConfirmsIdentity;
+    use ConfirmsIdentity, StartsRuns;
 
     #[Locked]
     public int $projectId;
@@ -113,13 +113,13 @@ class Targets extends Component
         $this->reset('assigning', 'browsing');
 
         if ($this->deployAfter) {
-            $this->startRun($target, DeploymentKind::Deploy, $start);
+            $this->startRun($start, $target, DeploymentKind::Deploy);
 
             return;
         }
 
         if ($this->prepare) {
-            $this->startRun($target, DeploymentKind::Bootstrap, $start);
+            $this->startRun($start, $target, DeploymentKind::Bootstrap);
 
             return;
         }
@@ -129,7 +129,7 @@ class Targets extends Component
 
     public function prepareTarget(int $id, StartDeployment $start): void
     {
-        $this->startRun($this->project->targets()->active()->findOrFail($id), DeploymentKind::Bootstrap, $start);
+        $this->startRun($start, $this->project->targets()->active()->findOrFail($id), DeploymentKind::Bootstrap);
     }
 
     /**
@@ -138,7 +138,7 @@ class Targets extends Component
      */
     public function adoptTarget(int $id, StartDeployment $start): void
     {
-        $this->startRun($this->project->targets()->active()->findOrFail($id), DeploymentKind::Adopt, $start);
+        $this->startRun($start, $this->project->targets()->active()->findOrFail($id), DeploymentKind::Adopt);
     }
 
     /**
@@ -161,7 +161,7 @@ class Targets extends Component
             return;
         }
 
-        $this->startRun($target, DeploymentKind::Unlock, $start);
+        $this->startRun($start, $target, DeploymentKind::Unlock);
     }
 
     public function remove(int $id): void
@@ -183,19 +183,6 @@ class Targets extends Component
             'detail' => 'nothing on the server changed',
         ]);
         $this->notice = "Removed {$target->server->name}. Nothing on the server changed.";
-    }
-
-    private function startRun(Target $target, DeploymentKind $kind, StartDeployment $start): void
-    {
-        try {
-            $deployment = $start($target, $kind, auth()->user());
-        } catch (DeploymentBusy $e) {
-            $this->problem = $e->getMessage();
-
-            return;
-        }
-
-        $this->redirectRoute('deployments.show', $deployment, navigate: true);
     }
 
     /**
