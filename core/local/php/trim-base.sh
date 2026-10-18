@@ -68,6 +68,8 @@ check)
     name=${line%%=*}
     case "$name" in
       HOSTNAME | HOME | PWD | SHLVL | _ | OLDPWD | PHP_URL | PHP_ASC_URL | PHP_SHA256 | GPG_KEYS) continue ;;
+      # What BuildKit hands each RUN on its own (CI's tracing), not the image's settings.
+      TRACEPARENT | TRACESTATE | SOURCE_DATE_EPOCH | BUILDKIT_*) continue ;;
       PHP_VERSION)
         case "${line#*=}" in
           "$PHP_VERSION".*) continue ;;
