@@ -37,6 +37,12 @@ return new class extends Migration
         // Append-only: an UPDATE is always refused, and a DELETE only goes
         // through for the nightly prune, which says so in its own transaction
         // (set_config(..., true) can't outlive it).
+        if (DB::getDriverName() === 'sqlite') {
+            $this->sqliteTriggers();
+
+            return;
+        }
+
         DB::unprepared(<<<'SQL'
             create or replace function deployme_audit_append_only() returns trigger as $$
             begin
@@ -54,8 +60,43 @@ return new class extends Migration
         SQL);
     }
 
+    /**
+     * The slim flavour's SQLite has no session settings and no plpgsql: the
+     * prune says so with a row in audit_log_pruning instead, inserted and
+     * deleted inside its own transaction (SQLite has one writer, so no other
+     * connection ever sees it), and a DELETE goes through only while it's there.
+     */
+    private function sqliteTriggers(): void
+    {
+        Schema::create('audit_log_pruning', function (Blueprint $table) {
+            $table->boolean('active')->primary();
+        });
+
+        DB::unprepared(<<<'SQL'
+            create trigger audit_log_append_only_update
+                before update on audit_log
+                begin
+                    select raise(abort, 'audit_log is append-only: UPDATE refused.');
+                end;
+
+            create trigger audit_log_append_only_delete
+                before delete on audit_log
+                when not exists (select 1 from audit_log_pruning)
+                begin
+                    select raise(abort, 'audit_log is append-only: DELETE refused.');
+                end;
+        SQL);
+    }
+
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            Schema::dropIfExists('audit_log');
+            Schema::dropIfExists('audit_log_pruning');
+
+            return;
+        }
+
         DB::unprepared('drop trigger if exists audit_log_append_only on audit_log');
         Schema::dropIfExists('audit_log');
         DB::unprepared('drop function if exists deployme_audit_append_only()');

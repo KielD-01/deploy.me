@@ -1,0 +1,33 @@
+# deploy.me — the slim flavour's edge (compose.slim-edge.yml): the plain Caddy
+# image with this file, instead of caddy-docker-proxy reading container labels.
+# Nothing here reads the Docker socket. It routes the same way the labels on
+# deployme-web do for the full flavour:
+#
+#   https://deployme.localhost        the app (deployme-web, PHP's own server)
+#   https://deployme.localhost/app/…  browser websockets, to deployme-reverb
+#   https://vite.deployme.localhost   Vite with HMR, while `make dev` runs
+#
+# `tls internal`: certificates from Caddy's own local CA, kept in the caddy_data
+# volume (/data/caddy/pki/authorities/local), which `bin/trust-ca` copies out
+# and trusts on this machine.
+
+deployme.localhost {
+	tls internal
+	encode zstd gzip
+
+	# A path matcher alone: over HTTP/2 a websocket request has no
+	# Connection/Upgrade headers to match on. Laravel has no /app routes.
+	# stream_close_delay keeps sockets open across a config reload.
+	@ws path /app /app/*
+	reverse_proxy @ws deployme-reverb:8080 {
+		flush_interval -1
+		stream_close_delay 5m
+	}
+
+	reverse_proxy deployme-web:8000
+}
+
+vite.deployme.localhost {
+	tls internal
+	reverse_proxy deployme-vite:5173
+}

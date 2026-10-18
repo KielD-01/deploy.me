@@ -16,6 +16,15 @@
 # standalone stack):
 #
 #   gunzip -c deployme-<stamp>.sql.gz | docker exec -i postgres psql -U postgres -d deployme
+#
+# The slim flavour's database is one SQLite file: the backup is a consistent
+# copy of it (sqlite3's .backup, made inside deployme-web while the app runs),
+# gzipped as deployme-<stamp>.sqlite.gz. Restore it with the stack stopped:
+#
+#   make down
+#   gunzip -c deployme-<stamp>.sqlite.gz > src/api/storage/database/deployme.sqlite
+#   rm -f src/api/storage/database/deployme.sqlite-wal src/api/storage/database/deployme.sqlite-shm
+#   make up
 set -euo pipefail
 
 # This repository, following the symlink some people keep in ~/.local/bin.
@@ -36,6 +45,9 @@ repo="${DEPLOYME_REPO:-$(cd -- "$(dirname -- "$source_path")/.." && pwd)}"
 . "$repo/bin/lib.sh"
 os=$(deployme_os)
 pg=$(deployme_pg_container)
+flavour=$(deployme_flavour)
+ext=sql
+[ "$flavour" = slim ] && ext=sqlite
 dest="${DEPLOYME_BACKUP_DIR:-$HOME/Backups/deployme}"
 keep=14
 stamp=$(date +%Y%m%d-%H%M)
@@ -152,7 +164,7 @@ status() {
 
     [ -f "$dest/backup.log" ] && tail -n 3 "$dest/backup.log"
     # shellcheck disable=SC2012
-    echo "· $(ls -1 "$dest"/deployme-*.sql.gz 2> /dev/null | wc -l | tr -d ' ') dumps kept in $dest"
+    echo "· $(ls -1 "$dest"/deployme-*.sql.gz "$dest"/deployme-*.sqlite.gz 2> /dev/null | wc -l | tr -d ' ') dumps kept in $dest"
 }
 
 case "${1:-}" in
@@ -162,20 +174,35 @@ case "${1:-}" in
     *) echo "Usage: backup.sh [install|status]" >&2; exit 64 ;;
 esac
 
-if ! docker inspect "$pg" > /dev/null 2>&1; then
-    echo "$(date -Iseconds)  the $pg container isn't running; nothing backed up" >&2
-    exit 1
-fi
-
-# Under a name of its own until pg_dump is done: a dump that failed halfway
+# Under a name of its own until the dump is done: a dump that failed halfway
 # would otherwise look like a good one, and push a good one out of the 14 kept.
-part="$dest/.deployme-$stamp.sql.gz.part"
-if ! docker exec "$pg" pg_dump -U postgres --no-owner --clean --if-exists deployme | gzip > "$part"; then
-    rm -f -- "$part"
-    echo "$(date -Iseconds)  pg_dump failed; nothing backed up" >&2
-    exit 1
+part="$dest/.deployme-$stamp.$ext.gz.part"
+if [ "$flavour" = slim ]; then
+    # .backup copies the pages under SQLite's own lock, so writers can go on:
+    # a plain cp of a WAL database can catch it halfway through a checkpoint.
+    # This checkout's own deployme-web (by its compose service), which has sqlite3.
+    if [ -z "$(deployme_compose ps -q --status running deployme-web 2>/dev/null)" ]; then
+        echo "$(date -Iseconds)  deployme-web isn't running; nothing backed up" >&2
+        exit 1
+    fi
+    # test -s first: sqlite3 would create an empty database where none is.
+    if ! deployme_compose exec -T deployme-web sh -c 'test -s "$1" && copy=$(mktemp) && sqlite3 "$1" ".backup $copy" && cat "$copy"; status=$?; rm -f "$copy"; exit $status' sh "$DEPLOYME_SQLITE_PATH" | gzip > "$part"; then
+        rm -f -- "$part"
+        echo "$(date -Iseconds)  sqlite3 .backup failed; nothing backed up" >&2
+        exit 1
+    fi
+else
+    if ! docker inspect "$pg" > /dev/null 2>&1; then
+        echo "$(date -Iseconds)  the $pg container isn't running; nothing backed up" >&2
+        exit 1
+    fi
+    if ! docker exec "$pg" pg_dump -U postgres --no-owner --clean --if-exists deployme | gzip > "$part"; then
+        rm -f -- "$part"
+        echo "$(date -Iseconds)  pg_dump failed; nothing backed up" >&2
+        exit 1
+    fi
 fi
-mv -- "$part" "$dest/deployme-$stamp.sql.gz"
+mv -- "$part" "$dest/deployme-$stamp.$ext.gz"
 
 # Without APP_KEY the credentials and env files in that dump stay unreadable.
 if [ -f "$repo/src/api/.env" ]; then
@@ -184,7 +211,7 @@ else
     echo "$(date -Iseconds)  $repo/src/api/.env is missing, so no key was copied" >&2
 fi
 
-for pattern in "deployme-*.sql.gz" "env-*"; do
+for pattern in "deployme-*.sql.gz" "deployme-*.sqlite.gz" "env-*"; do
     # shellcheck disable=SC2012
     # Nothing to match (no key copied yet) isn't a failure: || true, under pipefail.
     { ls -1t "$dest"/$pattern 2>/dev/null || true; } | tail -n "+$((keep + 1))" | while read -r old; do rm -f -- "$old"; done
@@ -204,16 +231,16 @@ fi
 # offsite.list and the old ones removed by name. A failed copy is reported and
 # the local backup still counts.
 if [ -n "$offsite" ] && mkdir -p "$offsite" 2>/dev/null; then
-    if cp "$dest/deployme-$stamp.sql.gz" "$offsite/"; then
-        echo "deployme-$stamp.sql.gz" >> "$dest/offsite.list"
+    if cp "$dest/deployme-$stamp.$ext.gz" "$offsite/"; then
+        echo "deployme-$stamp.$ext.gz" >> "$dest/offsite.list"
         total=$(wc -l < "$dest/offsite.list" | tr -d ' ')
         if [ "$total" -gt "$keep" ]; then
             head -n "$((total - keep))" "$dest/offsite.list" | while read -r old; do rm -f -- "$offsite/$old" || true; done
             tail -n "$keep" "$dest/offsite.list" > "$dest/offsite.list.new" && mv "$dest/offsite.list.new" "$dest/offsite.list"
         fi
     else
-        echo "$(date -Iseconds)  couldn't copy deployme-$stamp.sql.gz to $offsite" >&2
+        echo "$(date -Iseconds)  couldn't copy deployme-$stamp.$ext.gz to $offsite" >&2
     fi
 fi
 
-printf '%s  %s  %s\n' "$(date -Iseconds)" "$(du -h "$dest/deployme-$stamp.sql.gz" | cut -f1)" "deployme-$stamp.sql.gz" >> "$dest/backup.log"
+printf '%s  %s  %s\n' "$(date -Iseconds)" "$(du -h "$dest/deployme-$stamp.$ext.gz" | cut -f1)" "deployme-$stamp.$ext.gz" >> "$dest/backup.log"

@@ -5,7 +5,8 @@
 # dependencies and the built assets inside, so a code change needs this again).
 #
 # The heavy base (core/local/php/Dockerfile.base: PHP extensions compiled in,
-# ssh, git, supervisor) comes ready-made from Docker Hub for amd64 and arm64,
+# ssh, git, supervisor; Dockerfile.base-slim for the slim flavour) comes
+# ready-made from Docker Hub for amd64 and arm64,
 # so a build only adds this checkout's config files and this machine's user,
 # in seconds. When the base can't be pulled (offline, or not published yet),
 # or ./.env asks for it (bin/configure --build-from-source), it's compiled
@@ -17,22 +18,32 @@ set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 cd "$DEPLOYME_ROOT"
 
-local_base=deployme-php-base:local
+# The slim flavour (bin/configure --flavour slim) builds on the slim base:
+# plain PHP 8.5 with SQLite, Dockerfile.base-slim, published as :1-slim.
+if [ "$(deployme_flavour)" = slim ]; then
+    local_base=deployme-php-base:local-slim
+    base_file=core/local/php/Dockerfile.base-slim
+    hub_base=romanovich0195/deployme-php:1-slim
+else
+    local_base=deployme-php-base:local
+    base_file=core/local/php/Dockerfile.base
+    hub_base=romanovich0195/deployme-php:1
+fi
 base=$(deployme_env DEPLOYME_PHP_BASE)
-base=${base:-romanovich0195/deployme-php:1}
+base=${base:-$hub_base}
 [ "${1:-}" = --from-source ] && base=$local_base
 
 if [ "$base" != "$local_base" ]; then
     deployme_say "Pulling the PHP base image ($base)"
     if ! docker pull -q "$base" >/dev/null; then
-        deployme_warn "Couldn't pull $base, so it's built here from core/local/php/Dockerfile.base instead"
+        deployme_warn "Couldn't pull $base, so it's built here from $base_file instead"
         base=$local_base
     fi
 fi
 
 if [ "$base" = "$local_base" ]; then
     deployme_say "Compiling the PHP base image (a few minutes the first time)"
-    docker build -f core/local/php/Dockerfile.base -t "$local_base" .
+    docker build -f "$base_file" -t "$local_base" .
 fi
 
 # compose.prod.yml (in COMPOSE_FILE in production mode) picks the target and tag.

@@ -9,6 +9,7 @@ use App\Platform\Ssh\SshTargetResolver;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
 beforeEach(function () {
@@ -121,4 +122,28 @@ it('says the scheduler hasn’t beaten yet, rather than how long ago 1970 was', 
     $this->artisan('deployme:doctor')
         ->expectsOutputToContain('no heartbeat yet')
         ->assertFailed();
+});
+
+it('checks the slim flavour’s SQLite file: write-ahead log and a busy timeout', function () {
+    $file = "{$this->keys}/deployme.sqlite";
+    touch($file);
+    config(['database.connections.doctor-sqlite' => [...config('database.connections.sqlite'), 'database' => $file]]);
+    Artisan::call('migrate', ['--database' => 'doctor-sqlite', '--force' => true]);
+
+    $default = DB::getDefaultConnection();
+    DB::setDefaultConnection('doctor-sqlite');
+
+    try {
+        $this->artisan('deployme:doctor')
+            ->expectsOutputToContain('SQLite answers')
+            ->expectsOutputToContain('SQLite writes ahead (WAL)')
+            ->expectsOutputToContain('SQLite waits for a busy database')
+            ->doesntExpectOutputToContain('Postgres answers')
+            ->doesntExpectOutputToContain('journal_mode is')
+            ->doesntExpectOutputToContain('busy_timeout is')
+            ->run();
+    } finally {
+        DB::setDefaultConnection($default);
+        DB::purge('doctor-sqlite');
+    }
 });

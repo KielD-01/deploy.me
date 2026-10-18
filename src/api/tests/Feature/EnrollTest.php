@@ -3,7 +3,9 @@
 use App\Auth\EnrollmentLinks;
 use App\Models\User;
 use Illuminate\Cache\ArrayStore;
+use Illuminate\Cache\DatabaseStore;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(fn () => $this->withoutVite());
 
@@ -75,4 +77,41 @@ it('lets only one of two requests that arrive at once use a link', function () {
     $first = $links->consume($token);
 
     expect(array_filter([$first, $second]))->toHaveCount(1);
+});
+
+it('lets only one of two requests use a link on the database store too, whose forget() always says yes', function () {
+    // The slim flavour's cache. DatabaseStore::forget() answers true whether or
+    // not there was a row to delete, so it can't tell the two requests apart.
+    $store = new class(DB::connection(), 'cache') extends DatabaseStore
+    {
+        public ?Closure $meanwhile = null;
+
+        public function get($key)
+        {
+            $value = parent::get($key);
+
+            if ($this->meanwhile !== null && str_starts_with((string) $key, 'deployme:enroll:')) {
+                [$then, $this->meanwhile] = [$this->meanwhile, null];
+                $then();
+            }
+
+            return $value;
+        }
+    };
+    Cache::extend('racy-database', fn () => Cache::repository($store));
+    config(['cache.stores.racy-database' => ['driver' => 'racy-database'], 'cache.default' => 'racy-database']);
+
+    expect(Cache::forget('deployme:enroll:never-there'))->toBeTrue();
+
+    $links = app(EnrollmentLinks::class);
+    $token = basename(parse_url($links->create(User::factory()->create()), PHP_URL_PATH));
+    $second = null;
+    $store->meanwhile = function () use ($links, $token, &$second) {
+        $second = $links->consume($token);
+    };
+
+    $first = $links->consume($token);
+
+    expect(array_filter([$first, $second]))->toHaveCount(1)
+        ->and($links->consume($token))->toBeNull();
 });

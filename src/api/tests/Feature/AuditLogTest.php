@@ -175,6 +175,10 @@ it('keeps a person’s probe in the log, even inside the scheduler’s jobs', fu
 });
 
 it('has a partial index for the by-hand listing', function () {
+    if (DB::getDriverName() !== 'pgsql') {
+        $this->markTestSkipped('PostgreSQL only: it reads pg_indexes (IndexesTest checks the SQLite copy).');
+    }
+
     expect(DB::selectOne("select indexdef from pg_indexes where indexname = 'audit_log_by_hand_index'")->indexdef)
         ->toContain("<> 'ssh.command'");
 });
@@ -232,4 +236,25 @@ it('prunes the audit log past its retention, and nothing newer', function () {
 
     expect(app(PruneOldData::class)()['audit'])->toBe(1)
         ->and(AuditEntry::query()->count())->toBe(0);
+});
+
+it('takes its SQLite prune flag down again inside the prune’s transaction', function () {
+    if (DB::getDriverName() !== 'sqlite') {
+        // set_config(…, true) lasts until the outer transaction ends, and here
+        // that is the test's own (RefreshDatabase): nothing to see on Postgres.
+        $this->markTestSkipped('SQLite only: Postgres ends the flag with the transaction itself.');
+    }
+
+    $this->travelTo(now()->subDays(400));
+    Audit::record(AuditAction::HostKeyTrusted, ['subject' => 'old']);
+    $this->travelBack();
+    $entry = Audit::record(AuditAction::HostKeyTrusted, ['subject' => 'new']);
+
+    expect(app(PruneOldData::class)()['audit'])->toBe(1)
+        ->and(DB::table('audit_log_pruning')->count())->toBe(0);
+
+    expect(fn () => DB::transaction(fn () => DB::table('audit_log')->where('id', $entry->id)->delete()))
+        ->toThrow(QueryException::class, 'append-only');
+
+    expect(AuditEntry::query()->pluck('id')->all())->toBe([$entry->id]);
 });

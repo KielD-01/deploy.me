@@ -7,6 +7,8 @@ DC := docker compose
 # The host user's ids on Linux/WSL (0 on macOS), read when a recipe runs.
 OWNER = $(shell grep -s '^DEPLOYME_UID=' .env | cut -d= -f2 || echo 0):$(shell grep -s '^DEPLOYME_GID=' .env | cut -d= -f2 || echo 0)
 WEB := $(DC) exec deployme-web
+# The slim flavour's image has no Postgres driver: its tests run on an in-memory SQLite.
+TEST_DB = $(if $(shell grep -s '^DEPLOYME_FLAVOUR=slim$$' .env),-e DB_CONNECTION=sqlite -e DB_DATABASE=:memory:,)
 WORKER := $(DC) exec deployme-worker
 
 .DEFAULT_GOAL := help
@@ -18,7 +20,7 @@ help: ## List targets
 install: ## Guided first install: checks, configure, init, trust the local CA, a passkey link
 	bin/install
 
-configure: ## Describe this machine: stack mode, user ids, project roots (writes .env)
+configure: ## Describe this machine: flavour, stack mode, user ids, project roots (writes .env)
 	bin/configure
 
 # A checkout that was never configured is, the first time any target needs compose.
@@ -30,7 +32,7 @@ trust-ca: .env ## Trust the edge's local CA on this machine (browser and curl)
 
 init: .env db-create build up assets setup doctor ## First run: database, image, containers, assets, setup
 
-db-create: .env ## Create the deployme role and databases (shared or own Postgres)
+db-create: .env ## Create the deployme role and databases (shared or own Postgres; slim: the SQLite file)
 	bin/db-create.sh
 
 build: .env ## Build the PHP image (in prod mode: with the code and assets; then make up)
@@ -89,15 +91,15 @@ setup: .env ## Generate keys and run migrations
 enroll: .env ## Print a one-time link to set up a passkey or password (first run, or a lost way in)
 	$(WEB) php artisan deployme:enroll
 
-test: .env ## Run the test suite
-	$(WEB) php artisan test
+test: .env ## Run the test suite (slim: on SQLite)
+	$(DC) exec $(TEST_DB) deployme-web php artisan test
 
 sandbox: .env ## Start the local SSH sandbox server (alias "sandbox" in Add server)
 	$(WEB) php artisan deployme:sandbox
 	$(DC) --profile sandbox up -d --build deployme-sshd-target
 
 test-ssh: .env ## Run the SSH integration tests against the sandbox
-	$(WEB) php artisan test --group=ssh-integration
+	$(DC) exec $(TEST_DB) deployme-web php artisan test --group=ssh-integration
 
 .PHONY: lint
 lint: .env ## Check formatting (pint) and static analysis (phpstan)

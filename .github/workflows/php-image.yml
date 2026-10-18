@@ -1,7 +1,9 @@
-# Publishes the heavy PHP base image (core/local/php/Dockerfile.base) to Docker
-# Hub for amd64 and arm64, so an install pulls it instead of compiling the
-# extensions. Each architecture builds on its own native runner (under QEMU the
-# compile takes half an hour), then one tag points at both.
+# Publishes the heavy PHP base images to Docker Hub for amd64 and arm64, so an
+# install pulls them instead of compiling the extensions: the full flavour's
+# (core/local/php/Dockerfile.base: FrankenPHP, Postgres and Redis extensions)
+# and the slim one's (Dockerfile.base-slim: plain PHP CLI, SQLite), with -slim
+# tags. Each flavour and architecture builds on its own native runner (under
+# QEMU the compile takes half an hour), then one tag points at both arches.
 #
 # Needs the repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (a Docker
 # Hub access token with write access). Rebuilt weekly too, for FrankenPHP and
@@ -14,7 +16,8 @@
 # next PATCH of that line, counted from what Docker Hub already has, so a weekly
 # rebuild is 1.0.1, 1.0.2… and no full version is ever pushed twice. Tags:
 # MAJOR.MINOR.PATCH (fixed), MAJOR.MINOR and MAJOR (moving; installs use MAJOR),
-# latest, and sha-<commit>.
+# latest, and sha-<commit>; the slim flavour gets the same version with -slim
+# (1.1.0-slim, 1.1-slim, 1-slim, sha-<commit>-slim) and `slim` for latest.
 name: PHP base image
 
 on:
@@ -22,6 +25,7 @@ on:
     branches: [main]
     paths:
       - core/local/php/Dockerfile.base
+      - core/local/php/Dockerfile.base-slim
       - core/local/php/VERSION
       - core/local/php/DOCKERHUB.md
       - .github/workflows/php-image.yml
@@ -55,14 +59,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      # A change to what the image holds is a new MINOR (or MAJOR): the same
-      # version can't stand for two different Dockerfiles.
-      - name: Dockerfile.base changed, so VERSION did too
+      # A change to what an image holds is a new MINOR (or MAJOR): the same
+      # version can't stand for two different Dockerfiles. Both flavours share
+      # VERSION, so a change to either bumps it.
+      - name: A base Dockerfile changed, so VERSION did too
         if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
         run: |
-          changed=$(git diff --name-only "${{ github.event.before }}" "$GITHUB_SHA" -- core/local/php/Dockerfile.base core/local/php/VERSION)
-          if printf '%s\n' "$changed" | grep -qx core/local/php/Dockerfile.base && ! printf '%s\n' "$changed" | grep -qx core/local/php/VERSION; then
-            echo "::error file=core/local/php/VERSION::Dockerfile.base changed: bump the MINOR (or MAJOR) in core/local/php/VERSION."
+          changed=$(git diff --name-only "${{ github.event.before }}" "$GITHUB_SHA" -- core/local/php/Dockerfile.base core/local/php/Dockerfile.base-slim core/local/php/VERSION)
+          if printf '%s\n' "$changed" | grep -qxE 'core/local/php/Dockerfile\.base(-slim)?' && ! printf '%s\n' "$changed" | grep -qx core/local/php/VERSION; then
+            echo "::error file=core/local/php/VERSION::A base Dockerfile changed: bump the MINOR (or MAJOR) in core/local/php/VERSION."
             exit 1
           fi
 
@@ -73,15 +78,16 @@ jobs:
           [[ "$line" =~ ^[0-9]+\.[0-9]+$ ]] || { echo "::error file=core/local/php/VERSION::VERSION holds MAJOR.MINOR, like 1.0 (got '$line')."; exit 1; }
           major=${line%%.*}
 
-          # What deploy.me pulls has to be this line's MAJOR.
-          for file in core/local/php/Dockerfile docker-compose.local.yml bin/build bin/configure; do
+          # What deploy.me pulls has to be this line's MAJOR (1 and 1-slim both read as 1).
+          for file in core/local/php/Dockerfile docker-compose.local.yml compose.slim.yml bin/build bin/configure; do
             if grep -o 'deployme-php:[0-9][0-9.]*' "$file" | grep -vqx "deployme-php:$major"; then
               echo "::error file=$file::It pulls another major than VERSION's $major."
               exit 1
             fi
           done
 
-          # The next PATCH: one past the highest MAJOR.MINOR.N on Docker Hub.
+          # The next PATCH: one past the highest MAJOR.MINOR.N on Docker Hub
+          # (the -slim tags carry the same N, and don't match the pattern).
           repo=${IMAGE}
           url="https://hub.docker.com/v2/repositories/${repo}/tags?page_size=100&name=${line}."
           last=-1
@@ -117,11 +123,19 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
+        flavour: [full, slim]
+        arch: [amd64, arm64]
         include:
-          - platform: linux/amd64
+          - arch: amd64
+            platform: linux/amd64
             runner: ubuntu-24.04
-          - platform: linux/arm64
+          - arch: arm64
+            platform: linux/arm64
             runner: ubuntu-24.04-arm
+          - flavour: full
+            file: core/local/php/Dockerfile.base
+          - flavour: slim
+            file: core/local/php/Dockerfile.base-slim
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -137,15 +151,16 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: core/local/php/Dockerfile.base
+          file: ${{ matrix.file }}
           platforms: ${{ matrix.platform }}
           pull: true
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          # The full flavour keeps the cache scope it always had.
+          cache-from: type=gha,scope=${{ matrix.flavour == 'full' && matrix.platform || format('slim-{0}', matrix.platform) }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.flavour == 'full' && matrix.platform || format('slim-{0}', matrix.platform) }}
           labels: |
             org.opencontainers.image.title=deployme-php
-            org.opencontainers.image.version=${{ needs.check.outputs.version }}
+            org.opencontainers.image.version=${{ needs.check.outputs.version }}${{ matrix.flavour == 'slim' && '-slim' || '' }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=MIT
@@ -158,7 +173,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: digest-${{ strategy.job-index }}
+          name: digest-${{ matrix.flavour }}-${{ matrix.arch }}
           path: ${{ runner.temp }}/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -166,15 +181,19 @@ jobs:
   publish:
     needs: [check, build]
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        flavour: [full, slim]
     env:
       VERSION: ${{ needs.check.outputs.version }}
       MINOR: ${{ needs.check.outputs.minor }}
       MAJOR: ${{ needs.check.outputs.major }}
+      FLAVOUR: ${{ matrix.flavour }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: ${{ runner.temp }}/digests
-          pattern: digest-*
+          pattern: digest-${{ matrix.flavour }}-*
           merge-multiple: true
 
       - uses: docker/setup-buildx-action@v3
@@ -184,20 +203,26 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # full: 1.1.0 1.1 1 latest sha-abc1234
+      # slim: 1.1.0-slim 1.1-slim 1-slim slim sha-abc1234-slim
       - name: Tag both architectures as one image
         working-directory: ${{ runner.temp }}/digests
         run: |
+          suffix=""; newest=latest
+          if [ "$FLAVOUR" = slim ]; then suffix=-slim; newest=slim; fi
           sources=()
           for digest in *; do sources+=("$IMAGE@sha256:$digest"); done
           docker buildx imagetools create \
-            -t "$IMAGE:$VERSION" -t "$IMAGE:$MINOR" -t "$IMAGE:$MAJOR" -t "$IMAGE:latest" -t "$IMAGE:sha-${GITHUB_SHA::7}" \
+            -t "$IMAGE:$VERSION$suffix" -t "$IMAGE:$MINOR$suffix" -t "$IMAGE:$MAJOR$suffix" -t "$IMAGE:$newest" -t "$IMAGE:sha-${GITHUB_SHA::7}$suffix" \
             "${sources[@]}"
 
       - name: Check it
         run: |
-          docker buildx imagetools inspect "$IMAGE:$VERSION"
-          echo "### ${IMAGE}:${VERSION}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Also tagged ${MINOR}, ${MAJOR}, latest and sha-${GITHUB_SHA::7}." >> "$GITHUB_STEP_SUMMARY"
+          suffix=""; newest=latest
+          if [ "$FLAVOUR" = slim ]; then suffix=-slim; newest=slim; fi
+          docker buildx imagetools inspect "$IMAGE:$VERSION$suffix"
+          echo "### ${IMAGE}:${VERSION}${suffix}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Also tagged ${MINOR}${suffix}, ${MAJOR}${suffix}, ${newest} and sha-${GITHUB_SHA::7}${suffix}." >> "$GITHUB_STEP_SUMMARY"
 
   # The repository's page on Docker Hub: a one-line summary and the overview.
   # Separate from the build, so a failed build doesn't leave the page stale.
@@ -213,6 +238,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.IMAGE }}
-          short-description: "PHP 8.5 runtime for deploy.me: FrankenPHP, extensions, ssh, git, rsync. amd64 + arm64"
+          short-description: "PHP 8.5 runtime for deploy.me: FrankenPHP, or :slim (plain PHP, SQLite). ssh, git, rsync. amd64 + arm64"
           readme-filepath: core/local/php/DOCKERHUB.md
           enable-url-completion: true

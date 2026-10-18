@@ -61,6 +61,40 @@ deployme_app_env_for_mode() {
     rm -f "$tmp"
 }
 
+# full (FrankenPHP, PostgreSQL, Valkey) or slim (plain PHP, SQLite, the database
+# for queues and cache: compose.slim.yml). A checkout that never chose is full.
+deployme_flavour() {
+    local flavour
+    flavour=$(deployme_env DEPLOYME_FLAVOUR)
+    echo "${flavour:-full}"
+}
+
+# Where the slim flavour's SQLite file is: on this machine, and in the containers.
+DEPLOYME_SQLITE_FILE=src/api/storage/database/deployme.sqlite
+DEPLOYME_SQLITE_PATH=/app/storage/database/deployme.sqlite
+
+# Sets the app's database, cache and queue driver in src/api/.env (or the given
+# file) for a flavour, leaving every other line as it is and writing in place,
+# like deployme_app_env_for_mode. full: PostgreSQL as `postgres`, Valkey as
+# `redis`; slim: the SQLite file, and the database for the cache and the queues.
+deployme_app_env_for_flavour() {
+    local flavour=$1 file=${2:-$DEPLOYME_ROOT/src/api/.env} tmp
+    [ -f "$file" ] || return 0
+    local connection=pgsql database=deployme cache=redis queue=redis
+    if [ "$flavour" = slim ]; then connection=sqlite; database=$DEPLOYME_SQLITE_PATH; cache=database; queue=database; fi
+    tmp=$(mktemp)
+    awk -v connection="$connection" -v database="$database" -v cache="$cache" -v queue="$queue" '
+        BEGIN { want["DB_CONNECTION"] = connection; want["DB_DATABASE"] = database; want["CACHE_STORE"] = cache; want["DEPLOYME_QUEUE_DRIVER"] = queue }
+        {
+            key = $0; sub(/=.*/, "", key)
+            if ((key in want) && index($0, "=") > 0) { print key "=" want[key]; seen[key] = 1; next }
+            print
+        }
+        END { for (key in want) if (!(key in seen)) print key "=" want[key] }
+    ' "$file" > "$tmp" && cat "$tmp" > "$file"
+    rm -f "$tmp"
+}
+
 # The containers behind the names the app uses.
 deployme_pg_container() { [ "$(deployme_stack)" = standalone ] && echo deployme-postgres || echo postgres; }
 deployme_edge_container() { [ "$(deployme_stack)" = standalone ] && echo deployme-caddy || echo caddy; }

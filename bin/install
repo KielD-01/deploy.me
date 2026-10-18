@@ -8,6 +8,7 @@
 #   bin/install --stack standalone       deploy.me's own Postgres, Valkey and edge
 #   bin/install --roots ~/code:~/work    where your projects are
 #   bin/install --mode prod              production mode: the code baked into the image
+#   bin/install --flavour slim           plain PHP, SQLite, no Valkey, a minimal Caddy
 #   bin/install --no-trust               leave the CA to you (bin/trust-ca later)
 #
 # Anything after the options it knows goes to bin/configure.
@@ -16,14 +17,27 @@ set -euo pipefail
 cd "$DEPLOYME_ROOT"
 
 trust=1
+flavour=""
 configure_args=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --no-trust) trust=0; shift ;;
-        -h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --flavour|--flavor) flavour=${2:?--flavour needs full or slim}; shift 2 ;;
+        --flavour=*|--flavor=*) flavour=${1#*=}; shift ;;
         *) configure_args+=("$1"); shift ;;
     esac
 done
+
+# The flavour, asked once when nobody chose it (bin/configure keeps it after).
+[ -n "$flavour" ] || flavour=$(deployme_env DEPLOYME_FLAVOUR)
+if [ -z "$flavour" ] && [ -t 0 ]; then
+    echo "  full: FrankenPHP, PostgreSQL and Valkey (recommended, and for many servers)."
+    echo "  slim: plain PHP, SQLite and a minimal Caddy: lighter, but SQLite has one writer."
+    read -r -p "  Flavour? [full/slim] (full) " flavour
+fi
+flavour=${flavour:-full}
+configure_args+=(--flavour "$flavour")
 
 os=$(deployme_os)
 deployme_say "Installing deploy.me on $os"
@@ -90,7 +104,7 @@ fi
 bin/configure "${configure_args[@]+"${configure_args[@]}"}"
 
 if [ "$(deployme_stack)" = standalone ]; then
-    for port in 80 443; do
+    for port in "$(deployme_env DEPLOYME_HTTP_PORT | grep . || echo 80)" "$(deployme_env DEPLOYME_HTTPS_PORT | grep . || echo 443)"; do
         if ! docker ps --format '{{.Names}} {{.Ports}}' | grep -v '^deployme-caddy ' | grep -q "127.0.0.1:$port->\|0.0.0.0:$port->\|:::$port->"; then
             continue
         fi

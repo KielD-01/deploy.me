@@ -1,0 +1,45 @@
+# deploy.me — the slim flavour, on top of docker-compose.local.yml (and
+# compose.prod.yml in production mode). `bin/configure --flavour slim` adds it
+# to COMPOSE_FILE; `--flavour full` takes it out again.
+#
+#   full   FrankenPHP, PostgreSQL 18, Valkey (queues, cache, locks)
+#   slim   plain PHP 8.5 and its built-in server, SQLite, and the database for
+#          queues, cache and locks: nothing to run beside the app but an edge
+#
+# The image is the same Dockerfile on the slim base (romanovich0195/
+# deployme-php:1-slim, or Dockerfile.base-slim compiled here). The database is
+# one file, src/api/storage/database/deployme.sqlite, which both modes mount
+# (all of src/api in development, storage/ in production); bin/db-create.sh
+# creates it and src/api/.env points at it (bin/configure sets DB_CONNECTION,
+# DB_DATABASE, CACHE_STORE and DEPLOYME_QUEUE_DRIVER for the flavour).
+#
+# The edge: on the standalone stack, compose.slim-edge.yml (a plain Caddy with a
+# static Caddyfile); on the shared stack, the shared caddy-docker-proxy and the
+# labels docker-compose.local.yml already puts on deployme-web.
+
+x-slim-build: &slim-build
+  args:
+    DEPLOYME_PHP_BASE: ${DEPLOYME_PHP_BASE:-romanovich0195/deployme-php:1-slim}
+    DEPLOYME_FLAVOUR: slim
+
+services:
+  deployme-web:
+    build: *slim-build
+    # PHP's built-in server with several workers, so a Livewire poll, a long
+    # page and a log download don't wait for each other. Laravel's own router
+    # script serves public/ (the files there directly, everything else through
+    # index.php).
+    command: ["php", "-S", "0.0.0.0:8000", "-t", "/app/public", "/app/vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php"]
+    environment:
+      DEPLOYME_FLAVOUR: slim
+      PHP_CLI_SERVER_WORKERS: "4"
+
+  deployme-worker:
+    build: *slim-build
+    environment:
+      DEPLOYME_FLAVOUR: slim
+
+  deployme-reverb:
+    build: *slim-build
+    environment:
+      DEPLOYME_FLAVOUR: slim

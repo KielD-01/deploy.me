@@ -34,11 +34,20 @@ final class EnrollmentLinks
         $key = $this->key($token);
         $id = Cache::get($key);
 
-        // pull() is a get and then a forget: two requests at once could both
-        // get. Only the one whose forget removed the key counts.
-        if (! $id || ! Cache::forget($key)) {
+        if (! $id) {
             return null;
         }
+
+        // pull() is a get and then a forget: two requests at once could both
+        // get. Only the one that adds the "used" marker counts. add() is atomic
+        // in every store deploy.me runs on (SET NX in Valkey, an insert that a
+        // primary key refuses in the database store); forget() isn't a test:
+        // the database store answers true for a key that was already gone.
+        if (! Cache::add($key.':used', true, now()->addMinutes(self::TTL_MINUTES + 1))) {
+            return null;
+        }
+
+        Cache::forget($key);
 
         return User::query()->find($id);
     }

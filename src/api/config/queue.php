@@ -1,5 +1,25 @@
 <?php
 
+// One of deploy.me's queue connections, on Valkey (the full flavour) or on the
+// database (the slim one).
+$deploymeQueue = fn (string $queue, int $retryAfter): array => env('DEPLOYME_QUEUE_DRIVER', 'redis') === 'database'
+    ? [
+        'driver' => 'database',
+        'connection' => env('DB_QUEUE_CONNECTION'),
+        'table' => env('DB_QUEUE_TABLE', 'jobs'),
+        'queue' => $queue,
+        'retry_after' => $retryAfter,
+        'after_commit' => true,
+    ]
+    : [
+        'driver' => 'redis',
+        'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+        'queue' => $queue,
+        'retry_after' => $retryAfter,
+        'block_for' => null,
+        'after_commit' => true,
+    ];
+
 return [
 
     /*
@@ -67,34 +87,17 @@ return [
         // Each queue gets its own connection so retry_after always exceeds the
         // worker's --timeout (core/local/php/supervisor/conf.d/queues.conf).
         // Otherwise a second worker picks up a job that is still running.
-        'redis' => [
-            'driver' => 'redis',
-            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
-            'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 330),
-            'block_for' => null,
-            'after_commit' => true,
-        ],
+        //
+        // The names stay redis* in both flavours (the jobs name them): the full
+        // one runs them on Valkey, the slim one (DEPLOYME_QUEUE_DRIVER=database)
+        // on the jobs table of its SQLite database.
+        'redis' => $deploymeQueue(env('REDIS_QUEUE', 'default'), (int) env('REDIS_QUEUE_RETRY_AFTER', 330)),
 
         // Deploys: worker --timeout=7200.
-        'redis-deploys' => [
-            'driver' => 'redis',
-            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
-            'queue' => 'deploys',
-            'retry_after' => 7300,
-            'block_for' => null,
-            'after_commit' => true,
-        ],
+        'redis-deploys' => $deploymeQueue('deploys', 7300),
 
         // Server probes, connection and health checks: worker --timeout=120.
-        'redis-probes' => [
-            'driver' => 'redis',
-            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
-            'queue' => 'probes',
-            'retry_after' => 150,
-            'block_for' => null,
-            'after_commit' => true,
-        ],
+        'redis-probes' => $deploymeQueue('probes', 150),
 
         'deferred' => [
             'driver' => 'deferred',

@@ -16,11 +16,16 @@ and health checks on queue workers run by supervisor.
   `.github/workflows/php-image.yml` (needs the DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets).
   Semver: `core/local/php/VERSION` holds MAJOR.MINOR (bump MINOR with any Dockerfile.base
   change — CI refuses one without it — MAJOR for a breaking one); every publish is the next
-  PATCH counted from Docker Hub, tagged X.Y.Z, X.Y, X and latest. Installs pull `:1` (the
-  workflow checks the Dockerfile, compose file and bin/ scripts name VERSION's major);
+  PATCH counted from Docker Hub, tagged X.Y.Z, X.Y, X and latest. `Dockerfile.base-slim`
+  (official `php:8.5-cli`, pdo_sqlite, no pgsql/redis, sqlite3 in place of psql) is the slim
+  flavour's base, published from the same workflow and VERSION as X.Y.Z-slim, X.Y-slim,
+  X-slim and slim. Installs pull `:1` or `:1-slim` (the workflow checks the Dockerfile,
+  compose files and bin/ scripts name VERSION's major);
   `Dockerfile` adds the entrypoint, git askpass helper, supervisor programs (queue workers +
-  scheduler) and the machine's user on top. `bin/build` pulls the base, or compiles it
-  (`deployme-php-base:local`) when it can't or `.env` says `DEPLOYME_PHP_BASE`.
+  scheduler) and the machine's user on top (build arg `DEPLOYME_FLAVOUR=slim` swaps in
+  `supervisor/queues-slim.conf`, keeping the full list as `/etc/supervisor/queues-full.conf`).
+  `bin/build` pulls the flavour's base, or compiles it (`deployme-php-base:local`, or
+  `:local-slim`) when it can't or `.env` says `DEPLOYME_PHP_BASE`.
   Two targets, one per mode (`DEPLOYME_MODE` in `.env`, `bin/configure --mode dev|prod`):
   `runtime` (dev, `deployme-php:local`: src/api is bind-mounted, OPcache re-checks every
   2 s, the entrypoint clears the caches) and `app` (prod, `deployme-php:prod` through
@@ -28,7 +33,17 @@ and health checks on queue workers run by supervisor.
   only `src/api/.env` (ro) and `src/api/storage` mounted, `php-prod.ini` turns timestamp
   checks off, and the entrypoint caches config/routes/events in each container and views
   in deployme-web). `core/local/tests/configure-modes.sh` is the shell harness for
-  `bin/configure --mode` and db-create's first `.env`.
+  `bin/configure --mode`/`--flavour` and db-create's first `.env`.
+- Flavours (`DEPLOYME_FLAVOUR` in `.env`, `bin/configure --flavour full|slim`, orthogonal to
+  mode and stack): `full` (FrankenPHP, PostgreSQL, Valkey) or `slim` (`compose.slim.yml`:
+  the slim base, `php -S` with `PHP_CLI_SERVER_WORKERS=4`, SQLite at
+  `src/api/storage/database/deployme.sqlite` — WAL, busy_timeout 10 s, IMMEDIATE
+  transactions — and the database queue/cache/locks via `DEPLOYME_QUEUE_DRIVER=database` and
+  `CACHE_STORE=database`; the queue connection names stay `redis*`). Slim standalone swaps
+  `compose.standalone.yml` for `compose.slim-edge.yml` (plain `caddy:2-alpine` with
+  `core/local/caddy/Caddyfile`, same `deployme-caddy` name and CA volume); slim shared uses
+  the shared edge's labels. `bin/configure` sets DB_CONNECTION/DB_DATABASE/CACHE_STORE/
+  DEPLOYME_QUEUE_DRIVER in `src/api/.env` for the flavour (`deployme_app_env_for_flavour`).
 - `src/api/` — the Laravel app. Livewire 4 class components in `app/Livewire`, layout
   `resources/views/layouts/app.blade.php`, daisyUI 5 theme in `resources/css/app.css`
   (tokens from a sibling project's design system), icons via `<x-icon name="…" />`.
@@ -37,7 +52,7 @@ and health checks on queue workers run by supervisor.
   `Database\Seeders\DemoSeeder` (example servers and projects, a week of runs through the real
   pipeline with a fake ssh client) on an empty database, never the live one.
 - `bin/install` (and `bin/install.ps1` for Windows → WSL2) runs the guided install;
-  `bin/configure` writes `.env` (COMPOSE_FILE, stack mode, DEPLOYME_MODE, DEPLOYME_UID/GID,
+  `bin/configure` writes `.env` (COMPOSE_FILE, stack mode, DEPLOYME_MODE, DEPLOYME_FLAVOUR, DEPLOYME_UID/GID,
   TZ, project roots) and `compose.host.yml` (root and ssh-agent mounts), and sets
   APP_ENV/APP_DEBUG/LOG_LEVEL in `src/api/.env` for the mode; `bin/trust-ca` trusts the edge's
   CA per OS; `bin/lib.sh` is what they share. Stack modes: `shared` (the external
@@ -45,8 +60,9 @@ and health checks on queue workers run by supervisor.
   deployme-postgres/-valkey/-caddy with the aliases postgres/redis). On Linux/WSL the
   containers run as the host UID (the image's `deployme` user, home /root); on macOS as root.
   `docs/install.md` is the per-OS guide.
-- `bin/` — `db-create.sh` (the role + DBs, either stack), `doctor.sh` (host-side checks),
-  `backup.sh` (the database and APP_KEY into `~/Backups/deployme`, nightly through a
+- `bin/` — `db-create.sh` (the role + DBs, either stack; slim: the SQLite file), `doctor.sh`
+  (host-side checks), `backup.sh` (the database — pg_dump, or sqlite3 `.backup` in slim — and
+  APP_KEY into `~/Backups/deployme`, nightly through a
   LaunchAgent on macOS, a systemd user timer or cron on Linux/WSL: everything else can be
   rebuilt from git and the servers). `update` moves this checkout to a release tag: it checks
   nothing of your own is in the checkout and nothing runs in the app (`deployme:update busy`),
@@ -57,8 +73,9 @@ and health checks on queue workers run by supervisor.
   04:10 job (LaunchAgent, systemd user timer or cron; the marker file `update-agent` beside the
   state file tells the app it exists), which runs `update --auto`: the app's
   `deployme:update plan --auto` decides (exit 0 apply, 3 busy, 4 nothing) and names the release.
-- `docker-compose.local.yml` (+ `compose.standalone.yml`, generated `compose.host.yml`),
-  `Makefile` (`make help`).
+- `docker-compose.local.yml` (+ `compose.standalone.yml`, `compose.prod.yml`,
+  `compose.slim.yml`, `compose.slim-edge.yml`, generated `compose.host.yml`), `Makefile`
+  (`make help`).
 
 ## Running
 
@@ -68,11 +85,12 @@ make configure # re-describe this machine (.env, compose.host.yml)
 make init      # first run: database, image, containers, assets, setup, doctor
 make enroll    # one-time link to set up a passkey or password (first run, or a lost way in)
 make up        # start · make down · make logs s=deployme-worker
-make test      # Pest, in the container, against deployme_test
+make test      # Pest, in the container, against deployme_test (slim: in-memory SQLite)
 make sandbox   # local SSH server (alias "sandbox") · make test-ssh for real-ssh tests
 make doctor    # infra, TLS, websockets, then `php artisan deployme:doctor`
 make assets    # build frontend (make dev for Vite + HMR at vite.deployme.localhost)
 bin/configure --mode prod && make build && make up   # production mode (dev: --mode dev)
+bin/configure --flavour slim && make db-create build up   # slim flavour (back: --flavour full)
 ```
 
 In production mode the code is the image's: any change (a pull, an edit, CSS) needs
@@ -425,6 +443,12 @@ App: https://deployme.localhost (shared Caddy edge, `tls internal`).
   worker `--timeout=7200` > `RunDeployment::TIMEOUT` (7000) > `StepTimeout::MAX`
   (3600), which caps every step timeout a project's settings can stretch, so a
   slow step fails saying what it waited for instead of taking the worker down.
+- Tests pass on PostgreSQL and SQLite (CI runs both; locally add `-e DB_CONNECTION=sqlite
+  -e DB_DATABASE=:memory:` to the test container). Postgres-only SQL branches on
+  `DB::getDriverName()`; a test that reads Postgres' catalogue skips itself on SQLite. On
+  SQLite a migration that adds or drops a foreign key (or changes a column) rebuilds the
+  table, which drops its triggers and turns partial indexes into plain ones: re-create them
+  (see `2026_10_18_100000_restore_sqlite_partial_indexes`).
 - Project settings are project-level only; delivery uses an ordered strategy list.
 - Secrets never go in argv or logs; remote scripts get them over stdin.
 - Single local user (Fortify, no registration); sensitive actions use password confirm.

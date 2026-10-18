@@ -49,6 +49,19 @@ it('averages a day of readings into five-minute points', function () {
         ->and($points->first()->at->format('H:i'))->toBe('11:50');
 });
 
+it('puts a reading in the bucket its five minutes start at, to the second', function () {
+    $server = Server::factory()->create();
+    // 11:44:59 is the last second of 11:40; 11:45:00 starts 11:45.
+    readingAgo($server, 15, 10.0, extra: ['captured_at' => now()->subMinutes(15)->subSecond()]);
+    readingAgo($server, 15, 30.0);
+    readingAgo($server, 11, 50.0, extra: ['captured_at' => now()->subMinutes(10)->subSecond()]);
+
+    $points = ServerSnapshot::history([$server->id], now()->subDay())->get($server->id);
+
+    expect($points->map(fn (object $point) => $point->at->format('H:i:s').' '.$point->cpu)->all())
+        ->toBe(['11:40:00 10', '11:45:00 40']);
+});
+
 it('draws a full day from at most 288 points, however many probes there were', function () {
     $server = Server::factory()->create();
     $rows = collect(range(1, 1440))->map(fn (int $minute) => [

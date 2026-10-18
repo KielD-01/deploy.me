@@ -38,10 +38,16 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
-            'transaction_mode' => 'DEFERRED',
+            // The slim flavour's database: three containers and a handful of
+            // workers share one file. WAL lets readers go on while one writes;
+            // a writer waits up to 10 s for another instead of failing at once;
+            // and a transaction takes the write lock when it begins, since one
+            // that reads first and writes later can't wait for it (SQLite
+            // refuses that upgrade straight away with "database is locked").
+            'busy_timeout' => (int) env('DB_BUSY_TIMEOUT', 10000),
+            'journal_mode' => env('DB_JOURNAL_MODE', 'wal'),
+            'synchronous' => env('DB_SYNCHRONOUS', 'normal'),
+            'transaction_mode' => env('DB_TRANSACTION_MODE', 'IMMEDIATE'),
         ],
 
         'mysql' => [

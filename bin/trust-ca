@@ -15,6 +15,9 @@ set -euo pipefail
 cd "$DEPLOYME_ROOT"
 
 os=$(deployme_os)
+# deployme-caddy on the standalone stack, whichever flavour: caddy-docker-proxy
+# (full) and the plain Caddy (slim) both keep the CA at the same path in the
+# same caddy_data volume.
 edge=$(deployme_edge_container)
 ca=$(deployme_ca_file)
 

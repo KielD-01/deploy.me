@@ -1,5 +1,6 @@
 # deploy.me — local PHP image: FrankenPHP (PHP 8.5) serving Laravel in classic
-# (non-worker) mode. Build context is the repository root. Two targets:
+# (non-worker) mode, or in the slim flavour PHP's built-in server. Build context
+# is the repository root. Two targets:
 #
 #   runtime   development mode (the default): only the runtime; the application
 #             is bind-mounted from ./src/api, so code changes show up live.
@@ -15,11 +16,23 @@
 #   make build                         # pull the base, add the rest
 #   bin/configure --build-from-source  # always compile the base here
 
+#
+# The slim flavour (bin/configure --flavour slim) builds the same file on the
+# slim base (Dockerfile.base-slim: plain PHP, SQLite, no FrankenPHP), with
+# DEPLOYME_FLAVOUR=slim for its smaller set of queue workers.
+
 ARG DEPLOYME_PHP_BASE=romanovich0195/deployme-php:1
 FROM ${DEPLOYME_PHP_BASE} AS runtime
 
 COPY core/local/php/php.ini /usr/local/etc/php/conf.d/zz-deployme.ini
 COPY core/local/php/supervisor/ /etc/supervisor/
+# full: conf.d/queues.conf as it is. slim: queues-slim.conf in its place, and
+# the full list kept beside it as queues-full.conf (the test suite reads both).
+ARG DEPLOYME_FLAVOUR=full
+RUN if [ "$DEPLOYME_FLAVOUR" = slim ]; then \
+      cp /etc/supervisor/conf.d/queues.conf /etc/supervisor/queues-full.conf; \
+      cp /etc/supervisor/queues-slim.conf /etc/supervisor/conf.d/queues.conf; \
+    fi
 # Baked in (not bind-mounted) so app code can't swap the credential helper.
 COPY core/local/php/git-askpass /usr/local/bin/deployme-git-askpass
 COPY core/local/php/entrypoint.sh /usr/local/bin/deployme-entrypoint
@@ -29,13 +42,16 @@ RUN chmod 0755 /usr/local/bin/deployme-git-askpass /usr/local/bin/deployme-entry
 # user's ids (compose passes DEPLOYME_UID/GID from ./.env), so bind-mounted files
 # keep their owner and ssh accepts the ~/.ssh/config that user owns. Its home is
 # /root either way, where compose mounts ~/.ssh. FrankenPHP's /data and /config
-# and PHP's session folder must be writable by it too.
+# (the full base only: the slim one has neither) must be writable by it too.
 ARG DEPLOYME_UID=0
 ARG DEPLOYME_GID=0
 RUN if [ "$DEPLOYME_UID" != 0 ]; then \
       getent group "$DEPLOYME_GID" >/dev/null || groupadd -g "$DEPLOYME_GID" deployme; \
       useradd -o -u "$DEPLOYME_UID" -g "$DEPLOYME_GID" -d /root -M -s /bin/bash deployme; \
-      chown -R "$DEPLOYME_UID:$DEPLOYME_GID" /root /data /config; \
+      chown -R "$DEPLOYME_UID:$DEPLOYME_GID" /root; \
+      for dir in /data /config; do \
+        if [ -d "$dir" ]; then chown -R "$DEPLOYME_UID:$DEPLOYME_GID" "$dir"; fi; \
+      done; \
     fi
 
 WORKDIR /app

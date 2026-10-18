@@ -77,9 +77,23 @@ class PruneOldData
         // The audit log refuses DELETE unless the transaction says it's the
         // prune; the flag is transaction-local, so it can't leak past this.
         $audit = DB::transaction(function (): int {
-            DB::statement("select set_config('deployme.pruning', 'on', true)");
+            $sqlite = DB::getDriverName() === 'sqlite';
 
-            return AuditEntry::query()->where('occurred_at', '<', now()->subDays(Settings::int('audit_retention_days')))->delete();
+            if ($sqlite) {
+                // SQLite (the slim flavour): a row the trigger looks for, gone
+                // again before the commit, and with it on a rollback.
+                DB::table('audit_log_pruning')->insertOrIgnore(['active' => true]);
+            } else {
+                DB::statement("select set_config('deployme.pruning', 'on', true)");
+            }
+
+            $deleted = AuditEntry::query()->where('occurred_at', '<', now()->subDays(Settings::int('audit_retention_days')))->delete();
+
+            if ($sqlite) {
+                DB::table('audit_log_pruning')->delete();
+            }
+
+            return $deleted;
         });
 
         return [

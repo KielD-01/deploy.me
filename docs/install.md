@@ -23,6 +23,7 @@ your machine could claim the account; put `DEPLOYME_WEB_SETUP=true` in `src/api/
 - [Windows (WSL2)](#-windows-wsl2)
 - [The PHP image](#the-php-image)
 - [Two stack modes](#two-stack-modes)
+- [Two flavours: full and slim](#two-flavours-full-and-slim)
 - [Development and production mode](#development-and-production-mode)
 - [What `bin/configure` writes](#what-binconfigure-writes)
 - [Updating, stopping, uninstalling](#updating-stopping-uninstalling)
@@ -153,18 +154,27 @@ Docker Hub, so `make build` (`bin/build`) pulls it and only adds this checkout's
 files and your user on top. That takes seconds, where compiling the extensions takes a
 minute on a fast Mac and several elsewhere.
 
+| Tags | Flavour | Built from |
+|---|---|---|
+| `1.1.0`, `1.1`, `1`, `latest` | full: FrankenPHP, PostgreSQL and Redis extensions | `core/local/php/Dockerfile.base` |
+| `1.1.0-slim`, `1.1-slim`, `1-slim`, `slim` | slim: plain PHP CLI, SQLite | `core/local/php/Dockerfile.base-slim` |
+
+Installs pull `1` or `1-slim` ([the two flavours](#two-flavours-full-and-slim)); the
+`X.Y.Z` tags never change once pushed, if you want to pin one.
+
 - **Offline, or the base can't be pulled?** `bin/build` compiles it here from
   `core/local/php/Dockerfile.base`, without being asked.
 - **Prefer to build everything yourself?** Run `bin/configure --build-from-source`, then
-  `make build`. `bin/configure --pull-base` goes back to the ready-made one.
-- **Updates.** GitHub Actions (`.github/workflows/php-image.yml`) rebuilds the base when
-  `Dockerfile.base` changes, and every Monday for FrankenPHP and Debian security fixes.
+  `make build` (it compiles `deployme-php-base:local`, or `deployme-php-base:local-slim` in
+  the slim flavour). `bin/configure --pull-base` goes back to the ready-made one.
+- **Updates.** GitHub Actions (`.github/workflows/php-image.yml`) rebuilds both bases when
+  either Dockerfile changes, and every Monday for PHP, FrankenPHP and Debian security fixes.
   `make build` pulls the newest one.
 
 ## Two stack modes
 
-deploy.me needs PostgreSQL, Valkey (Redis) and an HTTPS edge. It can bring its own, or use
-a stack you already run:
+deploy.me needs PostgreSQL, Valkey (Redis) and an HTTPS edge (the slim flavour: only the
+edge). It can bring its own, or use a stack you already run:
 
 | | `standalone` | `shared` |
 |---|---|---|
@@ -176,6 +186,73 @@ a stack you already run:
 `bin/configure` picks one. To choose yourself, pass `bin/configure --stack standalone` or
 `--stack shared`, then run `make up`. Either way the app finds the database as `postgres`
 and the cache as `redis`, so nothing in `src/api/.env` changes.
+
+## Two flavours: full and slim
+
+Separately from the stack and the mode, deploy.me comes in two flavours. `bin/install`
+asks which one (full unless you say otherwise); `bin/configure --flavour full|slim`
+chooses or switches.
+
+| | `full` (the default) | `slim` |
+|---|---|---|
+| **PHP image** | `romanovich0195/deployme-php:1`: FrankenPHP 1 + PHP 8.5 | `romanovich0195/deployme-php:1-slim`: the official `php:8.5-cli` |
+| **Web server** | FrankenPHP | PHP's built-in server with four workers (`PHP_CLI_SERVER_WORKERS`) |
+| **Database** | PostgreSQL 18 | SQLite: `src/api/storage/database/deployme.sqlite`, WAL, 10 s busy timeout |
+| **Queues, cache, locks** | Valkey | the same SQLite file (`jobs`, `cache`, `cache_locks`) |
+| **Queue workers** | 2 deploys, 1 sync, 4 probes, 1 default | 2 deploys, 1 sync, 2 probes, 1 default |
+| **Edge (standalone)** | caddy-docker-proxy, routing by container labels | a plain `caddy:2-alpine` with a static Caddyfile (`core/local/caddy/Caddyfile`), no Docker socket |
+| **Containers (standalone)** | web, worker, reverb, postgres, valkey, caddy | web, worker, reverb, caddy |
+| **Whole stack on disk** | ≈1.6 GB | ≈1.1 GB |
+| **Compose files** | as in the tables above | `compose.slim.yml` added (after `compose.prod.yml`); standalone uses `compose.slim-edge.yml` in place of `compose.standalone.yml` |
+| **Backups** (`make backup`) | `deployme-<stamp>.sql.gz` (pg_dump) | `deployme-<stamp>.sqlite.gz` (sqlite3 `.backup`) |
+| **`make test`** | PostgreSQL (`deployme_test`) | an in-memory SQLite |
+
+**Which one?** Full is the recommended flavour, and the one for many servers or several
+deploys at once. Slim is lighter to install and run (no PostgreSQL or Valkey to keep going),
+but SQLite has one writer at a time: deploys, probes, health checks and the pages all take
+turns at it. That's fine for a handful of servers; with dozens, or with many deploys running
+together, use full. The slim PHP image itself is only a little smaller (≈0.97 GB against
+≈1.06 GB on disk): the saving is in what runs beside it.
+
+Slim works with either mode (dev or prod) and either stack. On the **standalone** stack it
+brings only its minimal Caddy (published on 127.0.0.1:80 and :443, as `deployme-caddy`, with
+its CA in the same `deployme_caddy_data` volume, so `bin/trust-ca` works the same). On the
+**shared** stack it uses the shared edge through the labels `deployme-web` already carries,
+and simply leaves the shared PostgreSQL and Valkey alone.
+
+```bash
+bin/install --flavour slim                                   # a new install
+bin/configure --flavour slim                                 # an existing one, then:
+docker compose down --remove-orphans && make db-create build up
+bin/configure --flavour full && make db-create build up      # and back
+```
+
+A switch starts on the other flavour's database, empty the first time: nothing is copied
+across, and the old one stays where it was (the Postgres database, or the SQLite file). The
+app's own settings follow the flavour: `bin/configure` sets `DB_CONNECTION`, `DB_DATABASE`,
+`CACHE_STORE` and `DEPLOYME_QUEUE_DRIVER` in `src/api/.env` and leaves every other line, `APP_KEY`
+above all, as it is. The queue connections keep their names (`redis`, `redis-deploys`,
+`redis-probes`) in both flavours; `DEPLOYME_QUEUE_DRIVER=database` only changes what runs them.
+
+The slim flavour's settings in `src/api/.env`:
+
+```dotenv
+DB_CONNECTION=sqlite
+DB_DATABASE=/app/storage/database/deployme.sqlite
+CACHE_STORE=database
+DEPLOYME_QUEUE_DRIVER=database
+# Optional, with these defaults (config/database.php):
+# DB_JOURNAL_MODE=wal  DB_BUSY_TIMEOUT=10000  DB_SYNCHRONOUS=normal  DB_TRANSACTION_MODE=IMMEDIATE
+```
+
+Restore a slim backup with the stack stopped:
+
+```bash
+make down
+gunzip -c ~/Backups/deployme/deployme-<stamp>.sqlite.gz > src/api/storage/database/deployme.sqlite
+rm -f src/api/storage/database/deployme.sqlite-wal src/api/storage/database/deployme.sqlite-shm
+make up
+```
 
 ## Development and production mode
 
@@ -228,19 +305,22 @@ Two files, both git-ignored. Running it again rewrites them and keeps the databa
 | `COMPOSE_FILE` | The compose files for this machine's stack mode |
 | `DEPLOYME_STACK` | `standalone` or `shared` |
 | `DEPLOYME_MODE` | `dev` or `prod` ([the two modes](#development-and-production-mode)) |
+| `DEPLOYME_FLAVOUR` | `full` or `slim` ([the two flavours](#two-flavours-full-and-slim)) |
 | `DEPLOYME_OS` | `macos`, `linux` or `wsl` |
 | `DEPLOYME_NETWORK` | The edge's Docker network |
 | `DEPLOYME_UID`, `DEPLOYME_GID` | Who the containers run as (0 on macOS) |
 | `DEPLOYME_TZ` | Your timezone |
 | `DEPLOYME_PROJECT_ROOTS` | The folders projects are imported from, `:`-separated |
-| `DEPLOYME_POSTGRES_PASSWORD` | Standalone only: the Postgres superuser's password |
-| `DEPLOYME_PHP_BASE` | Only with `--build-from-source`: `deployme-php-base:local`, the base compiled here |
+| `DEPLOYME_POSTGRES_PASSWORD` | Standalone full only: the Postgres superuser's password |
+| `DEPLOYME_PHP_BASE` | Only with `--build-from-source`: `deployme-php-base:local` (slim: `:local-slim`), the base compiled here |
+| `DEPLOYME_HTTP_PORT`, `DEPLOYME_HTTPS_PORT` | Optional, added by hand and kept: the ports the slim flavour's own edge publishes on 127.0.0.1 (80 and 443 by default; the site still answers as `deployme.localhost`) |
 
 **`compose.host.yml`**: the mounts only this machine has, namely each project root
 (read-only for the web container, read-write for the worker) and the ssh-agent socket.
 
 The app's own settings stay in `src/api/.env`, including `APP_KEY`. Back that key up.
-`bin/configure` only touches its `APP_ENV`, `APP_DEBUG` and `LOG_LEVEL`, for the mode. In
+`bin/configure` only touches its `APP_ENV`, `APP_DEBUG` and `LOG_LEVEL`, for the mode, and
+`DB_CONNECTION`, `DB_DATABASE`, `CACHE_STORE` and `DEPLOYME_QUEUE_DRIVER`, for the flavour. In
 production mode `make db-create` also generates `APP_KEY` and the Reverb credentials when
 they're blank, because the containers mount that file read-only.
 
@@ -254,7 +334,8 @@ make down                    # stop (data is kept)
 make up                      # start again
 ```
 
-To uninstall a standalone stack **and delete its data** (the database, the CA):
+To uninstall a standalone stack **and delete its data** (the database, the CA; in the slim
+flavour, also delete `src/api/storage/database/deployme.sqlite*`):
 
 ```bash
 make backup                       # first, if you want to keep anything
@@ -281,3 +362,5 @@ Start with `make doctor`. It says which part fails.
 | An edit in `src/api` doesn't show up | Production mode bakes the code into the image: `make build && make up`, or `bin/configure --mode dev` while you work on it |
 | `make dev` says it needs development mode | `bin/configure --mode dev && make build && make up` |
 | A project folder isn't offered for import | Add its parent as a root: `bin/configure --roots ~/Projects:~/work`, then `make up` |
+| `database is locked` in the log (slim) | Another writer held SQLite longer than the busy timeout (10 s): raise `DB_BUSY_TIMEOUT` in `src/api/.env` and `make restart`, or move to the full flavour if it keeps happening |
+| After a flavour switch the old containers still run | `docker compose down --remove-orphans`, then `make up` |

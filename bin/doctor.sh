@@ -9,6 +9,7 @@ set -uo pipefail
 cd "$DEPLOYME_ROOT" || exit 1
 
 STACK=$(deployme_stack)
+FLAVOUR=$(deployme_flavour)
 NETWORK=$(deployme_env DEPLOYME_NETWORK); NETWORK=${NETWORK:-proxy-network}
 PG=$(deployme_pg_container)
 EDGE=$(deployme_edge_container)
@@ -21,7 +22,11 @@ pass() { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 fail() { printf '  \033[31m✗\033[0m %s\n' "$1"; failures=$((failures + 1)); }
 check() { local label=$1; shift; if "$@" >/dev/null 2>&1; then pass "$label"; else fail "$label"; fi; }
 running() { [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = true ]; }
-loopback_only() { ! { docker port "$EDGE"; docker port "$PG"; docker port "$CACHE"; } 2>/dev/null | grep -Eq '0\.0\.0\.0|\[::\]'; }
+loopback_only() {
+  local c
+  for c in "${INFRA[@]}"; do docker port "$c" 2>/dev/null; done | grep -Eq '0\.0\.0\.0|\[::\]' && return 1
+  return 0
+}
 ca_present() { [ -s "$CA" ] || bin/trust-ca --print; }
 alias_owner_ok() {
   # No foreign container may hold a deployme-* name on proxy-network.
@@ -51,11 +56,20 @@ else
   echo "Mode: development (the code is mounted from src/api)"
 fi
 
-echo "Infra ($STACK stack, $(deployme_os))"
+# The slim flavour runs no Postgres or Valkey: only the edge is infra.
+if [ "$FLAVOUR" = slim ]; then INFRA=("$EDGE"); else INFRA=("$PG" "$CACHE" "$EDGE"); fi
+# test -s first: sqlite3 would create an empty database where none is.
+sqlite_ok() { docker exec deployme-web sh -c 'test -s "$1" && sqlite3 "$1" "pragma quick_check"' sh "$DEPLOYME_SQLITE_PATH" | grep -qx ok; }
+
+echo "Infra ($FLAVOUR flavour, $STACK stack, $(deployme_os))"
 check "$NETWORK network exists" docker network inspect "$NETWORK"
-for c in "$PG" "$CACHE" "$EDGE"; do check "$c is running" running "$c"; done
+for c in "${INFRA[@]}"; do check "$c is running" running "$c"; done
 check "infra ports are bound to 127.0.0.1 only" loopback_only
-check "role deployme exists" sh -c "docker exec $PG psql -U postgres -tAc \"select 1 from pg_roles where rolname = 'deployme'\" | grep -q 1"
+if [ "$FLAVOUR" = slim ]; then
+  check "the SQLite database is there ($DEPLOYME_SQLITE_FILE)" test -s "$DEPLOYME_SQLITE_FILE"
+else
+  check "role deployme exists" sh -c "docker exec $PG psql -U postgres -tAc \"select 1 from pg_roles where rolname = 'deployme'\" | grep -q 1"
+fi
 check "the edge's local CA is on this machine ($CA)" ca_present
 
 echo "deploy.me"
@@ -68,6 +82,14 @@ in_mode() {
   [ "${running_mode:-dev}" = "$MODE" ]
 }
 check "deployme-web runs in $MODE mode" in_mode
+# The flavour ./.env names is the one the containers were started in, too.
+in_flavour() {
+  local running_flavour
+  running_flavour=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' deployme-web 2>/dev/null | sed -n 's/^DEPLOYME_FLAVOUR=//p')
+  [ "${running_flavour:-full}" = "$FLAVOUR" ]
+}
+check "deployme-web runs the $FLAVOUR flavour" in_flavour
+[ "$FLAVOUR" = slim ] && check "SQLite says the database is sound (quick_check)" sqlite_ok
 check "no foreign container holds a deployme-* name" alias_owner_ok
 check "$URL/up answers over TLS" curl -fsS -o /dev/null --max-time 5 --cacert "$CA" "$URL/up"
 check "websocket upgrade reaches Reverb through the edge" ws_upgrade

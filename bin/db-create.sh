@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Create deploy.me's role and databases (idempotent), on the shared Postgres or
-# on deploy.me's own one, whichever ./.env names (bin/configure).
+# on deploy.me's own one, whichever ./.env names (bin/configure). In the slim
+# flavour, the SQLite file instead (src/api/storage/database/deployme.sqlite).
 #
 #   bin/db-create.sh
 #
@@ -21,6 +22,8 @@ if [ ! -f "$ENV_FILE" ]; then
     # .env.example is development's (local, debug on); production mode starts
     # from production's.
     [ "$(deployme_mode)" = prod ] && deployme_app_env_for_mode prod "$ENV_FILE"
+    # .env.example is the full flavour's (PostgreSQL, Valkey).
+    [ "$(deployme_flavour)" = slim ] && deployme_app_env_for_flavour slim "$ENV_FILE"
 fi
 
 # In production mode the containers mount .env read-only, so `make setup` can't
@@ -37,6 +40,15 @@ if [ "$(deployme_mode)" = prod ]; then
             -e "s/^REVERB_APP_SECRET=.*/REVERB_APP_SECRET=$(openssl rand -hex 20)/" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
         deployme_ok "Generated the Reverb credentials in $ENV_FILE"
     fi
+fi
+
+# Slim: one file in storage/, which every container mounts. No role, no
+# password, no server; the tests run on an in-memory SQLite (make test).
+if [ "$(deployme_flavour)" = slim ]; then
+    mkdir -p "$(dirname "$DEPLOYME_SQLITE_FILE")"
+    [ -e "$DEPLOYME_SQLITE_FILE" ] || : > "$DEPLOYME_SQLITE_FILE"
+    echo "SQLite ready: $DEPLOYME_SQLITE_FILE (the web container migrates it when it starts)."
+    exit 0
 fi
 
 pass=$(deployme_env DB_PASSWORD "$ENV_FILE")

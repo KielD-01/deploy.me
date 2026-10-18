@@ -23,7 +23,7 @@ class DoctorCommand extends Command
 {
     protected $signature = 'deployme:doctor';
 
-    protected $description = 'Check the mode (dev or prod), Postgres, Valkey, Reverb, queues, the scheduler, host mounts, every server alias and the GitHub tokens';
+    protected $description = 'Check the mode (dev or prod), the flavour, the database (PostgreSQL or SQLite), Valkey, Reverb, queues, the scheduler, host mounts, every server alias and the GitHub tokens';
 
     private int $failures = 0;
 
@@ -31,9 +31,11 @@ class DoctorCommand extends Command
     {
         $this->mode();
 
-        $this->check('Postgres answers', fn () => DB::select('select 1 as ok')[0]->ok === 1);
+        $this->database();
         $this->check('Migrations are up to date', fn () => $this->pendingMigrations() === [] ?: 'pending: '.implode(', ', $this->pendingMigrations()));
-        $this->check('Valkey answers', fn () => (bool) Redis::connection()->ping());
+        if ($this->usesRedis()) {
+            $this->check('Valkey answers', fn () => (bool) Redis::connection()->ping());
+        }
         $this->check('Reverb credentials are set', fn () => filled(config('broadcasting.connections.reverb.key')) && filled(config('broadcasting.connections.reverb.secret')));
         $this->check('Reverb accepts a broadcast', function () {
             Broadcast::connection('reverb')->broadcast(['deployme-doctor'], 'ping', ['at' => now()->toIso8601String()]);
@@ -123,6 +125,44 @@ class DoctorCommand extends Command
             return ($value !== false && ! filter_var($value, FILTER_VALIDATE_BOOLEAN))
                 ?: 'opcache.validate_timestamps is on: the image’s php-prod.ini is missing (make build && make up)';
         });
+    }
+
+    /**
+     * The database the flavour runs on. SQLite (slim) is one file that every
+     * container writes to: it should be there, in WAL mode, with a busy timeout.
+     */
+    private function database(): void
+    {
+        if (DB::getDriverName() !== 'sqlite') {
+            $this->check('Postgres answers', fn () => DB::select('select 1 as ok')[0]->ok === 1);
+
+            return;
+        }
+
+        $this->line('  <fg=gray>Slim flavour: SQLite at '.DB::connection()->getDatabaseName().', queues and cache in it</>');
+        $this->check('SQLite answers', fn () => (int) DB::selectOne('select 1 as ok')->ok === 1);
+        $this->check('SQLite writes ahead (WAL), so readers don’t wait for a writer', function () {
+            $mode = strtolower((string) DB::selectOne('pragma journal_mode')->journal_mode);
+
+            return $mode === 'wal' ?: "journal_mode is {$mode} (DB_JOURNAL_MODE in src/api/.env)";
+        });
+        $this->check('SQLite waits for a busy database instead of failing', function () {
+            $timeout = (int) DB::selectOne('pragma busy_timeout')->timeout;
+
+            return $timeout >= 1000 ?: "busy_timeout is {$timeout} ms (DB_BUSY_TIMEOUT in src/api/.env)";
+        });
+    }
+
+    /** Whether the cache or one of deploy.me's queues is on Valkey (the full flavour). */
+    private function usesRedis(): bool
+    {
+        $drivers = [config('cache.stores.'.config('cache.default').'.driver')];
+
+        foreach (['redis', 'redis-deploys', 'redis-probes'] as $connection) {
+            $drivers[] = config("queue.connections.{$connection}.driver");
+        }
+
+        return in_array('redis', $drivers, true);
     }
 
     /**

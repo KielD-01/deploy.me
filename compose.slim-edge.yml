@@ -1,0 +1,39 @@
+# deploy.me — the slim flavour's own edge, for a machine without a shared stack:
+# `bin/configure --flavour slim --stack standalone` puts this file in
+# COMPOSE_FILE instead of compose.standalone.yml (whose Postgres and Valkey the
+# slim flavour doesn't use).
+#
+# A plain Caddy (caddy:2-alpine) with the static core/local/caddy/Caddyfile: no
+# caddy-docker-proxy and no Docker socket. It's published on 127.0.0.1:80 and
+# :443 only, and keeps its local CA in the caddy_data volume, the same volume
+# (deployme_caddy_data) and the same container name as the full flavour's edge,
+# so `bin/trust-ca` finds it either way and a switch keeps the CA you trusted.
+# DEPLOYME_HTTP_PORT and DEPLOYME_HTTPS_PORT in ./.env move it off 80 and 443
+# (the site still answers as deployme.localhost, so only for trying it out).
+
+networks:
+  proxy-network:
+    name: ${DEPLOYME_NETWORK:-deployme-edge}
+    external: false
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+services:
+  deployme-caddy:
+    image: caddy:2-alpine
+    container_name: deployme-caddy
+    ports:
+      - "127.0.0.1:${DEPLOYME_HTTP_PORT:-80}:80"
+      - "127.0.0.1:${DEPLOYME_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./core/local/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The local CA and its certificates: keep it, or browsers distrust a new one.
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [proxy-network]
+    restart: unless-stopped
+    labels:
+      com.panel.group: deployme
+      com.panel.type: edge

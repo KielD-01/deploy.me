@@ -7,20 +7,23 @@
 #   bin/configure                         detect everything (asks only for the mode, once)
 #   bin/configure --mode prod             production: the code baked into the image
 #   bin/configure --mode dev              development: the code mounted and edited live
-#   bin/configure --stack standalone      deploy.me's own Postgres, Valkey and edge
+#   bin/configure --flavour slim          plain PHP, SQLite, no Valkey, a minimal Caddy
+#   bin/configure --flavour full          FrankenPHP, PostgreSQL and Valkey (the default)
+#   bin/configure --stack standalone      deploy.me's own Postgres, Valkey and edge (slim: edge only)
 #   bin/configure --stack shared          the shared stack on proxy-network
 #   bin/configure --roots ~/code:~/work   the folders projects are imported from
 #   bin/configure --uid 0                 run the containers as root anyway
 #   bin/configure --build-from-source     compile the PHP base here, never pull it
 #   bin/configure --pull-base             back to the ready-made base from Docker Hub
 #
-# After switching modes: make build && make up (docs/install.md).
+# After switching modes or flavours: make build && make up (docs/install.md).
 set -euo pipefail
 . "$(dirname "$0")/lib.sh"
 cd "$DEPLOYME_ROOT"
 
 stack=""
 mode=""
+flavour=""
 roots=""
 uid=""
 gid=""
@@ -32,13 +35,15 @@ while [ $# -gt 0 ]; do
         --stack=*) stack=${1#*=}; shift ;;
         --mode) mode=${2:?--mode needs dev or prod}; shift 2 ;;
         --mode=*) mode=${1#*=}; shift ;;
+        --flavour|--flavor) flavour=${2:?--flavour needs full or slim}; shift 2 ;;
+        --flavour=*|--flavor=*) flavour=${1#*=}; shift ;;
         --roots) roots=${2:?--roots needs a list}; shift 2 ;;
         --roots=*) roots=${1#*=}; shift ;;
         --uid) uid=${2:?}; gid=${uid}; shift 2 ;;
         --uid=*) uid=${1#*=}; gid=$uid; shift ;;
-        --build-from-source) php_base=deployme-php-base:local; shift ;;
+        --build-from-source) php_base=local; shift ;;
         --pull-base) php_base=""; shift ;;
-        -h|--help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) deployme_die "Unknown option $1 (see bin/configure --help)" ;;
     esac
 done
@@ -78,6 +83,24 @@ case "$mode" in
     production) mode=prod ;;
 esac
 case "$mode" in dev|prod) ;; *) deployme_die "--mode is dev or prod, not $mode" ;; esac
+
+# The flavour: full (FrankenPHP, PostgreSQL, Valkey) or slim (plain PHP, SQLite,
+# the database for queues and cache, a minimal Caddy). Kept like the mode; a
+# first run without one is full (bin/install asks).
+previous_flavour=$(deployme_env DEPLOYME_FLAVOUR)
+if [ -z "$flavour" ]; then
+    flavour=$previous_flavour
+fi
+flavour=${flavour:-full}
+case "$flavour" in full|slim) ;; *) deployme_die "--flavour is full or slim, not $flavour" ;; esac
+
+# The PHP base compiled here is the flavour's own tag (bin/build).
+case "$php_base" in
+    local|deployme-php-base:local|deployme-php-base:local-slim)
+        php_base=deployme-php-base:local
+        [ "$flavour" = slim ] && php_base=deployme-php-base:local-slim
+        ;;
+esac
 
 # Root where Docker maps file ownership for us (Docker Desktop, OrbStack on a
 # Mac); the host user's ids where bind mounts keep the real owner.
@@ -141,11 +164,17 @@ elif [ -n "${SSH_AUTH_SOCK:-}" ] && [ -S "${SSH_AUTH_SOCK}" ]; then
 fi
 
 password=$(deployme_env DEPLOYME_POSTGRES_PASSWORD)
-if [ "$stack" = standalone ] && [ -z "$password" ]; then
+http_port=$(deployme_env DEPLOYME_HTTP_PORT)
+https_port=$(deployme_env DEPLOYME_HTTPS_PORT)
+if [ "$stack" = standalone ] && [ "$flavour" = full ] && [ -z "$password" ]; then
     password=$(openssl rand -hex 24 2>/dev/null || head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
 fi
 
-if [ "$stack" = standalone ]; then
+if [ "$stack" = standalone ] && [ "$flavour" = slim ]; then
+    # No Postgres or Valkey to bring: only the minimal edge.
+    files=docker-compose.local.yml:compose.slim-edge.yml
+    network=deployme-edge
+elif [ "$stack" = standalone ]; then
     files=docker-compose.local.yml:compose.standalone.yml
     network=deployme-edge
 else
@@ -154,6 +183,7 @@ else
 fi
 # compose.host.yml last: its mounts add to the ones compose.prod.yml sets.
 [ "$mode" = prod ] && files=$files:compose.prod.yml
+[ "$flavour" = slim ] && files=$files:compose.slim.yml
 files=$files:compose.host.yml
 
 cat > .env <<ENV
@@ -163,6 +193,7 @@ COMPOSE_FILE=$files
 COMPOSE_PATH_SEPARATOR=:
 DEPLOYME_STACK=$stack
 DEPLOYME_MODE=$mode
+DEPLOYME_FLAVOUR=$flavour
 DEPLOYME_OS=$os
 DEPLOYME_NETWORK=$network
 DEPLOYME_UID=$uid
@@ -171,6 +202,9 @@ DEPLOYME_TZ=$tz
 DEPLOYME_PROJECT_ROOTS=$roots
 ENV
 [ -n "$password" ] && echo "DEPLOYME_POSTGRES_PASSWORD=$password" >> .env
+# The ports the slim flavour's own edge listens on, when someone moved them.
+[ -n "$http_port" ] && echo "DEPLOYME_HTTP_PORT=$http_port" >> .env
+[ -n "$https_port" ] && echo "DEPLOYME_HTTPS_PORT=$https_port" >> .env
 # Empty: the ready-made base from Docker Hub (bin/build).
 [ -n "$php_base" ] && echo "DEPLOYME_PHP_BASE=$php_base" >> .env
 chmod 600 .env
@@ -196,18 +230,32 @@ chmod 600 .env
 if [ "$mode" = prod ] || [ "$previous_mode" = prod ]; then
     deployme_app_env_for_mode "$mode" src/api/.env
 fi
+# The same for the flavour: its database, cache and queue driver, set for slim
+# and put back only on a switch from it.
+if [ "$flavour" = slim ] || [ "$previous_flavour" = slim ]; then
+    deployme_app_env_for_flavour "$flavour" src/api/.env
+fi
 
 deployme_say "Configured deploy.me for $os"
-deployme_ok "stack: $stack$([ "$stack" = standalone ] && echo ' (its own Postgres, Valkey and edge)' || echo ' (the shared stack on proxy-network)')"
+if [ "$flavour" = slim ]; then
+    deployme_ok "flavour: slim (plain PHP, SQLite in $DEPLOYME_SQLITE_FILE, queues and cache in it)"
+    deployme_ok "stack: $stack$([ "$stack" = standalone ] && echo ' (its own minimal Caddy edge)' || echo ' (the shared edge on proxy-network)')"
+else
+    deployme_ok "flavour: full (FrankenPHP, PostgreSQL, Valkey)"
+    deployme_ok "stack: $stack$([ "$stack" = standalone ] && echo ' (its own Postgres, Valkey and edge)' || echo ' (the shared stack on proxy-network)')"
+fi
 if [ "$mode" = prod ]; then
     deployme_ok "mode: production (the code is baked into the image: make build && make up after a change)"
 else
     deployme_ok "mode: development (the code is mounted from src/api)"
 fi
 [ -n "$previous_mode" ] && [ "$previous_mode" != "$mode" ] && deployme_warn "The mode changed from $previous_mode to $mode: run make build && make up"
+if [ "${previous_flavour:-full}" != "$flavour" ] && [ -f src/api/.env ]; then
+    deployme_warn "The flavour changed from ${previous_flavour:-full} to $flavour: run docker compose down --remove-orphans, then make db-create build up. The data stays in the old database; nothing is copied across."
+fi
 deployme_ok "containers run as $([ "$uid" = 0 ] && echo root || echo "uid $uid:$gid")"
 deployme_ok "timezone: $tz"
-deployme_ok "PHP base image: ${php_base:-romanovich0195/deployme-php:1 (pulled from Docker Hub)}"
+deployme_ok "PHP base image: ${php_base:-romanovich0195/deployme-php:$([ "$flavour" = slim ] && echo 1-slim || echo 1) (pulled from Docker Hub)}"
 deployme_ok "project roots: ${roots//:/, }"
 if [ -n "$agent" ]; then deployme_ok "ssh-agent: $agent"; else deployme_warn "no ssh-agent socket: deploy.me uses the IdentityFile keys in ~/.ssh/config"; fi
 [ -f "$HOME/.ssh/config" ] || deployme_warn "$HOME/.ssh/config is missing: add your servers as Host entries before adding them to deploy.me"

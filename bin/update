@@ -136,7 +136,7 @@ write_state() {
 notify() { app deployme:update notify "$1" > /dev/null || true; }
 
 # The newest backup bin/backup.sh made.
-latest_backup() { { ls -1t "$dest"/deployme-*.sql.gz 2>/dev/null || true; } | head -n 1; }
+latest_backup() { { ls -1t "$dest"/deployme-*.sql.gz "$dest"/deployme-*.sqlite.gz 2>/dev/null || true; } | head -n 1; }
 
 # --- the nightly job ----------------------------------------------------------------------
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shell harness for bin/configure's --mode and bin/db-create.sh's first .env:
+# Shell harness for bin/configure's --mode and --flavour and bin/db-create.sh's first .env:
 # what ./.env and src/api/.env come out as in development and production mode,
 # and that switching back restores the development values without touching
 # APP_KEY or any other line. It works on a throwaway copy of the scripts with a
@@ -124,6 +124,69 @@ id=$(value REVERB_APP_ID "$app_env")
 generated=$(value APP_KEY "$app_env")
 db_create
 expect "a second db-create keeps that APP_KEY" "$(value APP_KEY "$app_env")" "$generated"
+
+echo "A first run without --flavour is full"
+expect "DEPLOYME_FLAVOUR" "$(value DEPLOYME_FLAVOUR "$root_env")" full
+expect "DB_CONNECTION" "$(value DB_CONNECTION "$app_env")" pgsql
+
+echo "--flavour slim on the shared stack keeps the shared edge"
+cp "$app_env" "$work/full.env"
+configure --mode dev --flavour slim
+expect "DEPLOYME_FLAVOUR" "$(value DEPLOYME_FLAVOUR "$root_env")" slim
+expect "COMPOSE_FILE adds compose.slim.yml" "$(value COMPOSE_FILE "$root_env")" docker-compose.local.yml:compose.slim.yml:compose.host.yml
+expect "DB_CONNECTION" "$(value DB_CONNECTION "$app_env")" sqlite
+expect "DB_DATABASE" "$(value DB_DATABASE "$app_env")" /app/storage/database/deployme.sqlite
+expect "CACHE_STORE" "$(value CACHE_STORE "$app_env")" database
+expect "DEPLOYME_QUEUE_DRIVER" "$(value DEPLOYME_QUEUE_DRIVER "$app_env")" database
+expect "APP_KEY untouched" "$(value APP_KEY "$app_env")" "$generated"
+
+echo "Running it again without --flavour keeps slim, in either mode"
+configure --mode prod
+expect "DEPLOYME_FLAVOUR" "$(value DEPLOYME_FLAVOUR "$root_env")" slim
+expect "COMPOSE_FILE" "$(value COMPOSE_FILE "$root_env")" docker-compose.local.yml:compose.prod.yml:compose.slim.yml:compose.host.yml
+expect "APP_DEBUG follows the mode" "$(value APP_DEBUG "$app_env")" false
+expect "DB_CONNECTION stays" "$(value DB_CONNECTION "$app_env")" sqlite
+
+echo "--flavour slim on the standalone stack brings only the minimal edge"
+sed -i '/^DEPLOYME_POSTGRES_PASSWORD=/d' "$root_env"
+quiet bin/configure --stack standalone --roots "$HOME/code" --flavour slim --mode dev
+expect "COMPOSE_FILE swaps compose.standalone.yml for compose.slim-edge.yml" "$(value COMPOSE_FILE "$root_env")" docker-compose.local.yml:compose.slim-edge.yml:compose.slim.yml:compose.host.yml
+expect "DEPLOYME_NETWORK" "$(value DEPLOYME_NETWORK "$root_env")" deployme-edge
+expect "no Postgres password generated" "$(value DEPLOYME_POSTGRES_PASSWORD "$root_env")" ""
+
+echo "--build-from-source names the flavour's own local base, and follows a switch"
+quiet bin/configure --stack standalone --roots "$HOME/code" --build-from-source
+expect "DEPLOYME_PHP_BASE (slim)" "$(value DEPLOYME_PHP_BASE "$root_env")" deployme-php-base:local-slim
+quiet bin/configure --stack standalone --roots "$HOME/code" --flavour full
+expect "DEPLOYME_PHP_BASE (full)" "$(value DEPLOYME_PHP_BASE "$root_env")" deployme-php-base:local
+expect "COMPOSE_FILE" "$(value COMPOSE_FILE "$root_env")" docker-compose.local.yml:compose.standalone.yml:compose.host.yml
+[ -n "$(value DEPLOYME_POSTGRES_PASSWORD "$root_env")" ] && pass "standalone full has a Postgres password" || fail "no Postgres password for standalone full"
+quiet bin/configure --stack shared --roots "$HOME/code" --pull-base
+
+echo "--flavour full puts the full flavour's values back, and nothing else changes"
+expect "DB_CONNECTION" "$(value DB_CONNECTION "$app_env")" pgsql
+expect "DB_DATABASE" "$(value DB_DATABASE "$app_env")" deployme
+expect "CACHE_STORE" "$(value CACHE_STORE "$app_env")" redis
+expect "DEPLOYME_QUEUE_DRIVER" "$(value DEPLOYME_QUEUE_DRIVER "$app_env")" redis
+configure --mode prod
+cmp -s "$app_env" "$work/full.env" && pass "src/api/.env is byte for byte what it was before slim" || fail "src/api/.env differs from before slim"
+
+echo "--flavour nonsense is refused and changes nothing"
+cp "$root_env" "$work/root.env"
+if (cd "$repo" && bin/configure --flavour tiny </dev/null >/dev/null 2>&1); then fail "--flavour tiny was accepted"; else pass "--flavour tiny is refused"; fi
+cmp -s "$root_env" "$work/root.env" && pass "./.env unchanged" || fail "./.env changed"
+
+echo "db-create's first .env in the slim flavour: SQLite, and the file it points at"
+rm -f "$app_env"
+configure --mode prod --flavour slim
+db_create
+expect "DB_CONNECTION" "$(value DB_CONNECTION "$app_env")" sqlite
+expect "CACHE_STORE" "$(value CACHE_STORE "$app_env")" database
+expect "APP_ENV" "$(value APP_ENV "$app_env")" production
+case "$(value APP_KEY "$app_env")" in base64:?*) pass "APP_KEY generated" ;; *) fail "APP_KEY wasn't generated" ;; esac
+[ -n "$(value REVERB_APP_KEY "$app_env")" ] && pass "Reverb credentials generated" || fail "Reverb credentials missing"
+expect "no DB_PASSWORD needed" "$(value DB_PASSWORD "$app_env")" ""
+[ -f "$repo/src/api/storage/database/deployme.sqlite" ] && pass "the SQLite file exists" || fail "no SQLite file"
 
 echo
 if [ "$failures" -eq 0 ]; then echo "All checks passed."; else echo "$failures check(s) failed."; exit 1; fi

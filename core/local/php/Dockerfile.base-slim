@@ -1,0 +1,54 @@
+# deploy.me — the slim flavour's PHP base: the official PHP 8.5 CLI image (no
+# FrankenPHP), with the extensions the app needs for SQLite and the database
+# queue, and the same CLI tools as Dockerfile.base. The web container serves
+# HTTP with PHP's built-in server (several workers); the slim edge is a plain
+# Caddy in front of it (compose.slim-edge.yml).
+#
+# Published for amd64 and arm64 as romanovich0195/deployme-php:<version>-slim
+# (1-slim, 1.1-slim, slim…) by .github/workflows/php-image.yml, next to the full
+# base. Dockerfile (next to this one) adds the config files and the machine's
+# user on top, the same way for both.
+#
+#   docker build -f core/local/php/Dockerfile.base-slim -t deployme-php-base:local-slim .
+
+FROM php:8.5-cli
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC \
+    COMPOSER_ALLOW_SUPERUSER=1
+
+COPY --from=mlocati/php-extension-installer:2 /usr/bin/install-php-extensions /usr/local/bin/
+
+#   pcntl            queue worker signals
+#   pdo_sqlite       SQLite: the database, the queues, the cache and its locks
+#   intl zip bcmath  framework basics
+#   opcache
+#   sockets + uv     Reverb. Without ext-uv ReactPHP falls back to stream_select()
+#                    and silently caps at ~1024 connections, so the build fails
+#                    if it is missing.
+# No pgsql and no redis: the slim flavour runs neither.
+RUN install-php-extensions pcntl pdo_sqlite intl zip opcache bcmath sockets uv \
+ && php -m | grep -qx uv \
+ && php -m | grep -qx pcntl \
+ && php -m | grep -qx pdo_sqlite
+
+#   openssh-client       ssh, ssh-keygen (servers, host keys)
+#   rsync tar zstd       uploads
+#   git                  local repos, archives, pushes
+#   supervisor           queue workers + scheduler in deployme-worker
+#   sqlite3              the doctor, backups (.backup) and a look inside
+#   procps jq curl       health checks and diagnostics
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      openssh-client rsync git tar zstd supervisor curl ca-certificates tzdata \
+      sqlite3 procps jq unzip \
+ && ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
+ && echo "$TZ" > /etc/timezone \
+ && rm -rf /var/lib/apt/lists/* /etc/supervisor/conf.d/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+LABEL org.opencontainers.image.title="deploy.me PHP runtime (slim)" \
+      org.opencontainers.image.description="PHP 8.5 CLI with the extensions and tools deploy.me's slim flavour needs (SQLite, no FrankenPHP, Postgres or Redis)" \
+      org.opencontainers.image.source="https://github.com/KielD-01/deploy.me" \
+      org.opencontainers.image.licenses="MIT"

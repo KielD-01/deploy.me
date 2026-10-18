@@ -59,7 +59,18 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        DB::statement('ALTER TABLE projects ADD CONSTRAINT projects_keep_releases_range CHECK (keep_releases BETWEEN 1 AND 10)');
+        if (DB::getDriverName() === 'sqlite') {
+            // SQLite can't add a constraint to a table it has: the same check, as triggers.
+            foreach (['insert' => 'insert', 'update' => 'update of keep_releases'] as $name => $event) {
+                DB::statement(<<<SQL
+                    create trigger projects_keep_releases_range_{$name} before {$event} on projects
+                    when new.keep_releases not between 1 and 10
+                    begin select raise(abort, 'CHECK constraint failed: projects_keep_releases_range'); end
+                SQL);
+            }
+        } else {
+            DB::statement('ALTER TABLE projects ADD CONSTRAINT projects_keep_releases_range CHECK (keep_releases BETWEEN 1 AND 10)');
+        }
 
         // One live project per folder and per GitHub repository.
         DB::statement('CREATE UNIQUE INDEX projects_local_path_active_unique ON projects (local_path) WHERE archived_at IS NULL AND local_path IS NOT NULL');

@@ -173,7 +173,9 @@ dialog, env files, folder sync, the audit log…
 ## 🚀 Quick start
 
 All you need is Docker. deploy.me runs the same way on all three systems and brings its own
-PostgreSQL, Valkey and HTTPS edge, unless you already run a shared stack it can join.
+PostgreSQL, Valkey and HTTPS edge, unless you already run a shared stack it can join. Want it
+lighter? The **slim** flavour runs on SQLite with a minimal Caddy instead
+(`bin/install --flavour slim`, see [🐳 Docker images](#-docker-images)).
 
 #### 🍎 macOS · 🐧 Linux
 
@@ -204,7 +206,7 @@ irm https://raw.githubusercontent.com/KielD-01/deploy.me/main/bin/install.ps1 | 
 `bin/install` does everything in one go:
 
 - checks the tools it needs;
-- describes your machine in `.env` (`bin/configure`);
+- asks for the flavour, full or slim, and describes your machine in `.env` (`bin/configure`);
 - pulls the ready-made PHP image from Docker Hub (amd64 and arm64), so nothing compiles,
   and starts the stack;
 - trusts the local CA in your browsers (macOS keychain, Linux NSS, Windows' store);
@@ -226,6 +228,39 @@ Open **https://deployme.localhost**, then:
 
 Want a safe playground first? `make sandbox` starts a local SSH + Docker server with the
 alias `sandbox`.
+
+## 🐳 Docker images
+
+deploy.me comes in two flavours, picked at install time. Both run the same app, on the same
+PHP image published as [`romanovich0195/deployme-php`](https://hub.docker.com/r/romanovich0195/deployme-php)
+for **amd64 and arm64**:
+
+| | 🐘 **full** (default) | 🪶 **slim** |
+|---|---|---|
+| **Tags** | `1.1.0`, `1.1`, `1`, `latest` | `1.1.0-slim`, `1.1-slim`, `1-slim`, `slim` |
+| **Base** | FrankenPHP 1 + PHP 8.5 | plain `php:8.5-cli` (Debian) |
+| **Web server** | FrankenPHP | PHP's built-in server, 4 workers |
+| **Database** | PostgreSQL 18 | SQLite (one file in `src/api/storage/database`) |
+| **Cache, queues, locks** | Valkey | the database |
+| **Edge** | caddy-docker-proxy (labels) | a minimal Caddy with a static Caddyfile |
+| **PHP image** | ≈1.06 GB on disk, ≈258 MB to pull | ≈0.97 GB on disk, ≈235 MB to pull |
+| **Whole stack** | ≈1.6 GB, 6 containers | ≈1.1 GB, 4 containers |
+| **Pick it when…** | you deploy to many servers, or run several deploys at once | you want the lightest install for a few servers |
+
+The slim image is barely smaller: what slim saves is everything that runs beside it, with no
+PostgreSQL or Valkey to keep going. SQLite has one writer at a time, so slim runs fewer queue
+workers.
+
+`bin/install` asks which one you want (full unless you say otherwise). To choose up front,
+or to switch later:
+
+```bash
+bin/install --flavour slim                  # a new install
+bin/configure --flavour slim && make build up   # an existing one (full: --flavour full)
+```
+
+A switch starts on an empty database; nothing is copied across. More in
+**[docs/install.md](docs/install.md#two-flavours-full-and-slim)**.
 
 ## 🤖 Talk to it
 
@@ -383,7 +418,7 @@ flowchart LR
 ## 🧪 Tests
 
 ```bash
-make test       # 800+ Pest tests, in the container, against deployme_test
+make test       # 800+ Pest tests, in the container, against deployme_test (slim: SQLite)
 make sandbox    # then:
 make test-ssh   # the deploy scripts for real, against the local SSH sandbox
 ```

@@ -55,6 +55,11 @@ fi
 # it starts, so none waits for someone to run `make migrate`. A database that
 # isn't reachable yet doesn't stop the container.
 if [ "${DEPLOYME_ROLE:-}" = "web" ]; then
+  # The slim flavour's database is a file in storage/ (bin/db-create.sh makes
+  # it too): an empty one is a database SQLite is happy to migrate.
+  if [ "${DEPLOYME_FLAVOUR:-full}" = slim ] && [ ! -e storage/database/deployme.sqlite ]; then
+    mkdir -p storage/database && touch storage/database/deployme.sqlite
+  fi
   php artisan migrate --force --no-interaction || echo "Pending migrations didn't run; try: make migrate" >&2
 fi
 

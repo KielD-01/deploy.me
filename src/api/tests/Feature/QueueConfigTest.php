@@ -8,15 +8,48 @@ use App\Models\Project;
 use App\Support\QueueTimeouts;
 
 // The supervisor program list lives in the image; on the host it's in core/.
+// A slim image runs queues-slim.conf as conf.d/queues.conf and keeps the full
+// flavour's list as queues-full.conf, so these tests read both in either.
 function supervisorQueuesConf(): string
 {
-    foreach ([config('deployme.supervisor_queues_conf'), base_path('../../core/local/php/supervisor/conf.d/queues.conf')] as $path) {
+    foreach (['/etc/supervisor/queues-full.conf', config('deployme.supervisor_queues_conf'), base_path('../../core/local/php/supervisor/conf.d/queues.conf')] as $path) {
         if (is_readable($path)) {
             return $path;
         }
     }
 
     throw new RuntimeException('queues.conf not found');
+}
+
+function slimSupervisorQueuesConf(): string
+{
+    foreach (['/etc/supervisor/queues-slim.conf', base_path('../../core/local/php/supervisor/queues-slim.conf')] as $path) {
+        if (is_readable($path)) {
+            return $path;
+        }
+    }
+
+    throw new RuntimeException('queues-slim.conf not found');
+}
+
+/**
+ * config/queue.php as it reads with DEPLOYME_QUEUE_DRIVER set to the given driver.
+ *
+ * @return array<string, mixed>
+ */
+function queueConfigWith(string $driver): array
+{
+    // Laravel's env() reads $_SERVER first, then $_ENV.
+    $server = $_SERVER;
+    $env = $_ENV;
+    $_SERVER['DEPLOYME_QUEUE_DRIVER'] = $_ENV['DEPLOYME_QUEUE_DRIVER'] = $driver;
+
+    try {
+        return require config_path('queue.php');
+    } finally {
+        $_SERVER = $server;
+        $_ENV = $env;
+    }
 }
 
 it('runs a worker for every queue connection deploy.me uses', function () {
@@ -70,4 +103,32 @@ it('runs four workers for the probes and health checks every minute brings', fun
     preg_match('/\[program:probes\].*?numprocs=(\d+)/s', $conf, $match);
 
     expect((int) ($match[1] ?? 0))->toBe(4);
+});
+
+it('gives the slim flavour the same programs and timeouts, with fewer workers', function () {
+    $full = QueueTimeouts::workers(supervisorQueuesConf());
+    $slim = QueueTimeouts::workers(slimSupervisorQueuesConf());
+    $conf = (string) file_get_contents(slimSupervisorQueuesConf());
+    preg_match_all('/numprocs=(\d+)/', $conf, $counts);
+
+    expect($slim)->toBe($full)
+        ->and(QueueTimeouts::violations(slimSupervisorQueuesConf()))->toBe([])
+        ->and(array_sum(array_map(intval(...), $counts[1])))->toBeLessThanOrEqual(6)
+        ->and($conf)->toContain('--queue=syncs');
+});
+
+it('runs the queue connections on Valkey in the full flavour and on the database in the slim one', function () {
+    $connections = ['redis', 'redis-deploys', 'redis-probes'];
+    $full = queueConfigWith('redis')['connections'];
+    $slim = queueConfigWith('database')['connections'];
+
+    foreach ($connections as $name) {
+        expect($full[$name]['driver'])->toBe('redis')
+            ->and($slim[$name]['driver'])->toBe('database')
+            ->and($slim[$name]['table'])->toBe('jobs')
+            // The same queue names and retry_after, whichever driver runs them.
+            ->and($slim[$name]['queue'])->toBe($full[$name]['queue'])
+            ->and($slim[$name]['retry_after'])->toBe($full[$name]['retry_after'])
+            ->and($slim[$name]['after_commit'])->toBeTrue();
+    }
 });

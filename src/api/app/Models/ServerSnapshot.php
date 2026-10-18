@@ -25,6 +25,11 @@ class ServerSnapshot extends Model
     // The bucket a reading falls in, as SQL: all constants, so no bindings to tell apart in a GROUP BY.
     private const BIN = "date_bin('5 minutes', captured_at, timestamp '2000-01-01 00:00:00')";
 
+    // The same on SQLite (the slim flavour), which keeps a timestamp as text:
+    // whole seconds since the epoch, down to a multiple of 300, back to the same
+    // text. 2000-01-01 is itself a multiple of 300 s, so the buckets match.
+    private const SQLITE_BIN = "datetime((cast(strftime('%s', captured_at) as integer) / 300) * 300, 'unixepoch')";
+
     public $timestamps = false;
 
     protected function casts(): array
@@ -58,7 +63,7 @@ class ServerSnapshot extends Model
         }
 
         return DB::table('server_snapshots')
-            ->selectRaw('server_id, '.self::BIN.' as bucket, avg(cpu_usage) as cpu, avg(100.0 * (1 - mem_available::float8 / nullif(mem_total, 0))) as mem')
+            ->selectRaw('server_id, '.self::bin().' as bucket, avg(cpu_usage) as cpu, avg(100.0 * (1 - '.self::float('mem_available').' / nullif(mem_total, 0))) as mem')
             ->whereIn('server_id', $serverIds)
             ->where('captured_at', '>=', $since)
             ->groupBy('server_id', 'bucket')
@@ -85,9 +90,21 @@ class ServerSnapshot extends Model
             ->where('server_id', $serverId)
             ->whereNotNull('processes')
             ->where('captured_at', '>=', $since)
-            ->groupByRaw(self::BIN);
+            ->groupByRaw(self::bin());
 
         return self::query()->whereIn('id', $last)->orderByDesc('captured_at')->pluck('captured_at', 'id');
+    }
+
+    /** The five-minute bucket expression for the database in use. */
+    private static function bin(): string
+    {
+        return DB::getDriverName() === 'sqlite' ? self::SQLITE_BIN : self::BIN;
+    }
+
+    /** A column as a floating-point number, so integer division can't round it away. */
+    private static function float(string $column): string
+    {
+        return DB::getDriverName() === 'sqlite' ? "cast({$column} as real)" : "{$column}::float8";
     }
 
     public function server(): BelongsTo

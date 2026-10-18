@@ -124,4 +124,8 @@ return [
     // into the image (compose.prod.yml), cached at start, debug off.
     'mode' => env('DEPLOYME_MODE', 'dev') === 'prod' ? 'prod' : 'dev',
 
+    // full: FrankenPHP, PostgreSQL and Valkey. slim: PHP's own server, SQLite,
+    // and the database for queues, cache and locks (bin/configure --flavour).
+    'flavour' => env('DEPLOYME_FLAVOUR', 'full') === 'slim' ? 'slim' : 'full',
+
 ];
