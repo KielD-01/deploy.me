@@ -1,5 +1,6 @@
 <?php
 
+use App\Deploy\Actions\ActionParser;
 use App\Deploy\Compose;
 use App\Deploy\Delivery\DeliveryResolver;
 use App\Deploy\Delivery\ImagePlan;
@@ -104,6 +105,23 @@ it('gives each kind of run its own steps', function (DeploymentKind $kind, array
     ], ['convert_undo', 'unlock']],
     'undo_convert' => [DeploymentKind::UndoConvert, ['preflight', 'lease', 'convert_undo', 'state'], ['unlock']],
     'unlock' => [DeploymentKind::Unlock, ['break_lock'], []],
+]);
+
+it('gives an action run the lock, the action, one step per step of it, and the cleanup', function (bool $versionable, bool $dockerized) {
+    $target = modeTarget($versionable, $dockerized);
+    [$definition] = ActionParser::yaml("name: Reindex\nsteps:\n  - { name: Flush, run: php artisan scout:flush }\n  - { name: Import, run: php artisan scout:import }\n  - { name: Warm, run: curl -fsS https://demo.test }\n");
+    $deployment = Deployment::factory()->create(['target_id' => $target->id, 'kind' => DeploymentKind::Action, 'options' => ['definition' => $definition->data]]);
+
+    $pipeline = app(PipelineFactory::class)->for($deployment);
+
+    expect(array_map(fn (Step $step) => $step->key(), $pipeline['main']))->toBe(['lease', 'action', 'action_step_1', 'action_step_2', 'action_step_3'])
+        ->and(array_map(fn (Step $step) => $step->key(), $pipeline['cleanup']))->toBe(['unlock'])
+        ->and(array_map(fn (Step $step) => $step->label(), array_slice($pipeline['main'], 2)))->toBe(['Flush', 'Import', 'Warm']);
+})->with([
+    'in place' => [false, false],
+    'in place + docker' => [false, true],
+    'releases' => [true, false],
+    'releases + docker' => [true, true],
 ]);
 
 it('runs only the steps a deploy mode and a strategy need', function (bool $versionable, bool $dockerized, string $strategy, array $expected) {

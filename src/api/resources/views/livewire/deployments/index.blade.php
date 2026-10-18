@@ -46,7 +46,9 @@
                                 </a>
                             </td>
                             <td class="text-[13px]">
-                                @if ($run->commit_sha)
+                                @if ($run->isAction())
+                                    <span class="badge badge-sm badge-ghost">Action</span> {{ $run->title() }}
+                                @elseif ($run->commit_sha)
                                     <span class="mono">{{ substr($run->commit_sha, 0, 7) }}</span> {{ Str::limit((string) $run->commit_message, 50) }}
                                 @else
                                     <span class="text-muted">{{ $run->kind->label() }}</span>

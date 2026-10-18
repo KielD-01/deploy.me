@@ -4,6 +4,7 @@ namespace App\Livewire\Deployments;
 
 use App\Actions\Deployments\CancelDeployment;
 use App\Actions\Deployments\StartDeployment;
+use App\Deploy\Actions\ActionDefinition;
 use App\Deploy\Conversion\Conversion;
 use App\Deploy\Delivery\VerdictState;
 use App\Deploy\Logging\LogArchive;
@@ -15,9 +16,12 @@ use App\Enums\DeploymentStatus;
 use App\Jobs\RunDeployment;
 use App\Livewire\Concerns\ConfirmsIdentity;
 use App\Livewire\Concerns\StartsRuns;
+use App\Livewire\Projects\Actions;
 use App\Models\Credential;
 use App\Models\Deployment;
+use App\Models\ProjectAction;
 use App\Models\Release;
+use App\Models\Target;
 use App\Platform\GitHub\GitHubClient;
 use App\Platform\Ssh\RemoteScript;
 use App\Platform\Ssh\SshClient;
@@ -64,6 +68,16 @@ class Show extends Component
     public function retry(StartDeployment $start): void
     {
         $run = $this->deployment;
+
+        // An action runs again through its dialog: the inputs (secrets typed
+        // again), and a passkey when it asks for one.
+        if ($run->isAction()) {
+            if ($this->canRunAgain()) {
+                $this->dispatch('open-action-dialog', actionId: $run->action_id, targetId: $run->target_id, inputs: (array) ($run->options['inputs'] ?? []));
+            }
+
+            return;
+        }
 
         if (! $this->canRetry()) {
             return;
@@ -167,8 +181,27 @@ class Show extends Component
         $this->notice = "Removed {$backup}.";
     }
 
+    /**
+     * An action's run can start again while the action is still there and
+     * someone may start it.
+     */
+    private function canRunAgain(): bool
+    {
+        $run = $this->deployment;
+
+        $target = Target::query()->find($run->target_id);
+        $action = $run->action_id !== null ? ProjectAction::query()->find($run->action_id) : null;
+
+        return $run->isAction() && ! $run->isActive() && $target?->archived_at === null
+            && ($action?->definition()?->manual() ?? false);
+    }
+
     private function canRetry(): bool
     {
+        if ($this->deployment->isAction()) {
+            return false;
+        }
+
         return in_array($this->deployment->status, [DeploymentStatus::Failed, DeploymentStatus::RolledBack, DeploymentStatus::Cancelled, DeploymentStatus::Stalled], true)
             // Breaking a lock asks for a passkey each time, on the Targets tab.
             && $this->deployment->kind !== DeploymentKind::Unlock
@@ -306,6 +339,14 @@ class Show extends Component
             'waiting' => $this->waitingFor(),
             // Its lines left the database for an archive (Settings → Schedules).
             'archived' => ! $deployment->isActive() && LogArchive::exists($deployment->id) && $deployment->logLines(0, 1)->isEmpty(),
+            'actionRun' => $deployment->isAction() ? [
+                'action' => $deployment->action,
+                'definition' => ActionDefinition::of($deployment->options['definition'] ?? null),
+                'shown' => (array) ($deployment->options['shown'] ?? []),
+                'startedBy' => Actions::startedBy($deployment->loadMissing('user')),
+                'after' => isset($deployment->options['after']) ? Deployment::query()->find((int) $deployment->options['after']) : null,
+                'again' => $this->canRunAgain(),
+            ] : null,
         ])->title('Run '.$deployment->number());
     }
 }

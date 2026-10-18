@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Console;
 
+use App\Deploy\Logging\SecretRedactor;
 use App\Terminal\Output;
 use App\Terminal\Shell as Commands;
 use Illuminate\Contracts\View\View;
@@ -11,7 +12,7 @@ use Livewire\Component;
 
 /**
  * A shell pane: a prompt, and what each command printed. A command that asks
- * something (a pick, a yes or no) waits on the prompt for the answer.
+ * something (a pick, a yes or no, a value) waits on the prompt for the answer.
  */
 class Shell extends Component
 {
@@ -61,9 +62,12 @@ class Shell extends Component
         }
 
         $this->ask = null;
-        $label = $ask['type'] === 'choice'
-            ? (collect($ask['options'] ?? [])->firstWhere('value', $value)['label'] ?? null)
-            : $value;
+        $label = match (true) {
+            $ask['type'] === 'choice' => collect($ask['options'] ?? [])->firstWhere('value', $value)['label'] ?? null,
+            // A secret's answer never reaches the screen.
+            (bool) ($ask['secret'] ?? false) => SecretRedactor::MASK,
+            default => $value,
+        };
 
         if ($ask['type'] === 'choice' && $label === null) {
             $this->print(null, [[['✕ Pick one of the choices.', 't-err']]]);

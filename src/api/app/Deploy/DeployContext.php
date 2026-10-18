@@ -72,6 +72,15 @@ final class DeployContext
     /** @var array{broken: bool, holder: string}|null */
     public ?array $brokenLock = null;
 
+    // An action run, once ResolveAction has read it: the inputs' values,
+    // the variables they become, the folder the steps run in and the env
+    // file's variables.
+    /** @var array{values?: array<string, mixed>, env?: array<string, string>, dir?: string, env_file?: array<string, string>} */
+    public array $action = [];
+
+    // Action steps that failed and were carried past (continue-on-error).
+    public int $carriedOn = 0;
+
     // Set by the runner before the cleanup steps: every main step ran, or
     // the run failed, or it was cancelled. A switch back sets rolledBack.
     public bool $completed = false;

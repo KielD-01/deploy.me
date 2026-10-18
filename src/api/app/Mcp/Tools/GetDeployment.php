@@ -43,7 +43,8 @@ class GetDeployment extends Tool
 
         return [
             ...Describe::deployment($run),
-            'options' => $run->options ?? [],
+            // An action run's secret inputs (encrypted until it starts) never leave.
+            'options' => array_diff_key($run->options ?? [], ['secrets' => true]),
             'strategy_trace' => $run->strategy_trace ?? [],
             'retry_of' => $run->retry_of_id,
             'steps' => $run->steps->map(fn (DeploymentStep $step) => Describe::step($step))->all(),

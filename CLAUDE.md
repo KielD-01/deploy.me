@@ -337,6 +337,28 @@ doesn't wait for `make migrate`.
     for real against the sandbox. `tests/Feature/Deploy/PipelineMatrixTest.php` is the
     guard against a step landing in the wrong pipeline: the exact step keys per kind, and
     the steps that actually run per deploy mode × delivery strategy.
+- **Actions** (`app/Deploy/Actions`, `Actions\Deployments\StartAction`, `Livewire\Projects\{Actions,ActionEditor,RunActionDialog}`):
+  named jobs a project runs on a target. `project_actions` holds both kinds: `repo` ones read
+  from `.deployme/actions/*.y{a,}ml` at the branch head (`RepoActions`: git for local
+  projects, the API for GitHub ones, also on import/re-detect; read-only on the page) and
+  `app` ones made in the editor (which asks for a passkey first). `ActionParser` checks both
+  strictly into one `ActionDefinition` (steps host / `exec:` / `one-off:`, `if: inputs.x`,
+  timeouts, continue-on-error, env-file; inputs text/number/boolean/choice/secret; `on` manual,
+  cron schedule + target, after_deploy; targets; `confirm: passkey`; `mcp`; `alert`); a repo file
+  that fails keeps its errors and can't run.
+  - A run is a deployment of kind `action` (`deployments.action_id`, the definition snapshot
+    and inputs in `options`): `AcquireLease` → `ResolveAction` → one `RunActionStep` per step →
+    `ReleaseLease`, in the live release's folder through `deploy-hook.sh` / `deploy-compose.sh`
+    (`ENV_VARS`: NAME=base64 lines, exported, `-e NAME` for containers). The one-active-run
+    index refuses it while a deploy runs. Secret inputs are encrypted on the run until
+    `ResolveAction` registers them with the redactor and drops them; `shown` keeps masks.
+    A step that may fail throws `StepCarriedOn`: recorded failed, the run goes on.
+  - Triggers: `manual` (dialog), `console` (`actions`/`run` in the shell), `mcp`
+    (`list_actions`, `run_action` with `--allow-deploys` and `mcp: true`), `schedule`
+    (`DispatchScheduledActions` each minute, `scheduled_through`, busy → next minute for an
+    hour; cron in `deployme.actions.timezone`) and `after_deploy` (`DispatchActionsAfter`
+    from `PipelineRunner::finish`, chained one after another through `options.chain`). A
+    passkey action is manual-only. Audit: created/updated/removed/started, never input values.
 - **Converting to releases** (`app/Deploy/Conversion`, `app/Livewire/Projects/Convert`): a
   versionable project whose folder still holds an earlier in-place deployment is converted
   before its first deploy. Preflight refuses deploys until then, and the Targets tab says so.

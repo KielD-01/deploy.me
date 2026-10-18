@@ -1,8 +1,11 @@
 <?php
 
+use App\Deploy\Actions\ActionParser;
 use App\Deploy\Pipeline\ResumePlanner;
 use App\Models\Deployment;
 use App\Models\Project;
+use App\Models\ProjectAction;
+use App\Models\Release;
 use App\Models\Server;
 use App\Models\Target;
 use App\Platform\Ssh\RemoteScript;
@@ -383,4 +386,41 @@ function stopFakeProxy(array $proxy): void
     // The proxy leads its own process group, so this takes its forks too.
     posix_kill(-proc_get_status($proxy['process'])['pid'], SIGKILL);
     proc_close($proxy['process']);
+}
+
+/**
+ * A Docker project on "box" with a live release: /opt/srv/demo, stack demo,
+ * release 20261017-161400 at commit 9fabf06..., where actions run.
+ *
+ * @param  array<string, mixed>  $project
+ */
+function actionTarget(array $project = []): Target
+{
+    $target = demoTarget(['dockerized' => true, 'stack_name' => 'demo', 'compose_files' => ['compose.yaml'], 'app_services' => ['api'], ...$project]);
+    $release = Release::factory()->create([
+        'target_id' => $target->id, 'name' => '20261017-161400', 'commit_sha' => '9fabf06'.str_repeat('0', 33),
+        'layout' => $target->project->versionable ? Release::IN_RELEASES : Release::IN_PLACE,
+        'path' => $target->project->versionable ? '/opt/srv/demo/releases/20261017-161400' : '/opt/srv/demo',
+    ]);
+    $target->update(['current_release_id' => $release->id]);
+
+    return $target->refresh();
+}
+
+/**
+ * An action of the project, from the YAML of a .deployme/actions file.
+ */
+function projectAction(Project $project, string $yaml, string $key = 'reindex', string $source = ProjectAction::APP): ProjectAction
+{
+    [$definition, $errors] = ActionParser::yaml($yaml);
+
+    if ($definition === null) {
+        throw new RuntimeException('The test action doesn’t parse: '.implode(' ', $errors));
+    }
+
+    return ProjectAction::query()->create([
+        'project_id' => $project->id, 'source' => $source, 'key' => $key, 'name' => $definition->name(),
+        'file' => $source === ProjectAction::REPO ? ".deployme/actions/{$key}.yml" : null,
+        'definition' => $definition->data, 'scheduled_through' => now(),
+    ]);
 }

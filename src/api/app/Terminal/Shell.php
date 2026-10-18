@@ -2,20 +2,29 @@
 
 namespace App\Terminal;
 
+use App\Actions\Deployments\StartAction;
 use App\Actions\Deployments\StartDeployment;
+use App\Deploy\Actions\ActionDefinition;
+use App\Deploy\Actions\ActionInputs;
+use App\Deploy\DeploymentRefused;
+use App\Enums\DeploymentKind;
 use App\Enums\DeploymentStatus;
 use App\Enums\TargetHealth;
+use App\Livewire\Projects\Actions;
 use App\Mcp\Find;
 use App\Mcp\ToolFailed;
 use App\Mcp\Tools;
 use App\Models\Deployment;
 use App\Models\Project;
+use App\Models\ProjectAction;
 use App\Models\Server;
 use App\Models\Target;
 use App\Support\BranchCommits;
 use App\Support\Ui;
 use App\Support\Updates;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Str;
 
 /**
  * The Console theme's shell: the commands you type into its shell pane.
@@ -24,7 +33,8 @@ use Illuminate\Support\Carbon;
  * StartDeployment and CancelDeployment, like the pages — and always asks
  * first. A command missing an argument asks for it: deploy with nothing
  * after it walks through the project, the server, the commit and the backup,
- * then shows the plan and waits for a yes.
+ * then shows the plan and waits for a yes. run does the same for an action:
+ * each input it asks for, then the plan, then the yes.
  */
 final class Shell
 {
@@ -37,6 +47,8 @@ final class Shell
         'deploy' => 'deploy <project> <server> [--commit <sha>] [--no-backup] [--skip-migrations]',
         'rollback' => 'rollback <project> [<server>] [<release>]',
         'cancel' => 'cancel <run>',
+        'actions' => 'actions <project> [--history]',
+        'run' => 'run <action> --on <server> [name=value…] [--yes: defaults for the rest]',
         'probe' => 'probe <server>',
         'open' => 'open tail <run> · htop <server> · git <project> · status — in a pane',
         'go' => 'go runs · servers · projects · audit · settings · run <n> · server <name> · project <name>',
@@ -72,6 +84,12 @@ final class Shell
             $flags['yes'] = true;
         } elseif (str_starts_with($key, 'flag:')) {
             $flags[substr($key, 5)] = $answer;
+        } elseif (str_starts_with($key, 'input:')) {
+            $flags[$key] = $answer;
+        } elseif (str_starts_with($key, 'secret:')) {
+            // Asked at the prompt, never typed on the command line: kept
+            // encrypted in the question's state until the run takes it.
+            $flags[$key] = Crypt::encryptString($answer);
         } else {
             $args[(int) $key] = $answer;
         }
@@ -95,6 +113,8 @@ final class Shell
 
         $names = match ($parts[0]) {
             'deploy', 'rollback', 'runs' => count($parts) === 2 ? self::projectNames() : self::serverNames(),
+            'actions' => self::projectNames(),
+            'run' => count($parts) === 2 ? self::actionNames() : (($parts[count($parts) - 2] ?? '') === '--on' ? self::serverNames() : ['--on']),
             'probe' => self::serverNames(),
             'open' => count($parts) === 2 ? ['status', 'tail', 'htop', 'git'] : match ($parts[1]) {
                 'htop' => self::serverNames(),
@@ -132,6 +152,8 @@ final class Shell
                 'deploy' => $this->deploy($args, $flags),
                 'rollback' => $this->rollback($args, $flags),
                 'cancel' => $this->cancel($args, $flags),
+                'actions' => $this->actions($args, $flags),
+                'run' => $this->runAction($args, $flags),
                 'probe' => $this->probe($args),
                 'open' => $this->open($args),
                 'go' => $this->go($args),
@@ -444,6 +466,240 @@ final class Shell
 
     /**
      * @param  list<string>  $args
+     * @param  array<string, string|bool>  $flags
+     */
+    private function actions(array $args, array $flags): Output
+    {
+        if (($args[0] ?? '') === '') {
+            return (new Output)->error(self::COMMANDS['actions']);
+        }
+
+        $project = Find::project($args[0]);
+
+        if (isset($flags['history'])) {
+            $runs = Deployment::query()->where('project_id', $project->id)->where('kind', DeploymentKind::Action)->with('server')->latest('id')->limit(12)->get();
+
+            if ($runs->isEmpty()) {
+                return (new Output)->line(["No action of {$project->slug}’s has run yet.", 't-mute']);
+            }
+
+            return (new Output)->table(['RUN', 'ACTION', 'STATUS', 'ON', 'INPUTS', 'BY'], $runs->map(fn (Deployment $run) => [
+                ['#'.$run->id, 't-b'],
+                (string) ($run->options['action'] ?? $run->title()),
+                [$run->status->value, self::tone($run->status)],
+                (string) $run->onServer()?->slug,
+                [ActionInputs::line((array) ($run->options['shown'] ?? [])), 't-mute'],
+                [Actions::startedBy($run), 't-mute'],
+            ])->all());
+        }
+
+        $actions = $project->actions()->with(['latestRun.server'])->get();
+
+        if ($actions->isEmpty()) {
+            return (new Output)->line(["{$project->slug} has no actions. Commit YAML files to .deployme/actions/, or make one on the project’s Actions tab.", 't-mute']);
+        }
+
+        return (new Output)->table(['ACTION', 'ON', 'STEPS', 'FROM', 'LAST RUN'], $actions->map(function (ProjectAction $action) {
+            $definition = $action->definition();
+            $last = $action->latestRun;
+
+            return [
+                [$action->key.($definition?->passkey() ? ' ⚿' : ''), 't-b'],
+                $definition !== null ? [implode(' · ', array_filter([$definition->manual() ? 'manual' : null, $definition->scheduleLabel(), $definition->afterDeploy() !== null ? 'after deploy' : null])), ''] : ['errors', 't-err'],
+                $definition !== null ? (string) count($definition->steps()) : '—',
+                [$action->fromRepo() ? 'repo' : 'here', 't-mute'],
+                $last !== null ? ['#'.$last->id.' '.self::mark($last->status).' '.$last->onServer()?->slug, self::tone($last->status)] : ['never', 't-faint'],
+            ];
+        })->all())->line([' run <action> --on <server> starts one · actions '.$project->slug.' --history lists their runs', 't-faint']);
+    }
+
+    /**
+     * run <action> --on <server> [name=value…]: asks for the inputs it isn't
+     * given (--yes takes the defaults instead), shows what will run where,
+     * and starts it on a yes.
+     *
+     * @param  list<string>  $args
+     * @param  array<string, string|bool>  $flags
+     */
+    private function runAction(array $args, array $flags): Output
+    {
+        $state = ['command' => 'run', 'args' => $args, 'flags' => $flags];
+        $ref = (string) ($args[0] ?? '');
+        $given = [];
+
+        foreach (array_slice($args, 1) as $word) {
+            if (str_contains($word, '=')) {
+                [$name, $value] = explode('=', $word, 2);
+                $given[$name] = $value;
+            }
+        }
+
+        if ($ref === '') {
+            $names = self::actionNames(manualOnly: true);
+
+            return $names === []
+                ? (new Output)->error('No action can be started by hand yet.')
+                : self::pick('Action', $state + ['key' => '0'], array_map(fn (string $name) => ['value' => $name, 'label' => $name], $names));
+        }
+
+        $action = $this->findAction($ref, is_string($flags['on'] ?? null) ? $flags['on'] : null, $state);
+
+        if ($action instanceof Output) {
+            return $action;
+        }
+
+        $project = $action->project;
+        $definition = $action->definition() ?? throw new ToolFailed("{$action->key} has errors, so it can’t run: ".implode(' ', $action->errors ?? []));
+        $ref = "{$project->slug}/{$action->key}";
+        $state['args'] = [$ref, ...array_slice($args, 1)];
+
+        if (! is_string($flags['on'] ?? null)) {
+            $targets = $definition->allowedTargets($project);
+
+            if ($targets->count() !== 1) {
+                return $targets->isEmpty()
+                    ? (new Output)->error("{$action->key} runs on none of the servers {$project->slug} is on.")
+                    : self::pick('On which server?', $state + ['key' => 'flag:on'], $targets->map(fn (Target $target) => ['value' => $target->onServer()->slug, 'label' => $target->onServer()->slug, 'hint' => $target->onServer()->env_tag->label()])->values()->all());
+            }
+
+            $flags['on'] = $targets->first()->onServer()->slug;
+            $state['flags'] = $flags;
+        }
+
+        $target = Find::target($project, (string) $flags['on']);
+        $confirmed = time() - (int) session('auth.password_confirmed_at', 0) < (int) config('auth.password_timeout', 10800);
+
+        if ($definition->passkey() && ! $confirmed) {
+            return (new Output)->error("{$action->key} asks for your passkey: run it from the project’s Actions tab (go project {$project->slug}), which asks for it.");
+        }
+
+        // Every input it takes: given, asked, or (with --yes) its default.
+        $values = [];
+        foreach ($definition->inputs() as $input) {
+            $name = $input['name'];
+
+            if ($input['type'] === 'secret') {
+                if (array_key_exists($name, $given)) {
+                    return (new Output)->error("{$name} is a secret: leave it off the command line, where the screen and the history keep it. run asks for it.");
+                }
+
+                if (isset($flags["secret:{$name}"])) {
+                    $values[$name] = Crypt::decryptString((string) $flags["secret:{$name}"]);
+
+                    continue;
+                }
+
+                $out = new Output;
+                $out->ask = ['type' => 'text', 'secret' => true, 'question' => $name.($input['description'] ? ' — '.$input['description'] : ''), 'state' => $state + ['flags' => $flags, 'key' => "secret:{$name}"]];
+
+                return $out;
+            }
+
+            $value = $given[$name] ?? $flags["input:{$name}"] ?? null;
+
+            if ($value === null && isset($flags['defaults']) && $input['default'] !== null) {
+                $value = $input['default'];
+            }
+
+            if ($value === null) {
+                $question = $state + ['flags' => $flags, 'key' => "input:{$name}"];
+
+                if ($input['type'] === 'choice' || $input['type'] === 'boolean') {
+                    $options = $input['type'] === 'choice' ? $input['options'] : ['no', 'yes'];
+                    $default = $input['type'] === 'boolean' ? ($input['default'] ? 'yes' : 'no') : (string) $input['default'];
+                    usort($options, fn (string $a, string $b) => ($b === $default) <=> ($a === $default));
+
+                    return self::pick($name.($input['description'] ? ' — '.$input['description'] : ''), $question, array_map(fn (string $option) => [
+                        'value' => $option, 'label' => $option, 'hint' => $option === $default ? 'default' : '',
+                    ], $options));
+                }
+
+                $out = new Output;
+                $out->ask = ['type' => 'text', 'question' => $name.($input['description'] ? ' — '.$input['description'] : '').($input['default'] !== null ? " [{$input['default']}]" : ''), 'state' => $question];
+
+                return $out;
+            }
+
+            $values[$name] = $value;
+        }
+
+        // An answer left empty takes the default.
+        foreach ($values as $name => $value) {
+            if ($value === '' && ($default = $definition->input($name)['default'] ?? null) !== null) {
+                $values[$name] = $default;
+            }
+        }
+
+        try {
+            $resolved = ActionInputs::resolve($definition, $values);
+        } catch (DeploymentRefused $e) {
+            return (new Output)->error($e->getMessage());
+        }
+
+        if (! ($flags['yes'] ?? false)) {
+            $rows = [
+                [[$definition->name().' → '.$target->onServer()->name, 't-b'], ['  '.StartAction::folder($target), 't-mute']],
+                [[$action->fromRepo() ? 'from '.$action->file.($action->commit_sha ? ' @ '.substr($action->commit_sha, 0, 7) : '') : 'made here', 't-mute']],
+            ];
+            foreach ($definition->steps() as $i => $step) {
+                $skipped = $step['if'] !== null && ! ($resolved[$step['if']] ?? false);
+                $rows[] = [[($i + 1).'  ', 't-mute'], [str_pad(mb_strimwidth($step['name'], 0, 18, '…'), 19), $skipped ? 't-faint' : ''], [str_pad(ActionDefinition::where($step), 16), 't-mute'], [$skipped ? 'skipped' : $step['run'], $skipped ? 't-faint' : '']];
+            }
+            $rows[] = [['env   ', 't-mute'], [ActionInputs::line(array_combine(
+                array_map(fn (string $name) => ActionDefinition::envName($name), array_keys(ActionInputs::display($definition, $resolved))),
+                ActionInputs::display($definition, $resolved),
+            ) ?: []), ''], ['  over stdin', 't-faint']];
+            $rows[] = [['lock  ', 't-mute'], ['the folder’s deploy lock: refused while a deploy runs', 't-mute']];
+
+            $out = (new Output)->box('plan', $rows, 76);
+            $env = Str::lower($target->onServer()->env_tag->label());
+            $out->ask = ['type' => 'confirm', 'question' => "Run it on {$target->onServer()->slug} ({$env})?", 'default' => 'n', 'state' => $state + ['flags' => $flags, 'key' => 'confirm']];
+
+            return $out;
+        }
+
+        $tool = app(Tools\RunAction::class);
+        $tool->trigger = 'console';
+        $tool->identityConfirmed = $confirmed;
+        $run = $tool->call(['project' => $project->slug, 'action' => $action->key, 'server' => $target->onServer()->slug, 'inputs' => $values]);
+
+        $out = (new Output)->line(['▶ ', 't-ok'], 'started ', ['#'.$run['run'], 't-run'], [' '.$action->key.' on '.$target->onServer()->slug.' · it opens in a pane', 't-mute']);
+        $out->open = ['kind' => 'tail', 'arg' => (string) $run['run']];
+
+        return $out;
+    }
+
+    /**
+     * The action a name means: project/action, or an action's key that only
+     * one project (or only one on the server named) has. Otherwise a pick.
+     *
+     * @param  array<string, mixed>  $state
+     */
+    private function findAction(string $ref, ?string $server, array $state): ProjectAction|Output
+    {
+        if (str_contains($ref, '/')) {
+            [$project, $key] = explode('/', $ref, 2);
+
+            return Tools\ListActions::find(Find::project($project), $key);
+        }
+
+        $found = ProjectAction::query()->where('key', $ref)->with('project')
+            ->whereHas('project', fn ($query) => $query->whereNull('archived_at'))->get();
+
+        if ($found->count() > 1 && $server !== null) {
+            $id = Find::server($server)->id;
+            $found = $found->filter(fn (ProjectAction $action) => Target::query()->active()->where('project_id', $action->project_id)->where('server_id', $id)->exists())->values();
+        }
+
+        return match ($found->count()) {
+            0 => throw new ToolFailed("No action “{$ref}”. Try actions <project>."),
+            1 => $found->first(),
+            default => self::pick('Which project’s?', $state + ['key' => '0'], $found->map(fn (ProjectAction $action) => ['value' => "{$action->project->slug}/{$action->key}", 'label' => "{$action->project->slug}/{$action->key}"])->all()),
+        };
+    }
+
+    /**
+     * @param  list<string>  $args
      */
     private function probe(array $args): Output
     {
@@ -548,7 +804,7 @@ final class Shell
 
             if (str_starts_with($word, '--')) {
                 [$name, $value] = array_pad(explode('=', substr($word, 2), 2), 2, null);
-                if ($value === null && in_array($name, ['commit', 'limit'], true) && isset($words[$i + 1])) {
+                if ($value === null && in_array($name, ['commit', 'limit', 'on'], true) && isset($words[$i + 1])) {
                     $value = $words[++$i];
                 }
                 $flags[$name] = $value ?? true;
@@ -559,7 +815,11 @@ final class Shell
             }
         }
 
-        // Confirming is always the prompt's job: no flag skips it.
+        // Confirming is always the prompt's job: no flag skips it. For run,
+        // --yes means "take the defaults" for the inputs it isn't given.
+        if (isset($flags['yes'])) {
+            $flags['defaults'] = true;
+        }
         unset($flags['yes']);
 
         return [$command, $args, $flags];
@@ -593,6 +853,20 @@ final class Shell
     private static function projectNames(): array
     {
         return Project::query()->active()->orderBy('slug')->pluck('slug')->all();
+    }
+
+    /**
+     * Every action as project/key, and the keys only one project has on their own.
+     *
+     * @return list<string>
+     */
+    private static function actionNames(bool $manualOnly = false): array
+    {
+        $actions = ProjectAction::query()->with('project')->whereHas('project', fn ($query) => $query->whereNull('archived_at'))->orderBy('key')->get()
+            ->filter(fn (ProjectAction $action) => ! $manualOnly || ($action->definition()?->manual() ?? false));
+        $keys = $actions->countBy('key');
+
+        return $actions->flatMap(fn (ProjectAction $action) => $keys[$action->key] === 1 ? [$action->key] : ["{$action->project->slug}/{$action->key}"])->values()->all();
     }
 
     /**

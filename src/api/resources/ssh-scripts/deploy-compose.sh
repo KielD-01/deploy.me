@@ -1,7 +1,10 @@
 # Runs docker compose for the project's stack, from one folder: a release, or
 # the project folder. Inputs: DIR, STACK, FILES (compose files inside DIR, one
 # per line), ACTION (config, build, pull, recreate, run or exec), SERVICES (one
-# per line), COMMAND (for run and exec). Compose's progress goes to stdout.
+# per line), COMMAND (for run and exec), and ENV_VARS for run and exec: one
+# NAME=<base64 value> per line (an action's inputs), exported here and passed
+# to the container by name only (-e NAME), so no value is ever on a command
+# line. Compose's progress goes to stdout.
 set -o pipefail
 cd -- "$DIR" || { echo "✗ $DIR isn't on the server"; exit 3; }
 export COMPOSE_ANSI=never BUILDKIT_PROGRESS=plain
@@ -24,6 +27,18 @@ if [ -f .deployme-pins.env ]; then
   [ -f .env ] && args+=(--env-file "$DIR/.env")
   args+=(--env-file "$DIR/.deployme-pins.env")
 fi
+
+# Variables for the command in the container: exported here, named with -e.
+env_args=()
+while IFS= read -r entry; do
+  [ -n "$entry" ] || continue
+  name=${entry%%=*}
+  case "$name" in ''|[0-9]*|*[!A-Za-z0-9_]*) echo "✗ $name isn't a variable name"; exit 2 ;; esac
+  value=$(printf '%s' "${entry#*=}" | base64 -d; printf x)
+  export "$name=${value%x}"
+  env_args+=(-e "$name")
+done <<< "${ENV_VARS:-}"
+unset entry name value
 
 services=()
 while IFS= read -r service; do
@@ -110,11 +125,11 @@ case "$ACTION" in
     printf "services:\n  '%s':\n    labels: !reset {}\n    label_file: !reset []\n" "$service" > "$override"
     if [ -n "${COMMAND:-}" ]; then
       echo "\$ docker compose -p $STACK run --rm --no-deps $service $COMMAND"
-      docker compose "${args[@]}" -f "$override" run --rm --no-deps -T "$service" sh -c "$COMMAND" 2>&1
+      docker compose "${args[@]}" -f "$override" run --rm --no-deps -T ${env_args[@]+"${env_args[@]}"} "$service" sh -c "$COMMAND" 2>&1
     else
       # No command: the service's own (a migrate service that migrates by itself).
       echo "\$ docker compose -p $STACK run --rm --no-deps $service"
-      docker compose "${args[@]}" -f "$override" run --rm --no-deps -T "$service" 2>&1
+      docker compose "${args[@]}" -f "$override" run --rm --no-deps -T ${env_args[@]+"${env_args[@]}"} "$service" 2>&1
     fi
     status=$?
     rm -f -- "$override"
@@ -123,7 +138,7 @@ case "$ACTION" in
   exec)
     [ ${#services[@]} -gt 0 ] || { echo "✗ No service to run in"; exit 2; }
     echo "\$ docker compose -p $STACK exec ${services[0]} $COMMAND"
-    docker compose "${args[@]}" exec -T "${services[0]}" sh -c "$COMMAND" 2>&1
+    docker compose "${args[@]}" exec -T ${env_args[@]+"${env_args[@]}"} "${services[0]}" sh -c "$COMMAND" 2>&1
     ;;
   *)
     echo "✗ Unknown compose action: $ACTION"

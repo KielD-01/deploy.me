@@ -141,10 +141,23 @@ with its branch. **Telegram alerts** cover failed runs and health changes. An
 <td valign="top">
 
 ### 🤖 MCP for AI agents
-`php artisan deployme:mcp` gives Claude, Cursor or VS Code **13 tools**: look around,
+`php artisan deployme:mcp` gives Claude, Cursor or VS Code **15 tools**: look around,
 explain a failed run, plan a deploy. With `--allow-deploys` the agent can also deploy,
-roll back and cancel, and the client asks you before each one.
+roll back, cancel and run actions, and the client asks you before each one.
 [→ docs/mcp.md](docs/mcp.md)
+
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top">
+
+### ▶️ Actions
+Named jobs like GitHub Actions, run on a server when you need them: clear caches, reindex,
+restart workers. Kept in the repo as `.deployme/actions/*.yml` or made on the page, with
+steps on the server, in a service or in a one-off container, typed **inputs** (secrets
+masked), and runs by hand, from the shell or an agent, **on a schedule** or **after a
+deploy**. Each run takes the deploy lock and gets a live log like a deploy.
+[→ docs/usage.md](docs/usage.md#13--actions)
 
 </td>
 </tr>

@@ -2,9 +2,11 @@
 
 namespace App\Mcp;
 
+use App\Deploy\Actions\ActionDefinition;
 use App\Models\Deployment;
 use App\Models\DeploymentStep;
 use App\Models\Project;
+use App\Models\ProjectAction;
 use App\Models\Release;
 use App\Models\Server;
 use App\Models\ServerSnapshot;
@@ -160,6 +162,57 @@ final class Describe
             'finished_at' => self::time($deployment->finished_at),
             'duration' => $deployment->started_at !== null ? $deployment->durationLabel() : null,
             'url' => route('deployments.show', $deployment),
+            ...($deployment->isAction() ? ['action' => [
+                'key' => $deployment->options['action'] ?? null,
+                'name' => $deployment->title(),
+                // Secrets as their mask.
+                'inputs' => (object) ($deployment->options['shown'] ?? []),
+                'after' => $deployment->options['after'] ?? null,
+            ]] : []),
+        ];
+    }
+
+    /**
+     * An action as an agent sees it: what it runs and where, its inputs,
+     * when it runs by itself, and whether an agent may start it.
+     *
+     * @return array<string, mixed>
+     */
+    public static function action(ProjectAction $action): array
+    {
+        $definition = $action->definition();
+        /** @var Project $project */
+        $project = $action->project;
+
+        return [
+            'project' => $project->slug,
+            'action' => $action->key,
+            'name' => $action->name,
+            'from' => $action->fromRepo() ? $action->file : 'made in deploy.me',
+            'commit' => $action->commit_sha,
+            'errors' => $action->errors ?? [],
+            'manual' => $definition?->manual(),
+            'schedule' => $definition?->schedule(),
+            'after_deploy' => $definition?->afterDeploy(),
+            'asks_for_passkey' => $definition?->passkey(),
+            'open_to_agents' => $definition !== null && $definition->manual() && $definition->mcp() && ! $definition->passkey(),
+            'targets' => $definition?->allowedTargets($project)->map(fn (Target $target) => $target->onServer()->slug)->values()->all() ?? [],
+            'inputs' => array_map(fn (array $input) => array_filter([
+                'name' => $input['name'],
+                'type' => $input['type'],
+                'options' => $input['options'] !== [] ? $input['options'] : null,
+                'default' => $input['default'],
+                'description' => $input['description'],
+                'env' => ActionDefinition::envName($input['name']),
+            ], fn ($value) => $value !== null), $definition?->inputs() ?? []),
+            'steps' => array_map(fn (array $step) => [
+                'name' => $step['name'],
+                'where' => ActionDefinition::where($step),
+                'run' => $step['run'],
+                'if' => $step['if'] !== null ? "inputs.{$step['if']}" : null,
+                'timeout' => ActionDefinition::duration($step['timeout']),
+                'continue_on_error' => $step['continue_on_error'],
+            ], $definition?->steps() ?? []),
         ];
     }
 

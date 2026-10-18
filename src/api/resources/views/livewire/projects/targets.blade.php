@@ -84,7 +84,7 @@
                                     @if ($active)
                                         <a href="{{ route('deployments.show', $active) }}" wire:navigate class="badge badge-sm badge-soft badge-info gap-1">
                                             <x-icon name="loader" :size="12" class="animate-spin" />
-                                            {{ match ($active->kind) { DeploymentKind::Bootstrap => 'Preparing', DeploymentKind::Rollback => 'Rolling back', DeploymentKind::Unlock => 'Breaking the lock', default => 'Deploying' } }} {{ $active->number() }}
+                                            {{ match ($active->kind) { DeploymentKind::Bootstrap => 'Preparing', DeploymentKind::Rollback => 'Rolling back', DeploymentKind::Unlock => 'Breaking the lock', DeploymentKind::Action => 'Running '.$active->title(), default => 'Deploying' } }} {{ $active->number() }}
                                         </a>
                                     @elseif ($last?->status === DeploymentStatus::RolledBack)
                                         <a href="{{ route('deployments.show', $last) }}" wire:navigate class="badge badge-sm badge-soft badge-warning gap-1">

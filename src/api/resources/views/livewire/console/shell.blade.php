@@ -19,10 +19,12 @@
         <label class="flex items-center" x-show="! choosing">
             @if ($ask !== null && $ask['type'] === 'confirm')
                 <span class="t-warn">?&nbsp;</span><span class="t-b">{{ $ask['question'] }}&nbsp;</span><span class="t-mute">(y/N)&nbsp;</span>
+            @elseif ($ask !== null && $ask['type'] === 'text')
+                <span class="t-run">❯&nbsp;</span><span class="t-b">{{ $ask['question'] }}&nbsp;</span>
             @else
                 <span class="t-ok">deploy@local</span><span class="t-mute">:</span><span class="t-run">~</span><span class="t-mute">$&nbsp;</span>
             @endif
-            <input x-ref="input" x-model="input" class="term-input" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Command"
+            <input x-ref="input" x-model="input" class="term-input" type="{{ ($ask['secret'] ?? false) ? 'password' : 'text' }}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Command"
                    x-on:keydown="keydown($event)">
         </label>
         <span class="block t-faint" x-show="hints.length" x-cloak x-text="hints.join('   ')"></span>

@@ -16,13 +16,14 @@ chapter stands on its own, so skip to the one you need.
 - [10. Projects that were already running](#10--projects-that-were-already-running)
 - [11. Deploy on green CI](#11--deploy-on-green-ci)
 - [12. Health checks, dashboard and alerts](#12--health-checks-dashboard-and-alerts)
-- [13. Folder mappings](#13--folder-mappings)
-- [14. Audit log](#14--audit-log)
-- [15. Back up deploy.me itself](#15--back-up-deployme-itself)
-- [16. Update deploy.me](#16--update-deployme)
-- [17. Let an AI agent help](#17--let-an-ai-agent-help)
-- [18. The Console theme](#18--the-console-theme)
-- [19. Troubleshooting](#19--troubleshooting)
+- [13. Actions](#13--actions)
+- [14. Folder mappings](#14--folder-mappings)
+- [15. Audit log](#15--audit-log)
+- [16. Back up deploy.me itself](#16--back-up-deployme-itself)
+- [17. Update deploy.me](#17--update-deployme)
+- [18. Let an AI agent help](#18--let-an-ai-agent-help)
+- [19. The Console theme](#19--the-console-theme)
+- [20. Troubleshooting](#20--troubleshooting)
 
 ---
 
@@ -318,7 +319,75 @@ The projects list and the dashboard point out a green build that no server runs 
 - **Settings → Schedules** sets probe and health intervals, and how long logs, snapshots
   and checks are kept.
 
-## 13. 🔁 Folder mappings
+## 13. ▶️ Actions
+
+An action is a named job you run on a target when you need it: clear the caches, reindex
+search, restart the workers, take a database snapshot. It can also run on a schedule, or
+after a deploy. Each run is a run like a deploy: it takes the folder's deploy lock (so it
+never runs beside a deploy, and is refused while one runs), streams a live log with
+secrets masked, can be cancelled, and is kept in the history with who started it.
+
+Actions come from two places, shown together on the project's **Actions** tab:
+
+- **The repository.** YAML files in `.deployme/actions/` (`.yml` or `.yaml`), read at the
+  head of the project's branch when it's imported, when detection is refreshed, and on
+  **Reload from repo**. The file's name is the action's key. They're read-only on the page:
+  you change them in git. A file that doesn't pass the checks is listed with its errors and
+  can't run until it does.
+- **Made here.** **+ New action** opens the editor (it asks for your passkey first, since
+  an action runs commands on your servers). **Copy as YAML** turns one into a file for the
+  repository.
+
+```yaml
+# .deployme/actions/reindex-search.yml
+name: Reindex search
+on:
+  manual: true                # the Run button, the shell, MCP (the default)
+  schedule: "30 4 * * 0"      # cron, in the machine's timezone (TZ)
+  target: edge-fra            # the server a schedule runs on
+  # after_deploy: succeeded   # or failed, or either
+inputs:
+  index: { type: choice, options: [products, orders, all], default: products }
+  fresh: { type: boolean, default: false, description: Flush the index first }
+  # also text, number and secret (masked in logs, never stored, no default)
+steps:
+  - name: Flush the index
+    if: inputs.fresh          # skipped (and shown as skipped) while it's off
+    exec: api                 # in the running api container
+    run: php artisan scout:flush "$INDEX"
+  - name: Import
+    one-off: worker           # in a one-off container, with the edge's labels reset
+    run: php artisan scout:import "$INDEX"
+    timeout: 15m              # 10m when left out; at most 1h
+  - name: Warm the cache
+    run: curl -fsS https://example.com/ -o /dev/null   # on the server
+    continue-on-error: true   # recorded as failed, and the run goes on
+# targets: [edge-fra]         # the servers it may run on (all of them when left out)
+# confirm: passkey            # ask for your passkey first: then only you can start it
+# mcp: true                   # let an agent start it with run_action
+# alert: false                # no Telegram message when it fails
+```
+
+- **Where steps run.** In the live release's folder (`releases/<name>` for projects with
+  releases, the project folder for in-place ones): on the server, in a service with
+  `exec:`, or in a one-off container with `one-off:`. A target with nothing live yet can't
+  run actions.
+- **Inputs** reach every step as UPPER_CASE environment variables (`keep-days` becomes
+  `KEEP_DAYS`; a yes/no is `1` or `0`), sent over stdin with the script, never on a command
+  line. A step with `env-file: true` also gets the variables of the project's env file.
+- **Running one.** **Run** opens a dialog: the target, the inputs, and what will run where.
+  The run page shows the inputs (secrets as `••••••`), who or what started it, and
+  **Run again**.
+- **On a schedule** it starts when the cron comes due; if the target is busy it tries again
+  each minute for up to an hour. **After a deploy** it starts once the deploy's run has
+  ended (succeeded, failed or either); several go one after the other. An action that fails
+  never rolls a deploy back.
+- **Safety.** An action that asks for a passkey runs only when you start it, never on a
+  schedule, after a deploy or from an agent. Agents can only start actions marked `mcp: true`.
+  Creating, changing and removing an action, and every run, go into the audit log (never
+  an input's value).
+
+## 14. 🔁 Folder mappings
 
 On a server's **Folders** tab, map a folder on your machine to a folder on the server and sync
 it one way, push or pull, with rsync.
@@ -329,14 +398,14 @@ it one way, push or pull, with rsync.
 - Scheduled syncs (hourly or daily) delete at most a capped number of files.
 - Nothing is ever pushed into a reserved path such as `/opt/infra`.
 
-## 14. 📜 Audit log
+## 15. 📜 Audit log
 
 **Audit** lists who trusted a host key, broke a lock, saved or removed a token, or removed a
 server, project or target, along with every command deploy.me ran on a server. It never
 stores a value. The table is append-only: the database refuses updates, and only the
 nightly prune may delete.
 
-## 15. 💾 Back up deploy.me itself
+## 16. 💾 Back up deploy.me itself
 
 ```bash
 make backup-install   # nightly at 03:20 (launchd · systemd timer · cron)
@@ -349,7 +418,7 @@ This writes a `pg_dump` of the `deployme` database and a copy of `src/api/.env` 
 also copied to iCloud Drive on a Mac that has it, or to `DEPLOYME_OFFSITE_DIR` if you set it. Everything else can be rebuilt from git and
 the servers.
 
-## 16. ⬆️ Update deploy.me
+## 17. ⬆️ Update deploy.me
 
 deploy.me looks once a day for a newer release of itself (one anonymous request to the
 repository's GitHub releases; nothing about your machine is sent). When one is out you see
@@ -406,7 +475,7 @@ If your checkout's tags come from a remote other than `origin`, set `DEPLOYME_UP
 A fork that publishes its own releases sets `DEPLOYME_UPDATE_REPO=owner/name` in `.env`
 of the app (`src/api/.env`).
 
-## 17. 🤖 Let an AI agent help
+## 18. 🤖 Let an AI agent help
 
 ```bash
 claude mcp add deployme -- docker exec -i deployme-web php artisan deployme:mcp
@@ -416,7 +485,7 @@ Now ask *"what's deployed where?"* or *"why did run #42 fail?"*. Add `--allow-de
 let the agent deploy and roll back. See **[docs/mcp.md](mcp.md)** for every client and
 every tool.
 
-## 18. 🖥️ The Console theme
+## 19. 🖥️ The Console theme
 
 The Console is the default look: deploy.me as a **tmux session**. Switch between it and
 the **Classic** pages (a top bar, cards and tables) under **Settings → Appearance**, or
@@ -481,13 +550,15 @@ you to pick one. The runs it starts are recorded with the trigger `console`.
 | `deploy` | `deploy <project> <server> [--commit <sha>] [--no-backup] [--skip-migrations]`: picks a commit, shows the plan, asks, then starts the run |
 | `rollback` | `rollback <project> [<server>] [<release>]`: picks an earlier release, asks, then starts the rollback |
 | `cancel` | `cancel <run>`: cancels a queued or running run, after asking |
+| `actions` | `actions <project>`: its actions, when each runs and its last run; `--history` lists their runs |
+| `run` | `run <action> --on <server> [name=value…]`: asks for each input it isn't given (secrets at the prompt, never on the line), shows the plan, asks, then starts it. `--yes` takes the defaults for the inputs left out; it still asks before it runs. `project/action` when two projects have one by that name |
 | `probe` | `probe <server>`: queues a fresh probe |
 | `open` | `open tail <run>`, `open htop <server>`, `open git <project>` or `open status`: shows it in a pane |
 | `go` | Go to a page: `go runs`, `servers`, `projects`, `audit`, `settings`, `run <n>`, `server <name>` or `project <name>` |
 | `theme` | `theme console` or `theme classic` |
 | `clear` | Clear the screen |
 
-## 19. 🧯 Troubleshooting
+## 20. 🧯 Troubleshooting
 
 Start with:
 

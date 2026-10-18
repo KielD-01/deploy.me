@@ -18,6 +18,8 @@ Route::middleware('auth')->group(function () {
     Route::livewire('/projects/import', Livewire\Projects\Import::class)->name('projects.import');
     Route::livewire('/projects/{project}', Livewire\Projects\Show::class)->name('projects.show');
     Route::livewire('/projects/{project}/targets/{target}/convert', Livewire\Projects\Convert::class)->name('projects.convert');
+    Route::livewire('/projects/{project}/actions/new', Livewire\Projects\ActionEditor::class)->name('projects.actions.create');
+    Route::livewire('/projects/{project}/actions/{action}', Livewire\Projects\ActionEditor::class)->name('projects.actions.show');
     Route::livewire('/deployments', Livewire\Deployments\Index::class)->name('deployments.index');
     Route::livewire('/deployments/{deployment}', Livewire\Deployments\Show::class)->name('deployments.show');
     Route::get('/deployments/{deployment}/log.txt', DeploymentLogController::class)->name('deployments.log');

@@ -3,6 +3,7 @@
 namespace App\Livewire\Projects;
 
 use App\Actions\Projects\PollCi;
+use App\Deploy\Actions\RepoActions;
 use App\Deploy\Compose;
 use App\Deploy\Delivery\DeliveryResolver;
 use App\Deploy\Delivery\ImagePlan;
@@ -34,7 +35,7 @@ class Show extends Component
 {
     use ConfirmsIdentity;
 
-    public const TABS = ['targets' => 'Targets', 'releases' => 'Releases', 'environment' => 'Environment', 'hooks' => 'Hooks', 'settings' => 'Settings'];
+    public const TABS = ['targets' => 'Targets', 'releases' => 'Releases', 'environment' => 'Environment', 'hooks' => 'Hooks', 'actions' => 'Actions', 'settings' => 'Settings'];
 
     public Project $project;
 
@@ -113,6 +114,8 @@ class Show extends Component
             $this->tab = 'targets';
         }
         $this->fillSettings();
+        // What the page that sent you here said it did (saving an action).
+        $this->notice = session('notice');
     }
 
     // CI polls update the badge while the page is open.
@@ -357,7 +360,8 @@ class Show extends Component
             'git_remote' => $github['remote'] ?? $project->git_remote,
         ]);
 
-        $this->notice = 'Detection refreshed.';
+        $actions = app(RepoActions::class)->afterDetection($project, $data);
+        $this->notice = 'Detection refreshed.'.($actions !== null && $actions['actions'] > 0 ? ' '.RepoActions::summary($actions) : '');
     }
 
     public function archive(): void
@@ -419,6 +423,7 @@ class Show extends Component
             'trail' => AuditEntry::query()->where('project_id', $project->id)->byHand()->orderByDesc('occurred_at')->orderByDesc('id')->limit(8)->get(),
             'envCount' => $project->envFiles()->count(),
             'hookCount' => $project->hooks()->count(),
+            'actionCount' => $project->actions()->count(),
             'composeFiles' => array_values(array_unique(array_filter([...array_column($detection->composeFiles(), 'file'), ...($project->compose_files ?? [])]))),
             'services' => array_values(array_unique([...($compose['services'] ?? []), ...$this->appServices])),
             'rollable' => Compose::rollable($project),

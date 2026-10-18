@@ -94,6 +94,14 @@ class Project extends Model
         return $this->hasMany(ProjectHook::class)->orderBy('position')->orderBy('id');
     }
 
+    /**
+     * @return HasMany<ProjectAction, $this>
+     */
+    public function actions(): HasMany
+    {
+        return $this->hasMany(ProjectAction::class)->orderBy('key');
+    }
+
     public function targets(): HasMany
     {
         return $this->hasMany(Target::class);

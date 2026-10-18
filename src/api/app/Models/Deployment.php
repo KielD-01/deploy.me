@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
 #[Fillable([
     'target_id', 'project_id', 'server_id', 'user_id', 'release_id', 'previous_release_id', 'kind', 'status', 'trigger', 'commit_sha', 'commit_message',
     'strategy', 'strategy_trace', 'options', 'outcome', 'log_lines', 'started_at', 'finished_at', 'heartbeat_at',
-    'cancel_requested_at', 'retry_of_id', 'resume_from',
+    'cancel_requested_at', 'retry_of_id', 'resume_from', 'action_id',
 ])]
 class Deployment extends Model
 {
@@ -82,6 +82,52 @@ class Deployment extends Model
     public function previousRelease(): BelongsTo
     {
         return $this->belongsTo(Release::class, 'previous_release_id');
+    }
+
+    /**
+     * The action an action run ran (gone when the action was removed since).
+     *
+     * @return BelongsTo<ProjectAction, $this>
+     */
+    public function action(): BelongsTo
+    {
+        return $this->belongsTo(ProjectAction::class, 'action_id');
+    }
+
+    /**
+     * The server, typed (for code phpstan checks without the relations' generics).
+     */
+    public function onServer(): ?Server
+    {
+        /** @var Server|null $server */
+        $server = $this->server;
+
+        return $server;
+    }
+
+    public function isAction(): bool
+    {
+        return $this->kind === DeploymentKind::Action;
+    }
+
+    /**
+     * What an action run ran and with what, as it was when it started: the
+     * name, the definition, the inputs (secrets as their names only) and why
+     * it started.
+     *
+     * @return array<string, mixed>
+     */
+    public function actionRun(): array
+    {
+        return $this->isAction() ? (array) ($this->options ?? []) : [];
+    }
+
+    /**
+     * The run's name in lists: "Deploy", or the action's own name.
+     */
+    public function title(): string
+    {
+        return $this->isAction() ? (string) ($this->options['name'] ?? 'Action') : $this->kind->label();
     }
 
     public function steps(): HasMany

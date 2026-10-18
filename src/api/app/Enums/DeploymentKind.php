@@ -17,6 +17,8 @@ enum DeploymentKind: string
     case UndoConvert = 'undo_convert';
     // Remove the folder's deploy lock by hand, whoever holds it.
     case Unlock = 'unlock';
+    // One of the project's actions, run in the live release's folder.
+    case Action = 'action';
 
     public function label(): string
     {
@@ -29,6 +31,7 @@ enum DeploymentKind: string
             self::Convert => 'Convert to releases',
             self::UndoConvert => 'Undo conversion',
             self::Unlock => 'Break lock',
+            self::Action => 'Action',
         };
     }
 }

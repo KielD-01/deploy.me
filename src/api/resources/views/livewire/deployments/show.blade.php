@@ -20,7 +20,11 @@
                 <div class="flex items-center gap-2.5">
                     <h1 class="text-[22px] leading-7 font-semibold tracking-tight">
                         {{ $deployment->number() }}
-                        <a href="{{ route('projects.show', $project) }}" wire:navigate class="hover:underline">{{ $project->name }}</a>
+                        @if ($actionRun)
+                            <span>{{ $deployment->title() }}</span>
+                        @else
+                            <a href="{{ route('projects.show', $project) }}" wire:navigate class="hover:underline">{{ $project->name }}</a>
+                        @endif
                         <span class="text-muted font-normal">→</span>
                         <a href="{{ route('servers.show', $server) }}" wire:navigate class="hover:underline">{{ $server->name }}</a>
                     </h1>
@@ -29,11 +33,23 @@
                     </span>
                 </div>
                 <p class="text-muted">
-                    @if ($retryOf)
+                    @if ($actionRun)
+                        <a href="{{ route('projects.show', ['project' => $project, 'tab' => 'actions']) }}" wire:navigate class="link link-hover">{{ $project->name }}</a> · action,
+                        @if ($actionRun['after'])
+                            ran after <a href="{{ route('deployments.show', $actionRun['after']) }}" wire:navigate class="link link-hover">{{ Str::lower($actionRun['after']->kind->label()) }} {{ $actionRun['after']->number() }}</a> {{ Str::lower($actionRun['after']->status->label()) }}
+                        @else
+                            {{ $actionRun['startedBy'] }}
+                        @endif
+                        @if ($deployment->options['release'] ?? null) · release <span class="mono">{{ $deployment->options['release'] }}</span>@endif
+                        @if ($deployment->commit_sha) ({{ substr($deployment->commit_sha, 0, 7) }})@endif
+                        · {{ $deployment->started_at ? 'started '.$deployment->started_at->diffForHumans() : 'queued '.$deployment->created_at->diffForHumans() }}
+                        @if ($deployment->finished_at && $deployment->started_at) · took {{ $deployment->durationLabel() }} @endif
+                    @elseif ($retryOf)
                         Retry of <a href="{{ route('deployments.show', $retryOf) }}" wire:navigate class="link link-hover">{{ $retryOf->number() }}</a> from {{ Str::lcfirst((string) $resumeLabel) }}
                     @else
                         {{ $deployment->kind->label() }}
                     @endif
+                    @if (! $actionRun)
                     @if ($release && $release->inReleasesFolder())
                         · Release <span class="mono">{{ $release->name }}</span>
                     @endif
@@ -43,6 +59,7 @@
                     · {{ $deployment->started_at ? 'started '.$deployment->started_at->diffForHumans() : 'queued '.$deployment->created_at->diffForHumans() }}
                     {{ $deployment->user_id ? 'by you' : '' }}
                     @if ($deployment->finished_at && $deployment->started_at) · took {{ $deployment->durationLabel() }} @endif
+                    @endif
                     @if ($retriedAs) · Retried as <a href="{{ route('deployments.show', $retriedAs) }}" wire:navigate class="link link-hover">{{ $retriedAs->number() }}</a> @endif
                 </p>
             </div>
@@ -76,6 +93,15 @@
                             <x-icon name="refresh" :size="14" /> Retry from {{ Str::lcfirst($resume->label) }}
                         </button>
                     @endif
+                    @if ($actionRun)
+                        <a href="{{ route('deployments.log', $deployment) }}" class="btn btn-sm"><x-icon name="file" :size="14" /> Download log</a>
+                        @if ($actionRun['action'] && ! $actionRun['action']->fromRepo())
+                            <a href="{{ route('projects.actions.show', [$project, $actionRun['action']]) }}" wire:navigate class="btn btn-sm"><x-icon name="pencil" :size="14" /> Edit action</a>
+                        @endif
+                        @if ($actionRun['again'])
+                            <button type="button" class="btn btn-sm btn-primary" wire:click="retry"><x-icon name="play" :size="14" /> Run again</button>
+                        @endif
+                    @endif
                     @if ($canRetry)
                         <button type="button" class="btn btn-sm" wire:click="retry">
                             <x-icon name="refresh" :size="14" />
@@ -94,6 +120,35 @@
     @endif
     @if ($notice)
         <div role="status" class="alert alert-soft alert-success text-[13px]"><x-icon name="check-circle" /> {{ $notice }}</div>
+    @endif
+
+    @if ($actionRun)
+        <section class="card bg-base-100 border border-line" aria-label="The action">
+            <div class="px-4 py-3 grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-[max-content_minmax(0,1fr)]">
+                <span class="font-medium">Inputs</span>
+                <span class="mono {{ $actionRun['shown'] === [] ? 'text-muted' : '' }}">{{ $actionRun['shown'] === [] ? 'None' : \App\Deploy\Actions\ActionInputs::line($actionRun['shown']) }}</span>
+                <span class="font-medium">Started by</span>
+                <span class="text-muted">
+                    @if ($actionRun['after'])
+                        After a deploy (run <a href="{{ route('deployments.show', $actionRun['after']) }}" wire:navigate class="link">{{ $actionRun['after']->number() }}</a>{{ $deployment->user_id ? ', by you' : '' }})
+                    @else
+                        {{ \Illuminate\Support\Str::ucfirst($actionRun['startedBy']) }}
+                    @endif
+                </span>
+                <span class="font-medium">From</span>
+                <span class="text-muted">
+                    @if (($deployment->options['source'] ?? null) === 'repo')
+                        <span class="mono">{{ $deployment->options['file'] ?? '' }}</span>@if ($deployment->options['commit'] ?? null) @ {{ substr($deployment->options['commit'], 0, 7) }}@endif
+                    @else
+                        Made here
+                    @endif
+                    @if (! $actionRun['action']) · the action has been removed since @endif
+                </span>
+                <span class="font-medium">Alert</span>
+                <span class="text-muted">{{ ($deployment->options['alert'] ?? true) ? 'Telegram, if it fails' : 'None: the action asks for no alert' }}</span>
+            </div>
+            <p class="px-4 py-2.5 border-t border-line text-xs text-muted">An action that fails never rolls a deploy back by itself, and it held the folder’s deploy lock for as long as it ran.</p>
+        </section>
     @endif
 
     <div class="flex flex-wrap items-center gap-2 text-[13px]">
@@ -280,4 +335,7 @@
             </div>
         </section>
     </div>
+    @if ($actionRun)
+        <livewire:projects.run-action-dialog :project-id="$project->id" :key="'run-action-'.$project->id" />
+    @endif
 </div>

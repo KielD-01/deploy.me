@@ -51,7 +51,7 @@
         <header class="con-prompt">
             <span class="min-w-0 truncate">
                 <span class="t-ok">deploy{{ '@'.$server->slug }}</span><span class="t-mute">:</span><span class="t-run">~/runs/{{ $deployment->id }}</span>
-                <span class="t-mute">$</span> tail -f deploy.log
+                <span class="t-mute">$</span> tail -f {{ $actionRun ? 'action' : 'deploy' }}.log
             </span>
             <nav class="con-keys" aria-label="Keys">
                 @if ($deployment->isActive())
@@ -70,6 +70,12 @@
                                 wire:confirm="{{ $resume->switchesBack ? "Switch {$server->name} to release {$release?->name} again, and retry from ".Str::lcfirst($resume->label).'?' : "Retry on {$server->name} from ".Str::lcfirst($resume->label).'?' }}">
                             <kbd>R</kbd> retry from {{ Str::lcfirst($resume->label) }}
                         </button>
+                    @endif
+                    @if ($actionRun && $actionRun['again'])
+                        <button type="button" class="con-key is-go" data-key="r" wire:click="retry"><kbd>r</kbd> run again</button>
+                    @endif
+                    @if ($actionRun && $actionRun['action'] && ! $actionRun['action']->fromRepo())
+                        <a href="{{ route('projects.actions.show', [$project, $actionRun['action']]) }}" wire:navigate class="con-key" data-key="e"><kbd>e</kbd> edit action</a>
                     @endif
                     @if ($canRetry)
                         <button type="button" class="con-key" data-key="r" wire:click="retry" wire:confirm="{{ Str::ucfirst($again) }} on {{ $server->name }}?"><kbd>r</kbd> {{ $again }}</button>
@@ -98,13 +104,24 @@
             <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <h1 class="t-b text-[15px]">
                     {{ $deployment->number() }}
-                    <a href="{{ route('projects.show', $project) }}" wire:navigate class="hover:underline">{{ $project->name }}</a>
+                    @if ($actionRun)
+                        {{ $deployment->title() }}
+                    @else
+                        <a href="{{ route('projects.show', $project) }}" wire:navigate class="hover:underline">{{ $project->name }}</a>
+                    @endif
                     <span class="t-mute font-normal">→</span>
                     <a href="{{ route('servers.show', $server) }}" wire:navigate class="hover:underline">{{ $server->name }}</a>
                 </h1>
                 <span class="{{ $tone }}">● {{ $status->label() }}@if ($deployment->started_at) {{ $deployment->durationLabel() }}@endif</span>
                 <span class="t-faint min-w-0">
-                    @if ($retryOf)
+                    @if ($actionRun)
+                        action · <a href="{{ route('projects.show', ['project' => $project, 'tab' => 'actions']) }}" wire:navigate class="hover:underline">{{ $project->slug }}</a> ·
+                        @if ($actionRun['after'])
+                            after <a href="{{ route('deployments.show', $actionRun['after']) }}" wire:navigate class="t-run hover:underline">{{ Str::lower($actionRun['after']->kind->label()) }} {{ $actionRun['after']->number() }}</a> {{ Str::lower($actionRun['after']->status->label()) }}
+                        @else
+                            {{ $actionRun['startedBy'] }}
+                        @endif
+                    @elseif ($retryOf)
                         Retry of <a href="{{ route('deployments.show', $retryOf) }}" wire:navigate class="t-run hover:underline">{{ $retryOf->number() }}</a> from {{ Str::lcfirst((string) $resumeLabel) }}
                     @else
                         {{ Str::lower($deployment->kind->label()) }}
@@ -115,6 +132,14 @@
                     @if ($retriedAs) · Retried as <a href="{{ route('deployments.show', $retriedAs) }}" wire:navigate class="t-run hover:underline">{{ $retriedAs->number() }}</a>@endif
                 </span>
             </div>
+            @if ($actionRun)
+                <div class="flex flex-wrap gap-x-4 t-mute">
+                    <span>inputs <span class="t-b font-normal">{{ \App\Deploy\Actions\ActionInputs::line($actionRun['shown']) }}</span></span>
+                    @if ($deployment->options['release'] ?? null)<span>release <span class="t-b font-normal">{{ $deployment->options['release'] }}{{ $deployment->commit_sha ? ' ('.substr($deployment->commit_sha, 0, 7).')' : '' }}</span></span>@endif
+                    <span>from <span class="t-b font-normal">{{ ($deployment->options['source'] ?? null) === 'repo' ? ($deployment->options['file'] ?? '').(($deployment->options['commit'] ?? null) ? ' @ '.substr($deployment->options['commit'], 0, 7) : '') : 'made here' }}</span></span>
+                    <span>alert <span class="t-b font-normal">{{ ($deployment->options['alert'] ?? true) ? 'telegram on failure' : 'off' }}</span></span>
+                </div>
+            @endif
             <div class="flex flex-wrap gap-x-4 t-mute">
                 @if ($strategy)<span>strategy <span class="t-b font-normal">{{ Str::lower($strategy->label()) }}</span></span>@endif
                 <span>mode <span class="t-b font-normal">{{ $project->versionable ? 'releases' : 'in place' }}{{ $project->dockerized ? ' + docker' : '' }}</span></span>
@@ -228,4 +253,7 @@
             @endif
         </div>
     </div>
+    @if ($actionRun)
+        <livewire:projects.run-action-dialog :project-id="$project->id" :key="'run-action-'.$project->id" />
+    @endif
 </div>

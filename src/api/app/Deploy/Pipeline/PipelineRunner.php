@@ -2,9 +2,11 @@
 
 namespace App\Deploy\Pipeline;
 
+use App\Actions\Deployments\DispatchActionsAfter;
 use App\Deploy\Conversion\Conversion;
 use App\Deploy\DeployContext;
 use App\Deploy\Pipeline\Steps\Activate;
+use App\Deploy\Pipeline\Steps\RunActionStep;
 use App\Enums\DeploymentKind;
 use App\Enums\DeploymentStatus;
 use App\Enums\ReleaseStatus;
@@ -79,7 +81,9 @@ class PipelineRunner
         $this->announce($deployment);
 
         if ($firstAttempt) {
-            $context->log->note("{$deployment->kind->label()} {$context->project->name} on {$context->server->name}, in {$context->layout->root}");
+            $context->log->note($deployment->isAction()
+                ? "Action {$deployment->title()} for {$context->project->name} on {$context->server->name}, in {$context->layout->root}"
+                : "{$deployment->kind->label()} {$context->project->name} on {$context->server->name}, in {$context->layout->root}");
         }
 
         $ended = $this->runMain($context, $pipeline['main'], $firstAttempt);
@@ -284,6 +288,19 @@ class PipelineRunner
 
         try {
             $detail = $step->run($context);
+        } catch (StepCarriedOn $e) {
+            // Failed, and allowed to: recorded as such, and the run goes on.
+            $row->update([
+                'status' => StepStatus::Failed,
+                'finished_at' => now(),
+                'detail' => Str::limit($context->log->redactor->redact($e->getMessage()), 250),
+                'exit_code' => $e->exitCode,
+            ]);
+            $context->carriedOn++;
+            $context->log->flush();
+            $this->announce($context->deployment);
+
+            return;
         } catch (WaitingForCi $e) {
             // Not a failure: the step runs again when the run is picked up.
             $row->update(['status' => StepStatus::Pending, 'detail' => Str::limit($e->getMessage(), 250)]);
@@ -426,6 +443,10 @@ class PipelineRunner
             return "{$context->layout->root} is back the way it was before the conversion.";
         }
 
+        if ($kind === DeploymentKind::Action) {
+            return $this->actionRan($context);
+        }
+
         if ($kind === DeploymentKind::Unlock) {
             ['broken' => $broken, 'holder' => $holder] = $context->brokenLock ?? ['broken' => false, 'holder' => ''];
 
@@ -462,6 +483,20 @@ class PipelineRunner
         }
 
         return ($sha !== null ? "{$sha} is live" : 'The files are live')." in {$context->layout->root}.";
+    }
+
+    /**
+     * "Reindex search ran on edge-fra: 2 steps ran, 1 skipped."
+     */
+    private function actionRan(DeployContext $context): string
+    {
+        $steps = $context->deployment->steps()->where('key', 'like', RunActionStep::PREFIX.'%')->get();
+        $ran = $steps->where('status', StepStatus::Succeeded)->count();
+        $skipped = $steps->where('status', StepStatus::Skipped)->count();
+
+        return "{$context->deployment->title()} ran on {$context->server->name}: {$ran} ".Str::plural('step', $ran).' ran'
+            .($context->carriedOn > 0 ? ", {$context->carriedOn} failed and ".($context->carriedOn === 1 ? 'was' : 'were').' carried past' : '')
+            .($skipped > 0 ? ", {$skipped} skipped" : '').'.';
     }
 
     /**
@@ -528,8 +563,14 @@ class PipelineRunner
         $deployment->forceFill(['status' => $status, 'outcome' => $outcome, 'finished_at' => now(), 'heartbeat_at' => now()])->save();
         $this->announce($deployment);
 
-        // Only a failure says anything, and never at the cost of the run.
-        rescue(fn () => Alert::deploymentFinished($deployment), report: false);
+        // Only a failure says anything, and never at the cost of the run. An
+        // action can ask not to.
+        if (! $deployment->isAction() || ($deployment->options['alert'] ?? true)) {
+            rescue(fn () => Alert::deploymentFinished($deployment), report: false);
+        }
+
+        // Actions that run after a deploy, or the next one of them in line.
+        rescue(fn () => app(DispatchActionsAfter::class)($deployment), report: true);
     }
 
     private function announce(Deployment $deployment): void

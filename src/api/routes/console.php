@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Deployments\DetectStalledDeployments;
+use App\Actions\Deployments\DispatchScheduledActions;
 use App\Actions\Folders\DispatchDueFolderSyncs;
 use App\Actions\Maintenance\CheckForUpdate;
 use App\Actions\Maintenance\PruneOldData;
@@ -46,6 +47,12 @@ Schedule::call(fn () => RefreshDrift::dispatch())
 Schedule::call(fn () => app(DetectStalledDeployments::class)())
     ->everyMinute()
     ->name('detect-stalled-deployments')
+    ->withoutOverlapping();
+
+// Project actions whose schedule came due (a busy target gets them a minute later).
+Schedule::call(fn () => app(DispatchScheduledActions::class)())
+    ->everyMinute()
+    ->name('dispatch-scheduled-actions')
     ->withoutOverlapping();
 
 // Health checks of deployed targets, as often as Settings → Schedules says.

@@ -89,6 +89,7 @@
                 @if ($key === 'targets' && $targetCount)<span class="badge badge-xs badge-ghost">{{ $targetCount }}</span>@endif
                 @if ($key === 'environment' && $envCount)<span class="badge badge-xs badge-ghost">{{ $envCount }}</span>@endif
                 @if ($key === 'hooks' && $hookCount)<span class="badge badge-xs badge-ghost">{{ $hookCount }}</span>@endif
+                @if ($key === 'actions' && $actionCount)<span class="badge badge-xs badge-ghost">{{ $actionCount }}</span>@endif
             </button>
         @endforeach
     </div>
@@ -117,9 +118,14 @@
         <livewire:projects.hooks :project-id="$project->id" :key="'hooks-'.$project->id" />
     @endif
 
+    @if ($tab === 'actions')
+        <livewire:projects.actions :project-id="$project->id" :key="'actions-'.$project->id" />
+    @endif
+
     @if ($tab === 'settings')
         @include('livewire.projects.partials.settings')
     @endif
 
     <livewire:projects.deploy-dialog :project-id="$project->id" :key="'deploy-'.$project->id" />
+    <livewire:projects.run-action-dialog :project-id="$project->id" :key="'run-action-'.$project->id" />
 </div>

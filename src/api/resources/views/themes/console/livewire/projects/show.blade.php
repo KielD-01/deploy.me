@@ -19,8 +19,8 @@
             TargetHealth::Unhealthy => 't-err',
             default => 't-faint',
         };
-        $letters = ['targets' => 't', 'releases' => 'l', 'environment' => 'e', 'hooks' => 'h', 'settings' => ','];
-        $names = ['targets' => 'log', 'releases' => 'releases', 'environment' => 'env', 'hooks' => 'hooks', 'settings' => 'settings'];
+        $letters = ['targets' => 't', 'releases' => 'l', 'environment' => 'e', 'hooks' => 'h', 'actions' => 'a', 'settings' => ','];
+        $names = ['targets' => 'log', 'releases' => 'releases', 'environment' => 'env', 'hooks' => 'hooks', 'actions' => 'actions', 'settings' => 'settings'];
         $targetList = $project->targets()->active()->with(['project', 'server', 'currentRelease', 'activeDeployment'])->orderBy('id')->get();
         $yes = fn (bool $on) => [$on ? 'yes' : 'no', $on ? 't-ok' : 't-mute'];
         $conf = array_filter([
@@ -77,6 +77,7 @@
                 @if ($key === 'targets' && $targetCount)<span class="t-faint">({{ $targetCount }})</span>@endif
                 @if ($key === 'environment' && $envCount)<span class="t-faint">({{ $envCount }})</span>@endif
                 @if ($key === 'hooks' && $hookCount)<span class="t-faint">({{ $hookCount }})</span>@endif
+                @if ($key === 'actions' && $actionCount)<span class="t-faint">({{ $actionCount }})</span>@endif
                 <span class="t-faint">· {{ $letters[$key] }}</span>
             </button>
         @endforeach
@@ -175,6 +176,10 @@
         </div>
     @endif
 
+    @if ($tab === 'actions')
+        <livewire:projects.actions :project-id="$project->id" :key="'actions-'.$project->id" />
+    @endif
+
     @if (in_array($tab, ['releases', 'environment', 'hooks', 'settings'], true))
         <div class="flex flex-col gap-4 px-[14px] py-4">
             @if ($tab === 'releases')
@@ -190,4 +195,5 @@
     @endif
 
     <livewire:projects.deploy-dialog :project-id="$project->id" :key="'deploy-'.$project->id" />
+    <livewire:projects.run-action-dialog :project-id="$project->id" :key="'run-action-'.$project->id" />
 </div>

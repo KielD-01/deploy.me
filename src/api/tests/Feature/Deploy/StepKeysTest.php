@@ -2,6 +2,7 @@
 
 use App\Deploy\Pipeline\Step;
 use App\Deploy\Pipeline\Steps\Preflight;
+use App\Deploy\Pipeline\Steps\RunActionStep;
 use App\Deploy\Pipeline\Steps\RunHooks;
 use App\Enums\DeploymentKind;
 use App\Enums\DeploymentStatus;
@@ -28,6 +29,14 @@ function everyStep(): array
             continue;
         }
 
+        // One step per step of the action: action_step_<n>.
+        if ($class === RunActionStep::class) {
+            $step = ['name' => 'Step', 'run' => 'true', 'run_in' => 'host', 'service' => null, 'if' => null, 'timeout' => 600, 'continue_on_error' => false, 'env_file' => false];
+            array_push($steps, new RunActionStep(1, $step), new RunActionStep(2, $step));
+
+            continue;
+        }
+
         $steps[] = app($class);
     }
 
@@ -47,9 +56,9 @@ it('names each step by its KEY, and no two alike', function () {
 
         expect(defined($step::class.'::KEY'))->toBeTrue($step::class.' has no KEY');
 
-        // RunHooks is one step per phase: hooks_<phase>.
-        $step instanceof RunHooks
-            ? expect($step->key())->toStartWith(RunHooks::KEY.'_')
+        // RunHooks is one step per phase: hooks_<phase>, and RunActionStep one per step.
+        $step instanceof RunHooks || $step instanceof RunActionStep
+            ? expect($step->key())->toStartWith($step::KEY.'_')
             : expect($step->key())->toBe($step::KEY);
     }
 

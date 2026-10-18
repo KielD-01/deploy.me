@@ -22,6 +22,7 @@ interface Step
      * Does the work and returns the detail shown next to the step, if any.
      *
      * @throws StepFailed
+     * @throws StepCarriedOn when it failed and may (an action step marked continue-on-error)
      */
     public function run(DeployContext $context): ?string;
 }

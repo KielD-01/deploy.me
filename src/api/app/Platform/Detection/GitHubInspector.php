@@ -2,6 +2,7 @@
 
 namespace App\Platform\Detection;
 
+use App\Deploy\Actions\RepoActions;
 use App\Enums\CiState;
 use App\Platform\GitHub\CiStatus;
 use App\Platform\GitHub\GitHubClient;
@@ -34,27 +35,33 @@ final class GitHubInspector
             $ci = ['state' => CiState::Unknown, 'run' => null];
         }
 
+        $about = [
+            'owner' => $owner,
+            'repo' => $repo,
+            'id' => $info['id'] ?? null,
+            'private' => (bool) ($info['private'] ?? true),
+            'default_branch' => (string) ($info['default_branch'] ?? $branch),
+            'branch' => $branch,
+            'commits' => $commits['count'],
+            'head' => $commits['head'],
+            'pushed_at' => $info['pushed_at'] ?? null,
+            'language' => $info['language'] ?? null,
+            'remote' => null,
+            'transport' => 'https',
+            'alias' => null,
+            'ci' => ['state' => $ci['state']->value, 'run' => $ci['run']],
+        ];
+        $files = new GitHubFiles($github, $owner, $repo, $branch, (int) config('deployme.detection.depth', 3));
+
         return [
             'v' => 1,
             'source' => 'github',
             'git' => null,
             'remotes' => [],
-            'github' => [
-                'owner' => $owner,
-                'repo' => $repo,
-                'id' => $info['id'] ?? null,
-                'private' => (bool) ($info['private'] ?? true),
-                'default_branch' => (string) ($info['default_branch'] ?? $branch),
-                'branch' => $branch,
-                'commits' => $commits['count'],
-                'head' => $commits['head'],
-                'pushed_at' => $info['pushed_at'] ?? null,
-                'language' => $info['language'] ?? null,
-                'remote' => null,
-                'transport' => 'https',
-                'alias' => null,
-                'ci' => ['state' => $ci['state']->value, 'run' => $ci['run']],
-            ],
-        ] + $this->detector->detect(new GitHubFiles($github, $owner, $repo, $branch, (int) config('deployme.detection.depth', 3)));
+            'github' => $about,
+        ] + $this->detector->detect($files) + [
+            // The project's actions (.deployme/actions), read with the rest: RepoActions stores them.
+            'action_files' => RepoActions::files($files),
+        ];
     }
 }

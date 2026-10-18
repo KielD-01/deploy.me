@@ -160,6 +160,36 @@ class Target extends Model
         return $this->project->versionable && ! ($this->currentRelease?->inReleasesFolder() ?? false);
     }
 
+    /**
+     * The server, typed (for code phpstan checks without the relations' generics).
+     */
+    public function onServer(): Server
+    {
+        /** @var Server $server */
+        $server = $this->server;
+
+        return $server;
+    }
+
+    public function ofProject(): Project
+    {
+        /** @var Project $project */
+        $project = $this->project;
+
+        return $project;
+    }
+
+    /**
+     * The release live on it, if any.
+     */
+    public function live(): ?Release
+    {
+        /** @var Release|null $release */
+        $release = $this->currentRelease;
+
+        return $release;
+    }
+
     public function usesServerDefault(): bool
     {
         /** @var Server $server */

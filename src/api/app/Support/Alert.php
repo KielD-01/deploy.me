@@ -36,7 +36,7 @@ final class Alert
         $deployment->loadMissing(['project', 'server']);
 
         self::send(implode("\n", array_filter([
-            sprintf('✗ %s: %s', $deployment->project?->name ?? 'A deploy', Str::lower($deployment->status->label())),
+            sprintf('✗ %s%s: %s', $deployment->project?->name ?? 'A deploy', $deployment->isAction() ? ' · '.$deployment->title() : '', Str::lower($deployment->status->label())),
             $deployment->server?->name !== null ? 'on '.$deployment->server->name : null,
             Str::limit((string) $deployment->outcome, 300),
             url("/deployments/{$deployment->id}"),

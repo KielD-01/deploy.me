@@ -2,6 +2,7 @@
 
 namespace App\Deploy\Pipeline;
 
+use App\Deploy\Actions\ActionDefinition;
 use App\Deploy\Pipeline\Steps\AcquireLease;
 use App\Deploy\Pipeline\Steps\Activate;
 use App\Deploy\Pipeline\Steps\BackupDatabase;
@@ -26,12 +27,14 @@ use App\Deploy\Pipeline\Steps\RecordState;
 use App\Deploy\Pipeline\Steps\RecreateServices;
 use App\Deploy\Pipeline\Steps\RegistryLogin;
 use App\Deploy\Pipeline\Steps\ReleaseLease;
+use App\Deploy\Pipeline\Steps\ResolveAction;
 use App\Deploy\Pipeline\Steps\ResolveRelease;
 use App\Deploy\Pipeline\Steps\RestartStack;
 use App\Deploy\Pipeline\Steps\RestorePins;
 use App\Deploy\Pipeline\Steps\RestoreRelease;
 use App\Deploy\Pipeline\Steps\RollBack;
 use App\Deploy\Pipeline\Steps\RollServices;
+use App\Deploy\Pipeline\Steps\RunActionStep;
 use App\Deploy\Pipeline\Steps\RunHooks;
 use App\Deploy\Pipeline\Steps\RunMigrations;
 use App\Deploy\Pipeline\Steps\SyncEnvFiles;
@@ -141,11 +144,31 @@ class PipelineFactory
                 'main' => [new Preflight, new AcquireLease, new UndoConversion, new RecordState],
                 'cleanup' => [new ReleaseLease],
             ],
+            // One recorded step per step of the action, inside the folder's lock.
+            DeploymentKind::Action => [
+                'main' => [new AcquireLease, new ResolveAction, ...$this->actionSteps($deployment)],
+                'cleanup' => [new ReleaseLease],
+            ],
             // Takes no lock of its own: removing the lock is the whole job.
             DeploymentKind::Unlock => [
                 'main' => [new BreakLock],
                 'cleanup' => [],
             ],
         };
+    }
+
+    /**
+     * The action's steps as the run started with them (its definition is
+     * kept on the run, so an edit since doesn't change what it runs).
+     *
+     * @return list<Step>
+     *
+     * @throws StepFailed
+     */
+    private function actionSteps(Deployment $deployment): array
+    {
+        $definition = ActionDefinition::of($deployment->options['definition'] ?? null) ?? throw new StepFailed('The run doesn’t say which action to run.');
+
+        return array_map(fn (array $step, int $index) => new RunActionStep($index + 1, $step), $definition->steps(), array_keys($definition->steps()));
     }
 }

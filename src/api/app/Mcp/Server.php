@@ -29,10 +29,12 @@ final class Server
         Tools\GetDeployment::class,
         Tools\GetDeploymentLog::class,
         Tools\ListAudit::class,
+        Tools\ListActions::class,
         Tools\PlanDeploy::class,
         Tools\Deploy::class,
         Tools\Rollback::class,
         Tools\CancelDeployment::class,
+        Tools\RunAction::class,
     ];
 
     /** @var array<string, Tool> */
@@ -144,8 +146,8 @@ final class Server
         return 'deploy.me deploys the person’s projects to their own servers over SSH. '
             .'Start with list_projects and list_servers; get_deployment explains a run step by step, and get_deployment_log pages through its redacted log. '
             .($this->allowDeploys
-                ? 'deploy, rollback and cancel_deployment change what a server runs: say what you are about to do and get a clear yes before calling them. plan_deploy shows what a deploy would ship without starting it.'
-                : 'This server was started read-only: it can look, plan and probe, but not deploy, roll back or cancel. Starting it with --allow-deploys adds those tools.');
+                ? 'deploy, rollback, cancel_deployment and run_action change what a server runs: say what you are about to do and get a clear yes before calling them. plan_deploy shows what a deploy would ship without starting it; list_actions shows a project’s actions and which an agent may run.'
+                : 'This server was started read-only: it can look, plan and probe, but not deploy, roll back, cancel or run actions. Starting it with --allow-deploys adds those tools.');
     }
 
     /**

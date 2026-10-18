@@ -102,6 +102,11 @@ return [
         'cancel_check_ms' => 2000,
     ],
 
+    'actions' => [
+        // The clock action schedules read: the machine's (TZ, set by bin/configure).
+        'timezone' => env('DEPLOYME_ACTIONS_TZ', env('TZ', 'UTC')),
+    ],
+
     'probe' => [
         'default_interval' => 300,
         // The second of the minute scheduled probes start at, clear of the cron jobs

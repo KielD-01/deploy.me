@@ -20,8 +20,8 @@ docker exec -i deployme-web php artisan deployme:mcp
 
 | Mode | Started with | What the agent can do |
 |---|---|---|
-| **Read-only** (default) | `deployme:mcp` | Look at servers, projects, releases, runs, logs and the audit log; plan a deploy; queue a probe |
-| **Deploys allowed** | `deployme:mcp --allow-deploys` | All of the above, plus `deploy`, `rollback` and `cancel_deployment` |
+| **Read-only** (default) | `deployme:mcp` | Look at servers, projects, releases, runs, logs, actions and the audit log; plan a deploy; queue a probe |
+| **Deploys allowed** | `deployme:mcp --allow-deploys` | All of the above, plus `deploy`, `rollback`, `cancel_deployment` and `run_action` |
 
 In read-only mode the deploy tools aren't listed at all. If an agent asks for one anyway,
 the answer tells it the server must be started with `--allow-deploys`. Runs an agent starts
@@ -116,14 +116,16 @@ For any other client, the command is `docker` and the arguments are
 | `get_deployment_log` | — | A run's redacted log, page by page or one step at a time |
 | `list_audit` | — | Who did what, and (optionally) every command run on a server |
 | `plan_deploy` | — | Which strategy would ship a commit, or what it would wait for, without starting anything |
+| `list_actions` | — | A project's actions (or every project's): their steps and where each runs, their inputs and the variables they become, when they run by themselves, and `open_to_agents` |
 | `deploy` | ✅ ² | Starts a deploy of a project (latest commit or a named one) to one of its servers. Arguments: `project`\*, `server`, `commit`, `backup`, `skip_migrations` ³ |
 | `rollback` | ✅ ² | Rolls a project on a server back to an earlier release (the previous one by default). Arguments: `project`\*, `server`, `release` ³ |
 | `cancel_deployment` | ✅ ² | Cancels a queued or running run |
+| `run_action` | ✅ ² | Runs one of a project's actions on one of its servers, with inputs. Only an action marked `mcp: true` ("Allow from MCP"), never one that asks for a passkey. Arguments: `project`\*, `action`\*, `server`, `inputs` ³ |
 
 ¹ A probe only reads the server, and the scheduler already runs one every few minutes.
 ² Offered only with `--allow-deploys`, and marked `destructiveHint`, so clients ask you
 before calling them.
-³ \* marks a required argument. The two tools take:
+³ \* marks a required argument. These tools take:
 
 | Argument | Tool | Type | Meaning |
 |---|---|---|---|
@@ -133,6 +135,9 @@ before calling them.
 | `backup` | `deploy` | boolean, default `true` | Docker projects that migrate: `pg_dump` the database first, when the project can |
 | `skip_migrations` | `deploy` | boolean, default `false` | Docker projects that migrate: don't run the migrations |
 | `release` | `rollback` | string | The release's name, like `20260911-120000`. Empty: the previous release |
+| `project`\*, `server` | `run_action` | string | As for `deploy`. The server can be left out when the action runs on only one |
+| `action`\* | `run_action` | string | The action's key (its file name, like `reindex-search`) or name |
+| `inputs` | `run_action` | object | Input values by name; the rest take their defaults |
 
 Projects are named by slug or name, servers by slug, name or SSH alias, and runs by number
 (`42` or `#42`). If a name doesn't match, the error lists the ones that do exist.
@@ -145,6 +150,7 @@ Projects are named by slug or name, servers by slug, name or SSH alias, and runs
 - *"Is there a green build on main that isn't live yet? What would a deploy ship?"*
 - *"Deploy demo to staging, then watch the run and tell me when it's healthy."* (needs `--allow-deploys`)
 - *"Roll the blog back to the release before last."* (needs `--allow-deploys`)
+- *"Clear the shop's caches on staging."* (needs `--allow-deploys`, and the action open to agents)
 
 ## 🛡️ How it stays safe
 
@@ -154,9 +160,10 @@ Projects are named by slug or name, servers by slug, name or SSH alias, and runs
 - **The same rails as the UI.** `deploy` and `rollback` go through `StartDeployment`, just
   as the deploy dialog and the Releases tab do. That means one run per target, a folder that
   still needs converting is refused, and only releases that can be rolled back to are
-  accepted.
+  accepted. `run_action` goes through `StartAction` like the run dialog, and only for
+  actions marked open to agents.
 - **No secrets.** Answers never include GitHub tokens, env file contents, Telegram
-  credentials or `APP_KEY`. Log lines are redacted before they are stored, so the agent
+  credentials, an action's secret inputs or `APP_KEY`. Log lines are redacted before they are stored, so the agent
   sees what you see.
 - **Local only.** stdio through `docker exec` is reachable only by someone who can already
   run Docker on your Mac. No port is opened and nothing listens on the network.

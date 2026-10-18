@@ -2,6 +2,7 @@
 
 namespace App\Actions\Projects;
 
+use App\Deploy\Actions\RepoActions;
 use App\Enums\CiState;
 use App\Enums\ProjectSource;
 use App\Jobs\PollCiStatus;
@@ -59,6 +60,9 @@ class ImportProject
         if ($project->hasGitHub() && $ci === null) {
             PollCiStatus::dispatch($project->id);
         }
+
+        // Its actions (.deployme/actions in the repository), at the branch head.
+        app(RepoActions::class)->afterDetection($project, $detection->data);
 
         return $project;
     }
