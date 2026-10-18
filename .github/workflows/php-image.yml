@@ -17,7 +17,12 @@
 # rebuild is 1.0.1, 1.0.2… and no full version is ever pushed twice. Tags:
 # MAJOR.MINOR.PATCH (fixed), MAJOR.MINOR and MAJOR (moving; installs use MAJOR),
 # latest, and sha-<commit>; the slim flavour gets the same version with -slim
-# (1.1.0-slim, 1.1-slim, 1-slim, sha-<commit>-slim) and `slim` for latest.
+# (2.0.0-slim, 2.0-slim, 2-slim, sha-<commit>-slim) and `slim` for latest. The tags
+# of an older MAJOR (1, 1-slim…) stay on Docker Hub as they are, for the checkouts
+# that still pull them.
+#
+# Each base is flattened into one layer once trim-base.sh has purged the
+# compiler toolchain (see Dockerfile.base), which also checks the result.
 name: PHP base image
 
 on:
@@ -26,6 +31,7 @@ on:
     paths:
       - core/local/php/Dockerfile.base
       - core/local/php/Dockerfile.base-slim
+      - core/local/php/trim-base.sh
       - core/local/php/VERSION
       - core/local/php/DOCKERHUB.md
       - .github/workflows/php-image.yml
@@ -61,12 +67,12 @@ jobs:
 
       # A change to what an image holds is a new MINOR (or MAJOR): the same
       # version can't stand for two different Dockerfiles. Both flavours share
-      # VERSION, so a change to either bumps it.
+      # VERSION (and trim-base.sh, which both run), so a change to any bumps it.
       - name: A base Dockerfile changed, so VERSION did too
         if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
         run: |
-          changed=$(git diff --name-only "${{ github.event.before }}" "$GITHUB_SHA" -- core/local/php/Dockerfile.base core/local/php/Dockerfile.base-slim core/local/php/VERSION)
-          if printf '%s\n' "$changed" | grep -qxE 'core/local/php/Dockerfile\.base(-slim)?' && ! printf '%s\n' "$changed" | grep -qx core/local/php/VERSION; then
+          changed=$(git diff --name-only "${{ github.event.before }}" "$GITHUB_SHA" -- core/local/php/Dockerfile.base core/local/php/Dockerfile.base-slim core/local/php/trim-base.sh core/local/php/VERSION)
+          if printf '%s\n' "$changed" | grep -qxE 'core/local/php/(Dockerfile\.base(-slim)?|trim-base\.sh)' && ! printf '%s\n' "$changed" | grep -qx core/local/php/VERSION; then
             echo "::error file=core/local/php/VERSION::A base Dockerfile changed: bump the MINOR (or MAJOR) in core/local/php/VERSION."
             exit 1
           fi
@@ -78,7 +84,7 @@ jobs:
           [[ "$line" =~ ^[0-9]+\.[0-9]+$ ]] || { echo "::error file=core/local/php/VERSION::VERSION holds MAJOR.MINOR, like 1.0 (got '$line')."; exit 1; }
           major=${line%%.*}
 
-          # What deploy.me pulls has to be this line's MAJOR (1 and 1-slim both read as 1).
+          # What deploy.me pulls has to be this line's MAJOR (2 and 2-slim both read as 2).
           for file in core/local/php/Dockerfile docker-compose.local.yml compose.slim.yml bin/build bin/configure; do
             if grep -o 'deployme-php:[0-9][0-9.]*' "$file" | grep -vqx "deployme-php:$major"; then
               echo "::error file=$file::It pulls another major than VERSION's $major."
@@ -203,8 +209,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # full: 1.1.0 1.1 1 latest sha-abc1234
-      # slim: 1.1.0-slim 1.1-slim 1-slim slim sha-abc1234-slim
+      # full: 2.0.0 2.0 2 latest sha-abc1234
+      # slim: 2.0.0-slim 2.0-slim 2-slim slim sha-abc1234-slim
       - name: Tag both architectures as one image
         working-directory: ${{ runner.temp }}/digests
         run: |

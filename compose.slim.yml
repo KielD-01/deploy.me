@@ -7,7 +7,7 @@
 #          queues, cache and locks: nothing to run beside the app but an edge
 #
 # The image is the same Dockerfile on the slim base (romanovich0195/
-# deployme-php:1-slim, or Dockerfile.base-slim compiled here). The database is
+# deployme-php:2-slim, or Dockerfile.base-slim compiled here). The database is
 # one file, src/api/storage/database/deployme.sqlite, which both modes mount
 # (all of src/api in development, storage/ in production); bin/db-create.sh
 # creates it and src/api/.env points at it (bin/configure sets DB_CONNECTION,
@@ -19,7 +19,7 @@
 
 x-slim-build: &slim-build
   args:
-    DEPLOYME_PHP_BASE: ${DEPLOYME_PHP_BASE:-romanovich0195/deployme-php:1-slim}
+    DEPLOYME_PHP_BASE: ${DEPLOYME_PHP_BASE:-romanovich0195/deployme-php:2-slim}
     DEPLOYME_FLAVOUR: slim
 
 services:

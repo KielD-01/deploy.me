@@ -255,7 +255,7 @@ if [ "${previous_flavour:-full}" != "$flavour" ] && [ -f src/api/.env ]; then
 fi
 deployme_ok "containers run as $([ "$uid" = 0 ] && echo root || echo "uid $uid:$gid")"
 deployme_ok "timezone: $tz"
-deployme_ok "PHP base image: ${php_base:-romanovich0195/deployme-php:$([ "$flavour" = slim ] && echo 1-slim || echo 1) (pulled from Docker Hub)}"
+deployme_ok "PHP base image: ${php_base:-romanovich0195/deployme-php:$([ "$flavour" = slim ] && echo 2-slim || echo 2) (pulled from Docker Hub)}"
 deployme_ok "project roots: ${roots//:/, }"
 if [ -n "$agent" ]; then deployme_ok "ssh-agent: $agent"; else deployme_warn "no ssh-agent socket: deploy.me uses the IdentityFile keys in ~/.ssh/config"; fi
 [ -f "$HOME/.ssh/config" ] || deployme_warn "$HOME/.ssh/config is missing: add your servers as Host entries before adding them to deploy.me"

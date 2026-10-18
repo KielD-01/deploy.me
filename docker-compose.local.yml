@@ -26,7 +26,7 @@ x-php: &php
     target: runtime
     args:
       # The ready-made base (Docker Hub), or deployme-php-base:local built here (bin/build).
-      DEPLOYME_PHP_BASE: ${DEPLOYME_PHP_BASE:-romanovich0195/deployme-php:1}
+      DEPLOYME_PHP_BASE: ${DEPLOYME_PHP_BASE:-romanovich0195/deployme-php:2}
       DEPLOYME_UID: ${DEPLOYME_UID:-0}
       DEPLOYME_GID: ${DEPLOYME_GID:-0}
   image: deployme-php:local

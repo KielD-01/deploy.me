@@ -3,7 +3,7 @@
 A local, Dockerized Laravel 13 admin app that deploys the user's projects to their
 servers over SSH: servers come from `~/.ssh/config`, projects from GitHub or local
 folders, with release folders (keep N), Docker Compose stacks, live logs over Reverb,
-and health checks on queue workers run by supervisor.
+and health checks on queue workers run by deployme-supervise.
 
 - Plan: `~/.claude/plans/this-is-a-project-goofy-bengio.md` (milestones M0–M8).
 - Design: `design/canvas/*.dc.html` + `canvas.json` (published design canvas). Build
@@ -19,11 +19,28 @@ and health checks on queue workers run by supervisor.
   PATCH counted from Docker Hub, tagged X.Y.Z, X.Y, X and latest. `Dockerfile.base-slim`
   (official `php:8.5-cli`, pdo_sqlite, no pgsql/redis, sqlite3 in place of psql) is the slim
   flavour's base, published from the same workflow and VERSION as X.Y.Z-slim, X.Y-slim,
-  X-slim and slim. Installs pull `:1` or `:1-slim` (the workflow checks the Dockerfile,
-  compose files and bin/ scripts name VERSION's major);
-  `Dockerfile` adds the entrypoint, git askpass helper, supervisor programs (queue workers +
-  scheduler) and the machine's user on top (build arg `DEPLOYME_FLAVOUR=slim` swaps in
+  X-slim and slim. Installs pull `:2` or `:2-slim` (the workflow checks the Dockerfile,
+  compose files and bin/ scripts name VERSION's major). Both bases are trimmed: once the
+  extensions are compiled, `trim-base.sh purge` removes the compiler toolchain the official
+  images keep (`$PHPIZE_DEPS`, gcc, binutils, headers, PHP's source tarball) and php-cgi/phpdbg, the tree is
+  flattened `FROM scratch` with the upstream ENV/WORKDIR/ENTRYPOINT/CMD declared again, and
+  `trim-base.sh check` fails the build if `php -m`, a binary's libraries, an upstream ENV or a
+  tool (git, ssh, rsync, composer…) changed. No intl, no psql, no Python. That made 2.0 a
+  MAJOR: `:1`/`:1-slim` (supervisord) stay on Docker Hub for older checkouts.
+  `Dockerfile` adds the entrypoint, git askpass helper, the worker's programs (queue workers +
+  scheduler, in supervisord's .conf format under `supervisor/`), `deployme-supervise` and the
+  machine's user on top (build arg `DEPLOYME_FLAVOUR=slim` swaps in
   `supervisor/queues-slim.conf`, keeping the full list as `/etc/supervisor/queues-full.conf`).
+- `core/local/php/bin/deployme-supervise` — the worker's process supervisor, a standalone PHP
+  script (no Laravel) in place of supervisord: `run /etc/supervisor/conf.d` starts numprocs
+  copies of each program in a session of its own (setsid), prefixes their output with the
+  process name, starts one that exits again (at once after startsecs, else backing off 1, 2,
+  4… 60 s), and on SIGTERM sends each its stopsignal (to the group with stopasgroup), waits
+  its stopwaitsecs, then SIGKILLs; SIGHUP (`restart`, `make workers-restart`) does that per
+  program and starts it again. `status` (`make workers`, the healthcheck, the doctor) reads
+  `/run/deployme/supervise.json`. Unknown keys or sections are errors. Tests:
+  `tests/Unit/SuperviseTest.php`; compose's `stop_grace_period` (330 s) stays above every
+  stopwaitsecs (310 s at most).
   `bin/build` pulls the flavour's base, or compiles it (`deployme-php-base:local`, or
   `:local-slim`) when it can't or `.env` says `DEPLOYME_PHP_BASE`.
   Two targets, one per mode (`DEPLOYME_MODE` in `.env`, `bin/configure --mode dev|prod`):

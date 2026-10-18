@@ -21,7 +21,7 @@
 # slim base (Dockerfile.base-slim: plain PHP, SQLite, no FrankenPHP), with
 # DEPLOYME_FLAVOUR=slim for its smaller set of queue workers.
 
-ARG DEPLOYME_PHP_BASE=romanovich0195/deployme-php:1
+ARG DEPLOYME_PHP_BASE=romanovich0195/deployme-php:2
 FROM ${DEPLOYME_PHP_BASE} AS runtime
 
 COPY core/local/php/php.ini /usr/local/etc/php/conf.d/zz-deployme.ini

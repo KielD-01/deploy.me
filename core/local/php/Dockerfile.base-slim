@@ -5,29 +5,37 @@
 # Caddy in front of it (compose.slim-edge.yml).
 #
 # Published for amd64 and arm64 as romanovich0195/deployme-php:<version>-slim
-# (1-slim, 1.1-slim, slim…) by .github/workflows/php-image.yml, next to the full
-# base. Dockerfile (next to this one) adds the config files and the machine's
-# user on top, the same way for both.
+# (2-slim, 2.0-slim, slim…) by .github/workflows/php-image.yml, next to the full
+# base. Dockerfile (next to this one) adds the config files, the process
+# supervisor and the machine's user on top, the same way for both.
+#
+# Two stages: `build` compiles the extensions and installs the tools, then
+# trim-base.sh purges the compiler toolchain the official image keeps; the
+# image itself is that tree flattened into one layer (FROM scratch), so the
+# purged ~250 MB isn't still in a lower layer. php-cgi and phpdbg go too:
+# nothing runs them (deploy.me uses the CLI). FROM scratch keeps none of the
+# upstream image's settings, so they are declared again below, and
+# `trim-base.sh check` fails the build if one is missing.
 #
 #   docker build -f core/local/php/Dockerfile.base-slim -t deployme-php-base:local-slim .
 
-FROM php:8.5-cli
+FROM php:8.5-cli AS build
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=UTC \
     COMPOSER_ALLOW_SUPERUSER=1
 
-COPY --from=mlocati/php-extension-installer:2 /usr/bin/install-php-extensions /usr/local/bin/
-
 #   pcntl            queue worker signals
 #   pdo_sqlite       SQLite: the database, the queues, the cache and its locks
-#   intl zip bcmath  framework basics
+#   zip bcmath       framework basics
 #   opcache
 #   sockets + uv     Reverb. Without ext-uv ReactPHP falls back to stream_select()
 #                    and silently caps at ~1024 connections, so the build fails
 #                    if it is missing.
-# No pgsql and no redis: the slim flavour runs neither.
-RUN install-php-extensions pcntl pdo_sqlite intl zip opcache bcmath sockets uv \
+# No pgsql and no redis: the slim flavour runs neither. No intl: nothing in the
+# app calls it, and the libraries that can use it fall back to symfony's polyfills.
+RUN --mount=type=bind,from=mlocati/php-extension-installer:2,source=/usr/bin/install-php-extensions,target=/usr/local/bin/install-php-extensions \
+    install-php-extensions pcntl pdo_sqlite zip opcache bcmath sockets uv \
  && php -m | grep -qx uv \
  && php -m | grep -qx pcntl \
  && php -m | grep -qx pdo_sqlite
@@ -35,18 +43,44 @@ RUN install-php-extensions pcntl pdo_sqlite intl zip opcache bcmath sockets uv \
 #   openssh-client       ssh, ssh-keygen (servers, host keys)
 #   rsync tar zstd       uploads
 #   git                  local repos, archives, pushes
-#   supervisor           queue workers + scheduler in deployme-worker
 #   sqlite3              the doctor, backups (.backup) and a look inside
 #   procps jq curl       health checks and diagnostics
+# The queue workers and the scheduler run under deployme-supervise, a PHP
+# script the Dockerfile adds: no supervisord, so no Python.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      openssh-client rsync git tar zstd supervisor curl ca-certificates tzdata \
+      openssh-client rsync git tar zstd curl ca-certificates tzdata \
       sqlite3 procps jq unzip \
  && ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
- && echo "$TZ" > /etc/timezone \
- && rm -rf /var/lib/apt/lists/* /etc/supervisor/conf.d/*
+ && echo "$TZ" > /etc/timezone
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+RUN --mount=type=bind,source=core/local/php/trim-base.sh,target=/tmp/trim-base.sh \
+    sh /tmp/trim-base.sh purge
+
+FROM scratch
+COPY --from=build / /
+
+# What php:8.5-cli sets, then this file's own. PHP_VERSION is the line; `php -v`
+# has the patch release. The build-only variables (the source tarball's URL,
+# checksum and signing keys) are left out: the tarball is gone.
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    PHPIZE_DEPS="autoconf 		dpkg-dev 		file 		g++ 		gcc 		libc-dev 		make 		pkg-config 		re2c" \
+    PHP_INI_DIR=/usr/local/etc/php \
+    PHP_CFLAGS="-fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64" \
+    PHP_CPPFLAGS="-fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64" \
+    PHP_LDFLAGS="-Wl,-O1 -pie" \
+    PHP_VERSION=8.5 \
+    DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC \
+    COMPOSER_ALLOW_SUPERUSER=1
+
+RUN --mount=type=bind,source=core/local/php/trim-base.sh,target=/tmp/trim-base.sh \
+    sh /tmp/trim-base.sh check slim
+
+ENTRYPOINT ["docker-php-entrypoint"]
+CMD ["php", "-a"]
 
 LABEL org.opencontainers.image.title="deploy.me PHP runtime (slim)" \
       org.opencontainers.image.description="PHP 8.5 CLI with the extensions and tools deploy.me's slim flavour needs (SQLite, no FrankenPHP, Postgres or Redis)" \

@@ -5,11 +5,20 @@
 # Published for amd64 and arm64 as romanovich0195/deployme-php (Docker Hub) by
 # .github/workflows/php-image.yml, so an install pulls it instead of compiling
 # the extensions (a minute on a fast Mac, several elsewhere). Dockerfile (next
-# to this one) adds the config files and the machine's user on top.
+# to this one) adds the config files, the process supervisor and the machine's
+# user on top.
+#
+# Two stages: `build` compiles the extensions and installs the tools, then
+# trim-base.sh purges the compiler toolchain the upstream image keeps; the image
+# itself is that tree flattened into one layer (FROM scratch), so the purged
+# ~250 MB isn't still in a lower layer. php-cgi and phpdbg go too: nothing runs
+# them (the CLI and FrankenPHP's embedded PHP are all deploy.me uses). FROM
+# scratch keeps none of the upstream image's settings, so they are declared
+# again below, and `trim-base.sh check` fails the build if one is missing.
 #
 #   docker build -f core/local/php/Dockerfile.base -t deployme-php-base:local .
 
-FROM dunglas/frankenphp:1-php8.5
+FROM dunglas/frankenphp:1-php8.5 AS build
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=UTC \
@@ -18,30 +27,66 @@ ENV DEBIAN_FRONTEND=noninteractive \
 #   pcntl            queue worker signals
 #   pdo_pgsql/pgsql  PostgreSQL 18
 #   redis            Valkey (queues, cache, locks)
-#   intl zip bcmath  framework basics
+#   zip bcmath       framework basics
 #   opcache
 #   sockets + uv     Reverb. Without ext-uv ReactPHP falls back to stream_select()
 #                    and silently caps at ~1024 connections, so the build fails
 #                    if it is missing.
-RUN install-php-extensions pcntl pdo_pgsql pgsql redis intl zip opcache bcmath sockets uv \
+# No intl: nothing in the app calls it, and the libraries that can use it fall
+# back to symfony's polyfills.
+RUN install-php-extensions pcntl pdo_pgsql pgsql redis zip opcache bcmath sockets uv \
  && php -m | grep -qx uv \
  && php -m | grep -qx pcntl
 
 #   openssh-client       ssh, ssh-keygen (servers, host keys)
 #   rsync tar zstd       uploads
 #   git                  local repos, archives, pushes
-#   supervisor           queue workers + scheduler in deployme-worker
-#   postgresql-client    psql for the doctor and tests
 #   procps jq curl       health checks and diagnostics
+# No psql: deploy.me reaches Postgres through PHP, and the scripts that need psql
+# or pg_dump run them in the database's own container. The queue workers and the
+# scheduler run under deployme-supervise, a PHP script the Dockerfile adds: no
+# supervisord, so no Python.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      openssh-client rsync git tar zstd supervisor curl ca-certificates tzdata \
-      postgresql-client procps jq unzip \
+      openssh-client rsync git tar zstd curl ca-certificates tzdata \
+      procps jq unzip \
  && ln -sf /usr/share/zoneinfo/$TZ /etc/localtime \
- && echo "$TZ" > /etc/timezone \
- && rm -rf /var/lib/apt/lists/* /etc/supervisor/conf.d/*
+ && echo "$TZ" > /etc/timezone
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+RUN --mount=type=bind,source=core/local/php/trim-base.sh,target=/tmp/trim-base.sh \
+    sh /tmp/trim-base.sh purge
+
+FROM scratch
+COPY --from=build / /
+
+# What dunglas/frankenphp (and the php image under it) sets, then this file's
+# own. PHP_VERSION is the line; `php -v` has the patch release. The build-only
+# variables (the source tarball's URL, checksum and signing keys) are left out:
+# the tarball is gone.
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    PHPIZE_DEPS="autoconf 		dpkg-dev 		file 		g++ 		gcc 		libc-dev 		make 		pkg-config 		re2c" \
+    PHP_INI_DIR=/usr/local/etc/php \
+    PHP_CFLAGS="-fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64" \
+    PHP_CPPFLAGS="-fstack-protector-strong -fpic -fpie -O2 -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64" \
+    PHP_LDFLAGS="-Wl,-O1 -pie" \
+    PHP_VERSION=8.5 \
+    XDG_CONFIG_HOME=/config \
+    XDG_DATA_HOME=/data \
+    GODEBUG=cgocheck=0 \
+    DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC \
+    COMPOSER_ALLOW_SUPERUSER=1
+
+RUN --mount=type=bind,source=core/local/php/trim-base.sh,target=/tmp/trim-base.sh \
+    sh /tmp/trim-base.sh check
+
+WORKDIR /app
+EXPOSE 80/tcp 443/tcp 443/udp 2019/tcp
+HEALTHCHECK CMD curl -f http://localhost:2019/metrics || exit 1
+ENTRYPOINT ["docker-php-entrypoint"]
+CMD ["--config", "/etc/frankenphp/Caddyfile", "--adapter", "caddyfile"]
 
 LABEL org.opencontainers.image.title="deploy.me PHP runtime" \
       org.opencontainers.image.description="FrankenPHP 8.5 with the extensions and tools deploy.me needs" \

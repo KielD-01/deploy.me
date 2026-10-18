@@ -147,7 +147,7 @@ Notes:
 
 ## The PHP image
 
-Most of the image is ready-made. The PHP extensions compiled in, ssh, git and supervisor
+Most of the image is ready-made. The PHP extensions compiled in, ssh, git and rsync
 are published for amd64 and arm64 as
 [`romanovich0195/deployme-php`](https://hub.docker.com/r/romanovich0195/deployme-php) on
 Docker Hub, so `make build` (`bin/build`) pulls it and only adds this checkout's config
@@ -156,17 +156,28 @@ minute on a fast Mac and several elsewhere.
 
 | Tags | Flavour | Built from |
 |---|---|---|
-| `1.1.0`, `1.1`, `1`, `latest` | full: FrankenPHP, PostgreSQL and Redis extensions | `core/local/php/Dockerfile.base` |
-| `1.1.0-slim`, `1.1-slim`, `1-slim`, `slim` | slim: plain PHP CLI, SQLite | `core/local/php/Dockerfile.base-slim` |
+| `2.0.0`, `2.0`, `2`, `latest` | full: FrankenPHP, PostgreSQL and Redis extensions | `core/local/php/Dockerfile.base` |
+| `2.0.0-slim`, `2.0-slim`, `2-slim`, `slim` | slim: plain PHP CLI, SQLite | `core/local/php/Dockerfile.base-slim` |
 
-Installs pull `1` or `1-slim` ([the two flavours](#two-flavours-full-and-slim)); the
-`X.Y.Z` tags never change once pushed, if you want to pin one.
+Installs pull `2` or `2-slim` ([the two flavours](#two-flavours-full-and-slim)); the
+`X.Y.Z` tags never change once pushed, if you want to pin one. `1` and `1-slim` (with
+supervisord, intl and the compiler) stay on Docker Hub for older checkouts; a checkout
+from 2.0 on can't run on them, nor an older one on `2`.
 
 - **Offline, or the base can't be pulled?** `bin/build` compiles it here from
   `core/local/php/Dockerfile.base`, without being asked.
 - **Prefer to build everything yourself?** Run `bin/configure --build-from-source`, then
   `make build` (it compiles `deployme-php-base:local`, or `deployme-php-base:local-slim` in
   the slim flavour). `bin/configure --pull-base` goes back to the ready-made one.
+- **What's left out.** Each base drops the compiler toolchain the official PHP images keep
+  for building extensions (gcc, binutils, the headers: about 250 MB) once its own are
+  compiled, along with `php-cgi` and `phpdbg`, and is flattened into one layer, so nothing
+  can be compiled on top of it. There
+  is no `intl` (the app doesn't use it), no `psql` (the scripts that need it run it in the
+  database's container) and no Python: the worker's queue workers and scheduler run under
+  `deployme-supervise`, a PHP script the app's `Dockerfile` adds
+  (`core/local/php/bin/deployme-supervise`, programs in `core/local/php/supervisor/`).
+  `make workers` shows them; `make workers-restart` restarts each one after its current job.
 - **Updates.** GitHub Actions (`.github/workflows/php-image.yml`) rebuilds both bases when
   either Dockerfile changes, and every Monday for PHP, FrankenPHP and Debian security fixes.
   `make build` pulls the newest one.
@@ -195,14 +206,14 @@ chooses or switches.
 
 | | `full` (the default) | `slim` |
 |---|---|---|
-| **PHP image** | `romanovich0195/deployme-php:1`: FrankenPHP 1 + PHP 8.5 | `romanovich0195/deployme-php:1-slim`: the official `php:8.5-cli` |
+| **PHP image** | `romanovich0195/deployme-php:2`: FrankenPHP 1 + PHP 8.5 | `romanovich0195/deployme-php:2-slim`: the official `php:8.5-cli` |
 | **Web server** | FrankenPHP | PHP's built-in server with four workers (`PHP_CLI_SERVER_WORKERS`) |
 | **Database** | PostgreSQL 18 | SQLite: `src/api/storage/database/deployme.sqlite`, WAL, 10 s busy timeout |
 | **Queues, cache, locks** | Valkey | the same SQLite file (`jobs`, `cache`, `cache_locks`) |
 | **Queue workers** | 2 deploys, 1 sync, 4 probes, 1 default | 2 deploys, 1 sync, 2 probes, 1 default |
 | **Edge (standalone)** | caddy-docker-proxy, routing by container labels | a plain `caddy:2-alpine` with a static Caddyfile (`core/local/caddy/Caddyfile`), no Docker socket |
 | **Containers (standalone)** | web, worker, reverb, postgres, valkey, caddy | web, worker, reverb, caddy |
-| **Whole stack on disk** | ≈1.6 GB | ≈1.1 GB |
+| **Whole stack on disk** | ≈1.0 GB | ≈0.5 GB |
 | **Compose files** | as in the tables above | `compose.slim.yml` added (after `compose.prod.yml`); standalone uses `compose.slim-edge.yml` in place of `compose.standalone.yml` |
 | **Backups** (`make backup`) | `deployme-<stamp>.sql.gz` (pg_dump) | `deployme-<stamp>.sqlite.gz` (sqlite3 `.backup`) |
 | **`make test`** | PostgreSQL (`deployme_test`) | an in-memory SQLite |
@@ -211,8 +222,8 @@ chooses or switches.
 deploys at once. Slim is lighter to install and run (no PostgreSQL or Valkey to keep going),
 but SQLite has one writer at a time: deploys, probes, health checks and the pages all take
 turns at it. That's fine for a handful of servers; with dozens, or with many deploys running
-together, use full. The slim PHP image itself is only a little smaller (≈0.97 GB against
-≈1.06 GB on disk): the saving is in what runs beside it.
+together, use full. The slim PHP image itself is only a little smaller (≈0.38 GB against
+≈0.46 GB on disk): the saving is in what runs beside it.
 
 Slim works with either mode (dev or prod) and either stack. On the **standalone** stack it
 brings only its minimal Caddy (published on 127.0.0.1:80 and :443, as `deployme-caddy`, with

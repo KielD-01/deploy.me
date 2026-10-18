@@ -250,18 +250,19 @@ for **amd64 and arm64**:
 
 | | 🐘 **full** (default) | 🪶 **slim** |
 |---|---|---|
-| **Tags** | `1.1.0`, `1.1`, `1`, `latest` | `1.1.0-slim`, `1.1-slim`, `1-slim`, `slim` |
+| **Tags** | `2.0.0`, `2.0`, `2`, `latest` | `2.0.0-slim`, `2.0-slim`, `2-slim`, `slim` |
 | **Base** | FrankenPHP 1 + PHP 8.5 | plain `php:8.5-cli` (Debian) |
 | **Web server** | FrankenPHP | PHP's built-in server, 4 workers |
 | **Database** | PostgreSQL 18 | SQLite (one file in `src/api/storage/database`) |
 | **Cache, queues, locks** | Valkey | the database |
 | **Edge** | caddy-docker-proxy (labels) | a minimal Caddy with a static Caddyfile |
-| **PHP image** | ≈1.06 GB on disk, ≈258 MB to pull | ≈0.97 GB on disk, ≈235 MB to pull |
-| **Whole stack** | ≈1.6 GB, 6 containers | ≈1.1 GB, 4 containers |
+| **PHP image** | ≈0.46 GB on disk, ≈107 MB to pull | ≈0.38 GB on disk, ≈87 MB to pull |
+| **Whole stack** | ≈1.0 GB, 6 containers | ≈0.5 GB, 4 containers |
 | **Pick it when…** | you deploy to many servers, or run several deploys at once | you want the lightest install for a few servers |
 
-The slim image is barely smaller: what slim saves is everything that runs beside it, with no
-PostgreSQL or Valkey to keep going. SQLite has one writer at a time, so slim runs fewer queue
+The slim image is only a little smaller: what slim saves is everything that runs beside it,
+with no PostgreSQL or Valkey to keep going. Neither image carries a compiler, Python or
+supervisord: the queue workers run under a small PHP supervisor of deploy.me's own. SQLite has one writer at a time, so slim runs fewer queue
 workers.
 
 `bin/install` asks which one you want (full unless you say otherwise). To choose up front,
@@ -363,7 +364,7 @@ flowchart LR
 | Service | Role |
 |---|---|
 | `deployme-web` | FrankenPHP serving the app. The shared edge routes `deployme.localhost` to it, and websocket requests on `/app` to Reverb |
-| `deployme-worker` | Supervisor: the queue workers (`redis`, `redis-deploys`, `redis-probes`) and the scheduler. The only container that mounts project folders read-write |
+| `deployme-worker` | `deployme-supervise`: the queue workers (`redis`, `redis-deploys`, `redis-probes`) and the scheduler. The only container that mounts project folders read-write |
 | `deployme-reverb` | Reverb websockets: live logs, server status, CI updates |
 | `deployme-vite` | Vite dev server with HMR (`dev` profile only) |
 | `deployme-sshd-target` | A local sshd + Docker sandbox server (`sandbox` profile only) |
@@ -381,7 +382,7 @@ flowchart LR
 | `src/api/app/Actions` | Health checks, folder syncs, CI polling, maintenance |
 | `src/api/app/Livewire` | The pages |
 | `src/api/resources/ssh-scripts` | The bash scripts that run on your servers |
-| `core/local` | The PHP image, supervisor programs, the sandbox server |
+| `core/local` | The PHP image, the worker's programs and their supervisor, the sandbox server |
 | `bin` | Host-side scripts: `db-create.sh`, `doctor.sh`, `backup.sh`, `update` |
 | `design/canvas` | The design the UI is built to match |
 
