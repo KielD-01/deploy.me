@@ -141,11 +141,14 @@ class DoctorCommand extends Command
 
         $this->line('  <fg=gray>Slim flavour: SQLite at '.DB::connection()->getDatabaseName().', queues and cache in it</>');
         $this->check('SQLite answers', fn () => (int) DB::selectOne('select 1 as ok')->ok === 1);
-        $this->check('SQLite writes ahead (WAL), so readers don’t wait for a writer', function () {
-            $mode = strtolower((string) DB::selectOne('pragma journal_mode')->journal_mode);
+        // An in-memory database (the test suite's) has no file to write ahead of.
+        if (DB::connection()->getDatabaseName() !== ':memory:') {
+            $this->check('SQLite writes ahead (WAL), so readers don’t wait for a writer', function () {
+                $mode = strtolower((string) DB::selectOne('pragma journal_mode')->journal_mode);
 
-            return $mode === 'wal' ?: "journal_mode is {$mode} (DB_JOURNAL_MODE in src/api/.env)";
-        });
+                return $mode === 'wal' ?: "journal_mode is {$mode} (DB_JOURNAL_MODE in src/api/.env)";
+            });
+        }
         $this->check('SQLite waits for a busy database instead of failing', function () {
             $timeout = (int) DB::selectOne('pragma busy_timeout')->timeout;
 
