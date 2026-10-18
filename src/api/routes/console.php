@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 // Proof of life for `deployme:doctor`. The scheduler runs in deployme-worker
-// under supervisord; if this key goes stale, the scheduler has stopped.
+// under deployme-supervise; if this key goes stale, the scheduler has stopped.
 Schedule::call(fn () => Cache::put('deployme:scheduler:heartbeat', now()->getTimestamp(), now()->addMinutes(10)))
     ->everyMinute()
     ->name('scheduler-heartbeat');

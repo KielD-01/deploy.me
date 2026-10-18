@@ -3,7 +3,7 @@
 set -eu
 
 # Per-container, memory-only runtime state: compiled ssh config, known_hosts,
-# ControlPath sockets, generated gitconfig, supervisor socket.
+# ControlPath sockets, generated gitconfig, deployme-supervise's state.
 install -d -m 0700 /run/deployme /run/deployme/ssh /run/deployme/ssh/cm /run/deployme/git
 
 # Docker Desktop and OrbStack forward the host ssh-agent at this path. Drop the

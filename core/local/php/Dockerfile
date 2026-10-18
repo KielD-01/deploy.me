@@ -25,6 +25,8 @@ ARG DEPLOYME_PHP_BASE=romanovich0195/deployme-php:1
 FROM ${DEPLOYME_PHP_BASE} AS runtime
 
 COPY core/local/php/php.ini /usr/local/etc/php/conf.d/zz-deployme.ini
+# The worker's programs (queue workers, scheduler), run by deployme-supervise:
+# the same files supervisord read, without supervisord (or Python).
 COPY core/local/php/supervisor/ /etc/supervisor/
 # full: conf.d/queues.conf as it is. slim: queues-slim.conf in its place, and
 # the full list kept beside it as queues-full.conf (the test suite reads both).
@@ -36,7 +38,8 @@ RUN if [ "$DEPLOYME_FLAVOUR" = slim ]; then \
 # Baked in (not bind-mounted) so app code can't swap the credential helper.
 COPY core/local/php/git-askpass /usr/local/bin/deployme-git-askpass
 COPY core/local/php/entrypoint.sh /usr/local/bin/deployme-entrypoint
-RUN chmod 0755 /usr/local/bin/deployme-git-askpass /usr/local/bin/deployme-entrypoint
+COPY core/local/php/bin/deployme-supervise /usr/local/bin/deployme-supervise
+RUN chmod 0755 /usr/local/bin/deployme-git-askpass /usr/local/bin/deployme-entrypoint /usr/local/bin/deployme-supervise
 
 # The user the containers run as. 0 (root) on macOS; on Linux and WSL2 the host
 # user's ids (compose passes DEPLOYME_UID/GID from ./.env), so bind-mounted files

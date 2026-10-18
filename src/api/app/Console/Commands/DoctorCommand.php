@@ -71,10 +71,10 @@ class DoctorCommand extends Command
         $this->tokens();
 
         if (getenv('DEPLOYME_ROLE') === 'worker') {
-            $this->check('All supervisor programs are running', function () {
-                $status = Process::run(['supervisorctl', '-c', '/etc/supervisor/supervisord.conf', 'status']);
+            $this->check('Every queue worker and the scheduler are running', function () {
+                $status = Process::run(['deployme-supervise', 'status']);
 
-                return $status->successful() ?: trim($status->output());
+                return $status->successful() ?: trim($status->output()."\n".$status->errorOutput());
             });
         }
 

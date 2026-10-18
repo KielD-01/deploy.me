@@ -1,0 +1,800 @@
+#!/usr/bin/env php
+<?php
+
+/*
+ * deploy.me — the process supervisor of deployme-worker: the queue workers and
+ * the scheduler. It stands in for supervisord (Python) with the same program
+ * files (core/local/php/supervisor), so the image needs no Python.
+ *
+ *   deployme-supervise run <dir|file.conf>...   start every program and keep it running
+ *   deployme-supervise status                   what runs; exits 0 only when all of it does
+ *   deployme-supervise restart                  stop each program gracefully, then start it again
+ *   deployme-supervise config <dir|file.conf>... the programs it would run, as JSON
+ *
+ * A directory means the *.conf files in it, in name order. Each [program:x]
+ * section takes the supervisord keys deploy.me uses: command (split like a
+ * shell would, but run without one), process_name, numprocs, directory,
+ * autostart, autorestart, exitcodes, startsecs, stopsignal, stopwaitsecs,
+ * stopasgroup, killasgroup and redirect_stderr; stdout_logfile may only say
+ * /dev/stdout (and stderr_logfile /dev/stderr). Any other key or section is an
+ * error, so a typo can't quietly change how a worker runs.
+ *
+ * Each process starts in a session of its own (setsid), so stopasgroup and
+ * killasgroup reach what it started. Its output goes to this process's stdout
+ * (stderr: stderr), each line prefixed with its name: docker logs shows it.
+ * A process that exits is started again: at once when it ran for startsecs, or
+ * after 1, 2, 4… up to 60 s when it didn't (a failed start). SIGTERM, SIGINT or
+ * SIGQUIT sends every process its stopsignal and waits up to its stopwaitsecs
+ * for it to finish (a deploy worker finishes its job), then SIGKILLs what's
+ * left; compose's stop_grace_period stays above the longest stopwaitsecs.
+ * SIGHUP (`restart`) does the same per process and starts each one again.
+ *
+ * The state is kept in $DEPLOYME_SUPERVISE_STATE (/run/deployme/supervise.json,
+ * the container's own tmpfs), which `status` and `restart` read.
+ */
+
+declare(strict_types=1);
+
+final class SuperviseError extends RuntimeException {}
+
+final class Program
+{
+    public string $command = '';
+
+    public string $processName = '%(program_name)s';
+
+    public int $numprocs = 1;
+
+    public ?string $directory = null;
+
+    public bool $autostart = true;
+
+    /** true, false or unexpected (restart only on an exit code not in $exitcodes). */
+    public string $autorestart = 'true';
+
+    /** @var list<int> */
+    public array $exitcodes = [0];
+
+    public int $startsecs = 1;
+
+    public int $stopsignal = 15;
+
+    public int $stopwaitsecs = 10;
+
+    public bool $stopasgroup = false;
+
+    public bool $killasgroup = false;
+
+    public bool $redirectStderr = false;
+
+    public function __construct(public readonly string $name, public readonly string $file) {}
+
+    private const SIGNALS = ['TERM' => 15, 'INT' => 2, 'QUIT' => 3, 'HUP' => 1, 'KILL' => 9, 'USR1' => 10, 'USR2' => 12];
+
+    public function set(string $key, string $value): void
+    {
+        $where = "{$this->file} [program:{$this->name}] {$key}";
+
+        match ($key) {
+            'command' => $this->command = $value,
+            'process_name' => $this->processName = $value,
+            'numprocs' => $this->numprocs = self::int($value, $where, 1),
+            'directory' => $this->directory = $value,
+            'autostart' => $this->autostart = self::bool($value, $where),
+            'autorestart' => $this->autorestart = match (strtolower($value)) {
+                'unexpected' => 'unexpected',
+                default => self::bool($value, $where) ? 'true' : 'false',
+            },
+            'exitcodes' => $this->exitcodes = array_map(fn (string $code) => self::int(trim($code), $where, 0), explode(',', $value)),
+            'startsecs' => $this->startsecs = self::int($value, $where, 0),
+            'stopsignal' => $this->stopsignal = self::SIGNALS[strtoupper((string) preg_replace('/^SIG/i', '', $value))]
+                ?? throw new SuperviseError("{$where}: unknown signal {$value}"),
+            'stopwaitsecs' => $this->stopwaitsecs = self::int($value, $where, 0),
+            'stopasgroup' => $this->stopasgroup = self::bool($value, $where),
+            'killasgroup' => $this->killasgroup = self::bool($value, $where),
+            'redirect_stderr' => $this->redirectStderr = self::bool($value, $where),
+            // Logs only go where docker reads them.
+            'stdout_logfile' => $value === '/dev/stdout' ?: throw new SuperviseError("{$where}: only /dev/stdout"),
+            'stderr_logfile' => $value === '/dev/stderr' ?: throw new SuperviseError("{$where}: only /dev/stderr"),
+            'stdout_logfile_maxbytes', 'stderr_logfile_maxbytes' => $value === '0' ?: throw new SuperviseError("{$where}: only 0"),
+            default => throw new SuperviseError("{$where}: unknown key"),
+        };
+    }
+
+    /**
+     * The processes this program runs: one per numprocs, named and with the
+     * command split into argv, %(program_name)s and %(process_num)02d expanded.
+     *
+     * @return list<array{name: string, num: int, argv: list<string>}>
+     */
+    public function processes(): array
+    {
+        if (trim($this->command) === '') {
+            throw new SuperviseError("{$this->file} [program:{$this->name}]: no command");
+        }
+        if ($this->numprocs > 1 && ! str_contains($this->processName, '%(process_num)')) {
+            throw new SuperviseError("{$this->file} [program:{$this->name}]: numprocs={$this->numprocs} needs %(process_num) in process_name");
+        }
+
+        $processes = [];
+        for ($num = 0; $num < $this->numprocs; $num++) {
+            $processes[] = [
+                'name' => $this->expand($this->processName, $num),
+                'num' => $num,
+                'argv' => self::words($this->expand($this->command, $num)),
+            ];
+        }
+
+        return $processes;
+    }
+
+    private function expand(string $template, int $num): string
+    {
+        return (string) preg_replace_callback('/%\((\w+)\)(0?\d*)([sd])/', function (array $m) use ($num) {
+            $value = match ($m[1]) {
+                'program_name' => $this->name,
+                'process_num' => $num,
+                'numprocs' => $this->numprocs,
+                default => throw new SuperviseError("{$this->file} [program:{$this->name}]: unknown %({$m[1]})"),
+            };
+
+            return sprintf('%'.$m[2].$m[3], $value);
+        }, $template);
+    }
+
+    /**
+     * Splits a command line the way a POSIX shell splits words: blanks
+     * separate them, quotes and backslashes keep them together. Nothing else
+     * (no variables, no globs): the command runs without a shell.
+     *
+     * @return list<string>
+     */
+    public static function words(string $line): array
+    {
+        $words = [];
+        $word = null;
+        $quote = null;
+        $length = strlen($line);
+
+        for ($i = 0; $i < $length; $i++) {
+            $c = $line[$i];
+
+            if ($quote === "'") {
+                $c === "'" ? $quote = null : $word .= $c;
+            } elseif ($quote === '"') {
+                if ($c === '"') {
+                    $quote = null;
+                } elseif ($c === '\\' && $i + 1 < $length && in_array($line[$i + 1], ['"', '\\', '$', '`'], true)) {
+                    $word .= $line[++$i];
+                } else {
+                    $word .= $c;
+                }
+            } elseif ($c === "'" || $c === '"') {
+                $quote = $c;
+                $word ??= '';
+            } elseif ($c === '\\' && $i + 1 < $length) {
+                $word = ($word ?? '').$line[++$i];
+            } elseif ($c === ' ' || $c === "\t") {
+                if ($word !== null) {
+                    $words[] = $word;
+                    $word = null;
+                }
+            } else {
+                $word = ($word ?? '').$c;
+            }
+        }
+
+        if ($quote !== null) {
+            throw new SuperviseError("unclosed {$quote} in: {$line}");
+        }
+        if ($word !== null) {
+            $words[] = $word;
+        }
+
+        return $words;
+    }
+
+    private static function int(string $value, string $where, int $min): int
+    {
+        if (! preg_match('/^\d+$/', $value) || (int) $value < $min) {
+            throw new SuperviseError("{$where}: wants a whole number of at least {$min}, not {$value}");
+        }
+
+        return (int) $value;
+    }
+
+    private static function bool(string $value, string $where): bool
+    {
+        return match (strtolower($value)) {
+            'true', 'yes', 'on', '1' => true,
+            'false', 'no', 'off', '0' => false,
+            default => throw new SuperviseError("{$where}: wants true or false, not {$value}"),
+        };
+    }
+
+    /**
+     * The programs in the given .conf files and directories (their *.conf).
+     *
+     * @param  list<string>  $paths
+     * @return list<Program>
+     */
+    public static function load(array $paths): array
+    {
+        $files = [];
+        foreach ($paths as $path) {
+            if (is_dir($path)) {
+                $found = glob(rtrim($path, '/').'/*.conf') ?: [];
+                sort($found);
+                array_push($files, ...$found);
+            } elseif (is_file($path)) {
+                $files[] = $path;
+            } else {
+                throw new SuperviseError("{$path}: no such file or directory");
+            }
+        }
+
+        $programs = [];
+        foreach ($files as $file) {
+            foreach (self::parse((string) file_get_contents($file), $file) as $program) {
+                if (isset($programs[$program->name])) {
+                    throw new SuperviseError("{$file}: [program:{$program->name}] is defined twice");
+                }
+                $programs[$program->name] = $program;
+            }
+        }
+
+        if ($programs === []) {
+            throw new SuperviseError('no programs in '.implode(', ', $paths));
+        }
+
+        $names = [];
+        foreach ($programs as $program) {
+            foreach ($program->processes() as $process) {
+                if (isset($names[$process['name']])) {
+                    throw new SuperviseError("{$program->file}: two processes are named {$process['name']}");
+                }
+                $names[$process['name']] = true;
+            }
+        }
+
+        return array_values($programs);
+    }
+
+    /**
+     * @return list<Program>
+     */
+    public static function parse(string $text, string $file): array
+    {
+        $programs = [];
+        $current = null;
+
+        foreach (preg_split('/\R/', $text) ?: [] as $n => $raw) {
+            $line = trim($raw);
+            $where = $file.':'.($n + 1);
+
+            if ($line === '' || $line[0] === ';' || $line[0] === '#') {
+                continue;
+            }
+
+            if (preg_match('/^\[([^\]]+)\]$/', $line, $m)) {
+                if (! preg_match('/^program:([A-Za-z0-9_.-]+)$/', $m[1], $p)) {
+                    throw new SuperviseError("{$where}: only [program:<name>] sections, not [{$m[1]}]");
+                }
+                $programs[] = $current = new self($p[1], $file);
+
+                continue;
+            }
+
+            if ($current === null || ! str_contains($line, '=')) {
+                throw new SuperviseError("{$where}: expected key=value inside a [program:<name>] section");
+            }
+
+            [$key, $value] = explode('=', $line, 2);
+            // An inline comment, as supervisord reads one: a ; after a blank.
+            $value = (string) preg_replace('/\s;.*$/', '', $value);
+            $current->set(trim($key), trim($value));
+        }
+
+        return $programs;
+    }
+}
+
+final class Process
+{
+    /** STOPPED, STARTING, RUNNING, BACKOFF, STOPPING or EXITED. */
+    public string $state = 'STOPPED';
+
+    /** @var resource|null */
+    public $handle = null;
+
+    public ?int $pid = null;
+
+    /** @var array<int, resource> */
+    public array $pipes = [];
+
+    /** @var array<int, string> */
+    public array $partial = [1 => '', 2 => ''];
+
+    public float $startedAt = 0.0;
+
+    public float $since = 0.0;
+
+    public ?float $startAt = null;
+
+    public ?float $killAt = null;
+
+    public bool $ownGroup = false;
+
+    public bool $restart = false;
+
+    public int $failures = 0;
+
+    public int $restarts = 0;
+
+    public ?string $lastExit = null;
+
+    /**
+     * @param  list<string>  $argv
+     */
+    public function __construct(public readonly Program $program, public readonly string $name, public readonly array $argv) {}
+
+    public function alive(): bool
+    {
+        return $this->handle !== null;
+    }
+}
+
+final class Supervisor
+{
+    private const BACKOFF_MAX = 60;
+
+    /** @var list<Process> */
+    private array $processes = [];
+
+    private bool $stopping = false;
+
+    private bool $restartAll = false;
+
+    private bool $dirty = true;
+
+    private ?string $setsid;
+
+    public function __construct(array $programs, private readonly string $stateFile)
+    {
+        foreach ($programs as $program) {
+            foreach ($program->processes() as $process) {
+                $this->processes[] = $p = new Process($program, $process['name'], $process['argv']);
+                $p->startAt = $program->autostart ? 0.0 : null;
+            }
+        }
+
+        $this->setsid = array_values(array_filter(['/usr/bin/setsid', '/bin/setsid'], is_executable(...)))[0] ?? null;
+    }
+
+    public function run(): int
+    {
+        pcntl_async_signals(true);
+        foreach ([SIGTERM, SIGINT, SIGQUIT] as $signal) {
+            pcntl_signal($signal, function (int $signal) {
+                if (! $this->stopping) {
+                    self::say('got '.self::signalName($signal).': stopping every program');
+                }
+                $this->stopping = true;
+            });
+        }
+        pcntl_signal(SIGHUP, fn () => $this->restartAll = true);
+        pcntl_signal(SIGPIPE, SIG_IGN);
+
+        $this->say('starting '.count($this->processes).' processes'.($this->setsid === null ? ' (no setsid: stopasgroup and killasgroup reach the process only)' : ''));
+
+        while (true) {
+            $now = microtime(true);
+
+            if ($this->restartAll && ! $this->stopping) {
+                $this->restartAll = false;
+                $this->say('got SIGHUP: restarting every program');
+                foreach ($this->processes as $process) {
+                    if ($process->alive() && $process->killAt === null) {
+                        $process->restart = true;
+                        $this->signal($process, $now);
+                    } elseif (! $process->alive() && $process->program->autostart) {
+                        $process->startAt = $now;
+                    }
+                }
+            }
+
+            if ($this->stopping) {
+                foreach ($this->processes as $process) {
+                    $process->startAt = null;
+                    if ($process->alive() && $process->killAt === null) {
+                        $this->signal($process, $now);
+                    }
+                }
+                if (! array_filter($this->processes, fn (Process $p) => $p->alive())) {
+                    $this->writeState();
+                    $this->say('every program has stopped');
+
+                    return 0;
+                }
+            }
+
+            foreach ($this->processes as $process) {
+                if (! $process->alive() && $process->startAt !== null && $now >= $process->startAt) {
+                    $this->start($process, $now);
+                }
+                if ($process->state === 'STARTING' && $now - $process->startedAt >= $process->program->startsecs) {
+                    $this->moveTo($process, 'RUNNING', $now);
+                    $process->failures = 0;
+                }
+                if ($process->alive() && $process->killAt !== null && $now >= $process->killAt) {
+                    $this->kill($process);
+                }
+            }
+
+            $this->pump();
+
+            foreach ($this->processes as $process) {
+                if ($process->alive()) {
+                    $this->reap($process, microtime(true));
+                }
+            }
+
+            if ($this->dirty) {
+                $this->writeState();
+            }
+        }
+    }
+
+    private function start(Process $process, float $now): void
+    {
+        $program = $process->program;
+        $spec = [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => $program->redirectStderr ? ['redirect', 1] : ['pipe', 'w']];
+        $argv = $this->setsid === null ? $process->argv : [$this->setsid, ...$process->argv];
+        $cwd = $program->directory;
+
+        $process->startAt = null;
+        $process->killAt = null;
+        $process->restart = false;
+        $process->startedAt = $now;
+
+        if ($cwd !== null && ! is_dir($cwd)) {
+            $this->failed($process, $now, "its directory {$cwd} isn't there");
+
+            return;
+        }
+
+        $handle = @proc_open($argv, $spec, $pipes, $cwd);
+        if ($handle === false) {
+            $this->failed($process, $now, 'it could not be started: '.(error_get_last()['message'] ?? 'proc_open failed'));
+
+            return;
+        }
+
+        foreach ($pipes as $pipe) {
+            stream_set_blocking($pipe, false);
+        }
+
+        $process->handle = $handle;
+        $process->pipes = $pipes;
+        $process->pid = proc_get_status($handle)['pid'];
+        $process->ownGroup = $this->setsid !== null;
+        $this->moveTo($process, 'STARTING', $now);
+        $this->say("{$process->name} started (pid {$process->pid})");
+    }
+
+    /** Reads whatever the processes wrote, waiting up to 200 ms for something. */
+    private function pump(): void
+    {
+        $streams = [];
+        foreach ($this->processes as $i => $process) {
+            foreach ($process->pipes as $fd => $pipe) {
+                $streams["{$i}:{$fd}"] = $pipe;
+            }
+        }
+
+        if ($streams === []) {
+            usleep(200_000);
+
+            return;
+        }
+
+        $read = array_values($streams);
+        $write = $except = null;
+        // A signal interrupts the wait: that's fine, the loop looks again.
+        if (! @stream_select($read, $write, $except, 0, 200_000)) {
+            return;
+        }
+
+        foreach ($streams as $key => $pipe) {
+            if (in_array($pipe, $read, true)) {
+                [$i, $fd] = array_map(intval(...), explode(':', $key));
+                $this->drain($this->processes[$i], $fd);
+            }
+        }
+    }
+
+    private function drain(Process $process, int $fd): void
+    {
+        $pipe = $process->pipes[$fd] ?? null;
+        if ($pipe === null) {
+            return;
+        }
+
+        $chunk = '';
+        while (($data = fread($pipe, 65536)) !== false && $data !== '') {
+            $chunk .= $data;
+            if (strlen($chunk) > 1 << 20) {
+                break;
+            }
+        }
+
+        if ($chunk === '' && feof($pipe)) {
+            fclose($pipe);
+            unset($process->pipes[$fd]);
+        }
+
+        $buffer = $process->partial[$fd].$chunk;
+        $lines = explode("\n", $buffer);
+        $process->partial[$fd] = array_pop($lines);
+        // One very long line without an end isn't held forever.
+        if (strlen($process->partial[$fd]) > 65536) {
+            $lines[] = $process->partial[$fd];
+            $process->partial[$fd] = '';
+        }
+
+        $this->emit($process, $fd, $lines);
+    }
+
+    /**
+     * @param  list<string>  $lines
+     */
+    private function emit(Process $process, int $fd, array $lines): void
+    {
+        if ($lines === []) {
+            return;
+        }
+
+        $out = '';
+        foreach ($lines as $line) {
+            $out .= "{$process->name} | ".rtrim($line, "\r")."\n";
+        }
+
+        @fwrite($fd === 2 ? STDERR : STDOUT, $out);
+    }
+
+    private function reap(Process $process, float $now): void
+    {
+        $status = proc_get_status($process->handle);
+        if ($status['running']) {
+            return;
+        }
+
+        // What it wrote last, without waiting for an end of file: something it
+        // started (an ssh ControlMaster) may hold the pipe open for a long time.
+        foreach (array_keys($process->pipes) as $fd) {
+            $this->drain($process, $fd);
+            $this->emit($process, $fd, array_values(array_filter([$process->partial[$fd]], fn (string $l) => $l !== '')));
+            $process->partial[$fd] = '';
+            if (isset($process->pipes[$fd])) {
+                fclose($process->pipes[$fd]);
+            }
+        }
+        $process->pipes = [];
+        proc_close($process->handle);
+        $process->handle = null;
+
+        $exit = $status['signaled'] ? 'killed by '.self::signalName($status['termsig']) : "exited with {$status['exitcode']}";
+        $process->lastExit = $exit;
+        $ran = $now - $process->startedAt;
+        $after = sprintf('after %.1fs', $ran);
+
+        if ($this->stopping || ($process->killAt !== null && ! $process->restart)) {
+            $this->moveTo($process, 'EXITED', $now);
+            $this->say("{$process->name} stopped: {$exit} {$after}");
+
+            return;
+        }
+
+        if ($process->restart) {
+            $process->startAt = $now;
+            $process->restarts++;
+            $this->moveTo($process, 'STOPPED', $now);
+            $this->say("{$process->name} stopped for a restart: {$exit} {$after}");
+
+            return;
+        }
+
+        $expected = ! $status['signaled'] && in_array($status['exitcode'], $process->program->exitcodes, true);
+        $again = match ($process->program->autorestart) {
+            'true' => true,
+            'unexpected' => ! $expected,
+            default => false,
+        };
+
+        if (! $again) {
+            $this->moveTo($process, 'EXITED', $now);
+            $this->say("{$process->name} {$exit} {$after}; not started again (autorestart={$process->program->autorestart})");
+
+            return;
+        }
+
+        $process->restarts++;
+        if ($process->state === 'RUNNING' && $ran >= 1) {
+            $process->startAt = $now;
+            $this->moveTo($process, 'STOPPED', $now);
+            $this->say("{$process->name} {$exit} {$after}; starting it again");
+
+            return;
+        }
+
+        $this->failed($process, $now, "{$exit} {$after}");
+    }
+
+    /** A start that didn't hold: try again after 1, 2, 4… up to 60 seconds. */
+    private function failed(Process $process, float $now, string $why): void
+    {
+        $process->failures++;
+        $delay = min(2 ** ($process->failures - 1), self::BACKOFF_MAX);
+        $process->startAt = $now + $delay;
+        $process->lastExit = $why;
+        $this->moveTo($process, 'BACKOFF', $now);
+        $this->say("{$process->name} didn't start ({$why}); trying again in {$delay}s");
+    }
+
+    private function signal(Process $process, float $now): void
+    {
+        $program = $process->program;
+        $target = $program->stopasgroup && $process->ownGroup ? -$process->pid : $process->pid;
+
+        @posix_kill($target, $program->stopsignal);
+        $process->killAt = $now + $program->stopwaitsecs;
+        $this->moveTo($process, 'STOPPING', $now);
+        $this->say("{$process->name}: sent ".self::signalName($program->stopsignal).", waiting up to {$program->stopwaitsecs}s");
+    }
+
+    private function kill(Process $process): void
+    {
+        $target = ($process->program->killasgroup || $process->program->stopasgroup) && $process->ownGroup ? -$process->pid : $process->pid;
+
+        @posix_kill($target, SIGKILL);
+        $process->killAt = PHP_FLOAT_MAX;
+        $this->say("{$process->name} didn't stop in {$process->program->stopwaitsecs}s: sent SIGKILL");
+    }
+
+    private function moveTo(Process $process, string $state, float $now): void
+    {
+        $process->state = $state;
+        $process->since = $now;
+        $this->dirty = true;
+    }
+
+    private function writeState(): void
+    {
+        $this->dirty = false;
+
+        $state = [
+            'pid' => getmypid(),
+            'stopping' => $this->stopping,
+            'processes' => array_map(fn (Process $p) => [
+                'name' => $p->name,
+                'program' => $p->program->name,
+                'state' => $p->state,
+                'pid' => $p->alive() ? $p->pid : null,
+                'since' => round($p->since, 3),
+                'started' => $p->alive() ? round($p->startedAt, 3) : null,
+                'start_at' => $p->startAt === null ? null : round($p->startAt, 3),
+                'restarts' => $p->restarts,
+                'failures' => $p->failures,
+                'autostart' => $p->program->autostart,
+                'last_exit' => $p->lastExit,
+            ], $this->processes),
+        ];
+
+        $tmp = $this->stateFile.'.'.getmypid();
+        if (@file_put_contents($tmp, json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) !== false) {
+            @rename($tmp, $this->stateFile);
+        }
+    }
+
+    public static function signalName(int $signal): string
+    {
+        return [1 => 'SIGHUP', 2 => 'SIGINT', 3 => 'SIGQUIT', 9 => 'SIGKILL', 10 => 'SIGUSR1', 12 => 'SIGUSR2', 15 => 'SIGTERM'][$signal] ?? "signal {$signal}";
+    }
+
+    public static function say(string $message): void
+    {
+        @fwrite(STDOUT, "supervise | {$message}\n");
+    }
+}
+
+/**
+ * @return array{pid: int, stopping: bool, processes: list<array<string, mixed>>}|null
+ */
+function supervise_state(string $file): ?array
+{
+    $state = is_readable($file) ? json_decode((string) file_get_contents($file), true) : null;
+
+    return is_array($state) ? $state : null;
+}
+
+function supervise_status(string $file): int
+{
+    $state = supervise_state($file);
+
+    if ($state === null || ! file_exists("/proc/{$state['pid']}")) {
+        fwrite(STDERR, "deployme-supervise isn't running (no state in {$file})\n");
+
+        return 2;
+    }
+
+    $now = microtime(true);
+    $healthy = ! $state['stopping'];
+    $width = max(array_map(fn (array $p) => strlen($p['name']), $state['processes'])) + 2;
+
+    foreach ($state['processes'] as $p) {
+        $for = (int) max(0, $now - ($p['started'] ?? $p['since']));
+        $detail = match ($p['state']) {
+            'RUNNING', 'STARTING' => sprintf('pid %d, uptime %d:%02d:%02d', $p['pid'], intdiv($for, 3600), intdiv($for % 3600, 60), $for % 60),
+            'BACKOFF' => sprintf('%s; again in %ds (%d failed starts)', $p['last_exit'], max(0, (int) ceil($p['start_at'] - $now)), $p['failures']),
+            default => (string) ($p['last_exit'] ?? ''),
+        };
+        printf("%-{$width}s%-10s%s\n", $p['name'], $p['state'], $detail);
+
+        // Starting again after an ordinary exit is running; a program that
+        // keeps failing to start, or that stopped for good, isn't.
+        $ok = in_array($p['state'], ['RUNNING', 'STARTING'], true) && $p['failures'] < 3
+            || ($p['state'] === 'STOPPED' && ($p['start_at'] !== null || ! $p['autostart']))
+            || ($p['state'] === 'STOPPING' && ! $state['stopping']);
+        $healthy = $healthy && $ok;
+    }
+
+    return $healthy ? 0 : 1;
+}
+
+function supervise_main(array $argv): int
+{
+    $command = $argv[1] ?? '';
+    $paths = array_slice($argv, 2);
+    $stateFile = getenv('DEPLOYME_SUPERVISE_STATE') ?: '/run/deployme/supervise.json';
+
+    try {
+        switch ($command) {
+            case 'run':
+                return (new Supervisor(Program::load($paths), $stateFile))->run();
+
+            case 'config':
+                $out = [];
+                foreach (Program::load($paths) as $program) {
+                    $out[] = [...get_object_vars($program), 'processes' => $program->processes()];
+                }
+                echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), "\n";
+
+                return 0;
+
+            case 'status':
+                return supervise_status($stateFile);
+
+            case 'restart':
+                $state = supervise_state($stateFile);
+                if ($state === null || ! posix_kill($state['pid'], SIGHUP)) {
+                    fwrite(STDERR, "deployme-supervise isn't running (no state in {$stateFile})\n");
+
+                    return 2;
+                }
+                echo "Restarting every program: each one finishes what it's doing first (deployme-supervise status shows them)\n";
+
+                return 0;
+
+            default:
+                fwrite(STDERR, "usage: deployme-supervise run|config <dir|file.conf>... | status | restart\n");
+
+                return 64;
+        }
+    } catch (SuperviseError $e) {
+        fwrite(STDERR, 'deployme-supervise: '.$e->getMessage()."\n");
+
+        return 78;
+    }
+}
+
+exit(supervise_main($argv));

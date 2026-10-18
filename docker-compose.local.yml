@@ -111,8 +111,11 @@ services:
   deployme-worker:
     <<: *php
     container_name: deployme-worker
-    command: ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]
-    # Longer than supervisor's stopwaitsecs so workers finish their job.
+    # The queue workers and the scheduler (core/local/php/supervisor), kept
+    # running by deployme-supervise. On docker stop it asks each to stop and
+    # waits up to its stopwaitsecs (310 s at most): the grace period is longer,
+    # so a worker finishes its job.
+    command: ["deployme-supervise", "run", "/etc/supervisor/conf.d"]
     stop_grace_period: 330s
     mem_limit: 1g
     environment:
@@ -128,7 +131,7 @@ services:
       com.panel.group: deployme
       com.panel.type: worker
     healthcheck:
-      test: ["CMD", "supervisorctl", "-c", "/etc/supervisor/supervisord.conf", "status"]
+      test: ["CMD", "deployme-supervise", "status"]
       interval: 60s
       timeout: 10s
       retries: 3

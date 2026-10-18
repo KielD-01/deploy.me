@@ -12,7 +12,7 @@ TEST_DB = $(if $(shell grep -s '^DEPLOYME_FLAVOUR=slim$$' .env),-e DB_CONNECTION
 WORKER := $(DC) exec deployme-worker
 
 .DEFAULT_GOAL := help
-.PHONY: help install configure trust-ca init db-create build up update update-check down restart ps logs sh sh-worker artisan composer assets dev setup enroll test sandbox test-ssh migrate fresh doctor workers
+.PHONY: help install configure trust-ca init db-create build up update update-check down restart ps logs sh sh-worker artisan composer assets dev setup enroll test sandbox test-ssh migrate fresh doctor workers workers-restart
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -112,8 +112,11 @@ migrate: .env ## Run migrations
 fresh: .env ## Drop and re-run all migrations
 	$(WEB) php artisan migrate:fresh
 
-workers: .env ## Supervisor program status
-	$(WORKER) supervisorctl -c /etc/supervisor/supervisord.conf status
+workers: .env ## Queue worker and scheduler status (deployme-supervise)
+	$(WORKER) deployme-supervise status
+
+workers-restart: .env ## Restart the queue workers and the scheduler, each after its current job
+	$(WORKER) deployme-supervise restart
 
 doctor: .env ## Check infra, containers, TLS and websockets
 	bin/doctor.sh
