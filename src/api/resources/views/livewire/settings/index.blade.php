@@ -258,6 +258,10 @@
         </form>
     @endif
 
+    @if ($tab === 'transfer')
+        <livewire:settings.transfer />
+    @endif
+
     @if ($tab === 'appearance')
         <section class="card bg-base-100 border border-line max-w-5xl">
             <header class="flex items-center gap-2.5 min-h-[52px] px-4 border-b border-line">

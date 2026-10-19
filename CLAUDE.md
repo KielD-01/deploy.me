@@ -452,6 +452,17 @@ doesn't wait for `make migrate`.
   the console status bar, `status` and the classic account menu point at it. A release is cut
   by bumping `src/api/VERSION`, tagging `vX.Y.Z` on the public repo and publishing a GitHub
   release; the PHP image has its own version (`core/local/php/VERSION`).
+- **Transfer** (`Actions\Transfer\{ExportProjects,ImportProjects}`, `Support\Transfer\TransferCode`,
+  `Livewire\Settings\Transfer`, Settings → Transfer): projects to another deploy.me as one code,
+  `deployme1:` + base64url of gzipped JSON sealed with a passphrase (PBKDF2-SHA256 600k →
+  AES-256-GCM; the other machine has its own APP_KEY). It carries settings, env files (current
+  version only), hooks, actions, and targets as ssh alias + folder with their ready, unpruned
+  releases and current/previous — never runs, logs, CI state or tokens (`credential_id` is
+  matched again by owner). Import previews first (`plan`), leaves a project already here (slug,
+  repo or folder) alone and adds only the targets it lacks, needs the server by alias, keeps
+  `auto_deploy` off unless asked, and never touches a server. Both ways need a passkey; the
+  passphrase is never kept in page state, and the opened code waits in the cache, encrypted,
+  for 15 minutes between preview and import.
 - **Audit log** (`app/Support/Audit`, `app/Models/AuditEntry`, `app/Livewire/Audit`): who
   did what, to which object, when, and how it ended — never a value. Written for trusting a
   host key, breaking a lock, saving or removing a credential, removing a server, project or

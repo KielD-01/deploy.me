@@ -418,6 +418,30 @@ This writes a `pg_dump` of the `deployme` database and a copy of `src/api/.env` 
 also copied to iCloud Drive on a Mac that has it, or to `DEPLOYME_OFFSITE_DIR` if you set it. Everything else can be rebuilt from git and
 the servers.
 
+### Move projects to another machine
+
+A backup restores the whole database. To set up deploy.me on a second machine without
+typing your projects in again, use **Settings → Transfer** (it asks for your passkey first):
+
+1. On the old machine, pick the projects, choose a passphrase (10 characters or more) and
+   press **Make the code**. Copy the code, or save it as a file.
+2. On the new machine, add your GitHub tokens (Settings → GitHub) and the servers (the same
+   aliases in `~/.ssh/config`). Then paste the code into **Import**, type the passphrase and
+   press **Read the code**: it lists what it would add and why anything is left out.
+3. Press **Import**.
+
+The code carries each project's settings, env files, hooks and actions, and its targets (the
+server's ssh alias and the folder) with the releases still on them, so the new machine knows
+what's live and what a rollback goes back to. Runs, logs, CI state and GitHub tokens stay
+behind. It's sealed with the passphrase (AES-256-GCM, the key derived with PBKDF2), so the
+code can travel through a chat or a note; send the passphrase some other way.
+
+A project that's already there (the same slug, repository or folder) is left as it is, and
+only the targets it lacks are added, so you can add a missing server and import again. Local
+folders under your home folder are written as `~/…` and found under the new machine's home.
+Auto-deploy stays off on imported projects unless you tick the box: while the old machine
+still runs, both would deploy every green build. Nothing on the servers changes.
+
 ## 17. ⬆️ Update deploy.me
 
 deploy.me looks once a day for a newer release of itself (one anonymous request to the

@@ -35,7 +35,7 @@ class Index extends Component
 {
     use ConfirmsIdentity;
 
-    public const TABS = ['github' => 'GitHub', 'ssh' => 'SSH', 'schedules' => 'Schedules', 'updates' => 'Updates', 'alerts' => 'Alerts', 'appearance' => 'Appearance', 'account' => 'Account'];
+    public const TABS = ['github' => 'GitHub', 'ssh' => 'SSH', 'schedules' => 'Schedules', 'updates' => 'Updates', 'alerts' => 'Alerts', 'transfer' => 'Transfer', 'appearance' => 'Appearance', 'account' => 'Account'];
 
     #[Url]
     public string $tab = 'github';

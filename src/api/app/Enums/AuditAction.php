@@ -27,6 +27,8 @@ enum AuditAction: string
     case ActionUpdated = 'action.updated';
     case ActionRemoved = 'action.removed';
     case ActionStarted = 'action.started';
+    case ProjectsExported = 'projects.exported';
+    case ProjectsImported = 'projects.imported';
     case RemoteCommand = 'ssh.command';
 
     public function label(): string
@@ -50,6 +52,8 @@ enum AuditAction: string
             self::ActionUpdated => 'Changed an action',
             self::ActionRemoved => 'Removed an action',
             self::ActionStarted => 'Started an action',
+            self::ProjectsExported => 'Exported projects',
+            self::ProjectsImported => 'Imported projects',
             self::RemoteCommand => 'Ran a command on a server',
         };
     }
@@ -67,6 +71,7 @@ enum AuditAction: string
             self::ActionCreated, self::ActionUpdated => 'pencil',
             self::ActionRemoved => 'trash',
             self::ActionStarted => 'play',
+            self::ProjectsExported, self::ProjectsImported => 'copy',
         };
     }
 
