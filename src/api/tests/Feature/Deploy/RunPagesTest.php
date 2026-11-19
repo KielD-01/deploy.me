@@ -2,6 +2,7 @@
 
 use App\Deploy\Pipeline\PipelineRunner;
 use App\Enums\DeploymentStatus;
+use App\Enums\StepStatus;
 use App\Events\DeploymentLogged;
 use App\Events\DeploymentUpdated;
 use App\Livewire\Deployments\Show;
@@ -72,6 +73,19 @@ it('cancels a running run from its page', function () {
 
     expect($run->refresh()->cancel_requested_at)->not->toBeNull();
 });
+
+it('keeps counting a running step’s time in the browser, and only that step’s', function (string $theme) {
+    auth()->user()->update(['ui' => ['theme' => $theme]]);
+    $run = Deployment::factory()->create(['status' => DeploymentStatus::Running, 'started_at' => now()->subSeconds(5)]);
+    $run->steps()->create(['key' => 'preflight', 'label' => 'Pre-flight checks', 'position' => 1, 'status' => StepStatus::Succeeded, 'started_at' => now()->subSeconds(5), 'finished_at' => now()->subSeconds(4)]);
+    $run->steps()->create(['key' => 'build', 'label' => 'Build images', 'position' => 2, 'status' => StepStatus::Running, 'started_at' => now()->subSeconds(3)]);
+
+    $html = $this->get(route('deployments.show', $run))->assertOk()->getContent();
+
+    expect(preg_match_all("/x-data=\"elapsed\(3(\\.\\d+)?, 'step'\\)\"/", $html))->toBe(1)
+        ->and(substr_count($html, ", 'step')\""))->toBe(1)
+        ->and(substr_count($html, ", 'run')\""))->toBe($theme === 'console' ? 1 : 0);
+})->with(['console', 'classic']);
 
 it('lists runs, newest first, with filters', function () {
     $ok = finishedRun();

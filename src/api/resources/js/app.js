@@ -13,6 +13,29 @@ document.addEventListener('alpine:init', () => {
     // Run page: the live deploy log.
     Alpine.data('deployLog', deployLog);
 
+    // A running step's or run's duration, counted on from the server's figure (the
+    // browser's clock may disagree with the server's, so only its own passing time counts).
+    // The formats match DeploymentStep::durationLabel and Deployment::durationLabel.
+    Alpine.data('elapsed', (seconds, format = 'step') => ({
+        label: '',
+        timer: null,
+        init() {
+            const from = performance.now();
+            const pad = (n) => String(n).padStart(2, '0');
+            const tick = () => {
+                const s = seconds + (performance.now() - from) / 1000;
+                if (s >= 60) this.label = `${Math.floor(s / 60)}m ${pad(Math.floor(s % 60))}s`;
+                else if (format === 'run') this.label = `${Math.floor(s)}s`;
+                else this.label = s < 10 ? `${s.toFixed(1)}s` : `${Math.round(s)}s`;
+            };
+            tick();
+            this.timer = setInterval(tick, format === 'run' ? 1000 : 100);
+        },
+        destroy() {
+            clearInterval(this.timer);
+        },
+    }));
+
     // The Console theme: tmux's keys, the session's panes, a shell pane's prompt, a page's keys.
     Alpine.data('tmuxKeys', tmuxKeys);
     Alpine.data('pageKeys', pageKeys);

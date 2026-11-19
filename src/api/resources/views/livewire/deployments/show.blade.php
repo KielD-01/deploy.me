@@ -268,7 +268,7 @@
                                     <span @class(['text-xs break-words', 'text-error' => $step->status === StepStatus::Failed, 'text-muted' => $step->status !== StepStatus::Failed])>{{ $step->detail }}</span>
                                 @endif
                             </div>
-                            <span class="text-xs text-muted tabular-nums">{{ $step->durationLabel() }}</span>
+                            <x-elapsed class="text-xs text-muted tabular-nums" key="duration-{{ $step->id }}" :seconds="$step->durationSeconds()" :label="$step->durationLabel()" :running="$step->status === StepStatus::Running" />
                         </li>
                     @empty
                         <li class="px-4 py-4 text-[13px] text-muted">

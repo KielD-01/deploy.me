@@ -112,7 +112,7 @@
                     <span class="t-mute font-normal">→</span>
                     <a href="{{ route('servers.show', $server) }}" wire:navigate class="hover:underline">{{ $server->name }}</a>
                 </h1>
-                <span class="{{ $tone }}">● {{ $status->label() }}@if ($deployment->started_at) {{ $deployment->durationLabel() }}@endif</span>
+                <span class="{{ $tone }}">● {{ $status->label() }}@if ($deployment->started_at) <x-elapsed key="run-duration" format="run" :seconds="$deployment->durationSeconds()" :label="$deployment->durationLabel()" :running="$deployment->isActive()" />@endif</span>
                 <span class="t-faint min-w-0">
                     @if ($actionRun)
                         action · <a href="{{ route('projects.show', ['project' => $project, 'tab' => 'actions']) }}" wire:navigate class="hover:underline">{{ $project->slug }}</a> ·
@@ -230,7 +230,7 @@
                         <span class="con-caret"></span>
                         <span>{{ $glyph }}</span>
                         <span class="con-fill">{{ $step->label }}@if ($step->detail)<span @class(['font-normal', 't-err' => $step->status === StepStatus::Failed, 't-mute' => $step->status !== StepStatus::Failed])> · {{ $step->detail }}</span>@endif</span>
-                        <span class="t-mute font-normal tabular-nums">{{ $step->durationLabel() }}</span>
+                        <x-elapsed class="t-mute font-normal tabular-nums" key="duration-{{ $step->id }}" :seconds="$step->durationSeconds()" :label="$step->durationLabel()" :running="$step->status === StepStatus::Running" />
                     </summary>
                     <div data-log-step="{{ $step->key }}" wire:ignore></div>
                 </details>
