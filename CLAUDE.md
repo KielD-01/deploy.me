@@ -428,7 +428,7 @@ doesn't wait for `make migrate`.
     has a health URL or a Docker stack deploy.me runs. `CheckTargetHealth` runs the
     deploy's own health scripts from the server. `deploy-health.sh` asks the server's
     own edge first (the URL's host resolved to 127.0.0.1), so a CDN's bot challenge
-    (Cloudflare's, on bm.example.dev) can't fail it. `unhealthy_since` marks when it
+    (Cloudflare's, on shop.example.dev) can't fail it. `unhealthy_since` marks when it
     began failing. A target with a run in progress is skipped. A result that differs from the
     last one broadcasts `TargetHealthChanged`.
   - Every check is also kept in `target_health_checks` (the server page's Checks tab),
