@@ -125,6 +125,11 @@ class Show extends Component
         }
     }
 
+    protected function manualHostBeingEdited(): ?ManualHost
+    {
+        return $this->manualEntry();
+    }
+
     /**
      * What was typed in for a server added by hand, or null for one from ~/.ssh/config.
      */

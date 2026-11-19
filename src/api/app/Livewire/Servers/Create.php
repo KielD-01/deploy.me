@@ -193,6 +193,11 @@ class Create extends Component
 
     // ── Step 1, by hand: host, user, port and the key ──────────────────
 
+    protected function manualHostBeingEdited(): ?ManualHost
+    {
+        return $this->manualHostId !== null ? ManualHost::query()->find($this->manualHostId) : null;
+    }
+
     // The name typed here is the one Review starts from, however often it changes.
     public function updatedManualName(): void
     {

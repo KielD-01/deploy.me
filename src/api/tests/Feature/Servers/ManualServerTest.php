@@ -147,6 +147,23 @@ it('says what’s wrong with each field, and saves nothing', function () {
     expect(ManualHost::query()->count())->toBe(0);
 });
 
+it('checks a field as soon as you leave it, and clears its problem once it’s fixed', function () {
+    privateKey($this->sshDir, 'kz_open', 0644);
+
+    Livewire::test(Create::class)->call('enterManually')
+        ->set('manualKey', '~/.ssh/kz_open')
+        ->assertHasErrors('manualKey')
+        ->assertSee('chmod 600 ~/.ssh/kz_open')
+        // The fields not filled in yet wait for Continue.
+        ->assertHasNoErrors(['manualHost', 'manualUser', 'manualAlias'])
+        ->set('manualKey', '~/.ssh/kz_deploy')
+        ->assertHasNoErrors('manualKey')
+        ->set('manualPort', '0')
+        ->assertHasErrors('manualPort');
+
+    expect(ManualHost::query()->count())->toBe(0);
+});
+
 it('names the chmod for a key others can read, and refuses a public key or a missing one', function () {
     privateKey($this->sshDir, 'kz_open', 0644);
     file_put_contents("{$this->sshDir}/kz_deploy.pub", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIexample me@mac\n");

@@ -16,6 +16,9 @@ use Illuminate\Validation\ValidationException;
  */
 trait EditsManualHost
 {
+    // The fields checked as you leave them, and SaveManualHost's names for them.
+    private const MANUAL_FIELDS = ['manualAlias' => 'alias', 'manualHost' => 'host', 'manualUser' => 'user', 'manualPort' => 'port', 'manualKey' => 'key', 'manualJump' => 'jump'];
+
     public string $manualName = '';
 
     public string $manualAlias = '';
@@ -44,6 +47,32 @@ trait EditsManualHost
     {
         $this->manualAliasEdited = trim($this->manualAlias) !== '';
     }
+
+    /**
+     * Leaving a field (wire:model.live.blur) checks it: its own problem shows,
+     * or goes, then. The others wait for Continue or Save.
+     */
+    public function updated(string $property): void
+    {
+        if (! isset(self::MANUAL_FIELDS[$property])) {
+            return;
+        }
+
+        $this->resetValidation($property);
+
+        try {
+            app(SaveManualHost::class)->validate($this->manualInput(), $this->manualHostBeingEdited());
+        } catch (ValidationException $e) {
+            if (($message = $e->errors()[self::MANUAL_FIELDS[$property]][0] ?? null) !== null) {
+                $this->addError($property, $message);
+            }
+        }
+    }
+
+    /**
+     * The saved server the fields belong to, if there is one yet.
+     */
+    abstract protected function manualHostBeingEdited(): ?ManualHost;
 
     protected function fillManual(ManualHost $host): void
     {
@@ -142,13 +171,15 @@ trait EditsManualHost
 
     private function manualErrors(ValidationException $e): void
     {
+        $properties = array_flip(self::MANUAL_FIELDS);
+
         foreach ($e->errors() as $field => $messages) {
-            $this->addError('manual'.ucfirst($field), $messages[0]);
+            $this->addError($properties[$field] ?? 'manual'.ucfirst($field), $messages[0]);
         }
     }
 
     private function resetManualErrors(): void
     {
-        $this->resetValidation(['manualAlias', 'manualHost', 'manualUser', 'manualPort', 'manualKey', 'manualJump']);
+        $this->resetValidation(array_keys(self::MANUAL_FIELDS));
     }
 }

@@ -10,28 +10,28 @@
         </div>
         <label for="manual-user" class="t-v">user</label>
         <div>
-            <input id="manual-user" type="text" wire:model="manualUser" class="input input-sm w-full max-w-md" placeholder="deploy" spellcheck="false" autocomplete="off" autocapitalize="off">
+            <input id="manual-user" type="text" wire:model.live.blur="manualUser" class="input input-sm w-full max-w-md" placeholder="deploy" spellcheck="false" autocomplete="off" autocapitalize="off">
             @error('manualUser')<span class="t-err block">{{ $message }}</span>@enderror
         </div>
         <label for="manual-host" class="t-v">hostname</label>
         <div>
-            <input id="manual-host" type="text" wire:model="manualHost" class="input input-sm w-full max-w-md" placeholder="203.0.113.10" spellcheck="false" autocomplete="off" autocapitalize="off">
+            <input id="manual-host" type="text" wire:model.live.blur="manualHost" class="input input-sm w-full max-w-md" placeholder="203.0.113.10" spellcheck="false" autocomplete="off" autocapitalize="off">
             @error('manualHost')<span class="t-err block">{{ $message }}</span>@enderror
         </div>
         <label for="manual-port" class="t-v">port</label>
         <div>
-            <input id="manual-port" type="text" inputmode="numeric" wire:model="manualPort" class="input input-sm w-[10ch]" placeholder="22">
+            <input id="manual-port" type="text" inputmode="numeric" wire:model.live.blur="manualPort" class="input input-sm w-[10ch]" placeholder="22">
             @error('manualPort')<span class="t-err block">{{ $message }}</span>@enderror
         </div>
         <label for="manual-key" class="t-v">identityfile</label>
         <div>
-            <input id="manual-key" type="text" wire:model="manualKey" class="input input-sm w-full max-w-md" placeholder="~/.ssh/id_ed25519" spellcheck="false" autocomplete="off" autocapitalize="off">
+            <input id="manual-key" type="text" wire:model.live.blur="manualKey" class="input input-sm w-full max-w-md" placeholder="~/.ssh/id_ed25519" spellcheck="false" autocomplete="off" autocapitalize="off">
             <span class="t-faint block"># like ssh -i, inside ~/.ssh · empty: the keys your ssh-agent holds</span>
             @error('manualKey')<span class="t-err block break-words">{{ $message }}</span>@enderror
         </div>
         <label for="manual-jump" class="t-v">proxyjump</label>
         <div>
-            <input id="manual-jump" type="text" wire:model="manualJump" list="manual-jumps-con" class="input input-sm w-full max-w-md" placeholder="optional" spellcheck="false" autocomplete="off">
+            <input id="manual-jump" type="text" wire:model.live.blur="manualJump" list="manual-jumps-con" class="input input-sm w-full max-w-md" placeholder="optional" spellcheck="false" autocomplete="off">
             <datalist id="manual-jumps-con">@foreach ($jumpChoices as $choice)<option value="{{ $choice }}"></option>@endforeach</datalist>
             @error('manualJump')<span class="t-err block">{{ $message }}</span>@enderror
         </div>
