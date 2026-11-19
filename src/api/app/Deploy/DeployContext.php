@@ -128,7 +128,7 @@ final class DeployContext
         // a rollback or a conversion runs can print them just the same.
         foreach ($target->project->envFiles()->get() as $file) {
             foreach (DotEnv::parse($file->content) as $key => $value) {
-                if (DotEnv::isSecret($key)) {
+                if (DotEnv::isSecret($key, $value)) {
                     $log->redactor->add($value);
                 }
             }

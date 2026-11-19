@@ -33,11 +33,21 @@ final class DotEnv
     }
 
     /**
-     * Whether a key name looks like it holds a secret, so the UI masks it.
+     * Whether a value is a secret, so the UI masks it and run logs redact it:
+     * a key name that looks like one, or a URL that carries a password
+     * (`DATABASE_URL=postgres://app:hunter2@db/app`, `REDIS_URL=redis://:pw@cache`)
+     * whatever its key is called.
      */
-    public static function isSecret(string $key): bool
+    public static function isSecret(string $key, string $value = ''): bool
     {
-        return (bool) preg_match('/(PASS(WORD|WD)?|SECRET|TOKEN|PRIVATE|CREDENTIAL|API_?KEY|_KEY$|^KEY$|AUTH|DSN|SALT|COOKIE|SIGNATURE|WEBHOOK)/i', $key);
+        return (bool) preg_match('/(PASS(WORD|WD)?|SECRET|TOKEN|PRIVATE|CREDENTIAL|API_?KEY|_KEY$|^KEY$|AUTH|DSN|SALT|COOKIE|SIGNATURE|WEBHOOK)/i', $key)
+            || self::hasUrlPassword($value);
+    }
+
+    /** `scheme://user:password@…` (the user may be empty). */
+    public static function hasUrlPassword(string $value): bool
+    {
+        return (bool) preg_match('#^[a-z][a-z0-9+.\-]*://[^/?\#@\s]*:[^/?\#@\s]+@#i', trim($value));
     }
 
     private static function unquote(string $value): string

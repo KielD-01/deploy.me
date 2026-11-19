@@ -131,7 +131,7 @@
                                     <td class="mono">
                                         @if ($value === '')
                                             <span class="text-muted">empty</span>
-                                        @elseif (\App\Support\DotEnv::isSecret($key) && ! $revealed)
+                                        @elseif (\App\Support\DotEnv::isSecret($key, $value) && ! $revealed)
                                             <span class="text-muted">••••••••••••</span> <span class="badge badge-xs badge-ghost ml-1">Secret</span>
                                         @else
                                             <span class="break-all">{{ $value }}</span>

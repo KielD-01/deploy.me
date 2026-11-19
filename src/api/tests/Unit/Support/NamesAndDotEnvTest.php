@@ -33,3 +33,12 @@ it('recognises secret-looking keys', function () {
     expect(array_values(array_filter($keys, DotEnv::isSecret(...))))
         ->toBe(['APP_KEY', 'DB_PASSWORD', 'OPENBAO_TOKEN', 'STRIPE_SECRET', 'SENTRY_DSN']);
 });
+
+it('treats a URL that carries a password as a secret, whatever its key', function () {
+    expect(DotEnv::isSecret('DATABASE_URL', 'postgres://app:hunter2@postgres:5432/app'))->toBeTrue()
+        ->and(DotEnv::isSecret('REDIS_URL', 'redis://:hunter2@redis:6379/0'))->toBeTrue()
+        ->and(DotEnv::isSecret('AMQP', ' amqp://guest:guest@rabbit// '))->toBeTrue()
+        ->and(DotEnv::isSecret('APP_URL', 'https://example.dev'))->toBeFalse()
+        ->and(DotEnv::isSecret('MAIL_URL', 'smtp://mailer@example.dev:25'))->toBeFalse()
+        ->and(DotEnv::isSecret('CALLBACK', 'https://example.dev/login?next=a:b@c'))->toBeFalse();
+});
