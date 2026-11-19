@@ -22,6 +22,8 @@ enum AuditAction: string
     case ProjectRemoved = 'project.removed';
     case TargetRemoved = 'target.removed';
     case RouteChanged = 'server.route_changed';
+    case ManualHostSaved = 'server.manual_saved';
+    case ManualHostRemoved = 'server.manual_removed';
     case TargetFolderChanged = 'target.folder_changed';
     case ActionCreated = 'action.created';
     case ActionUpdated = 'action.updated';
@@ -47,6 +49,8 @@ enum AuditAction: string
             self::ProjectRemoved => 'Removed a project',
             self::TargetRemoved => 'Removed a target',
             self::RouteChanged => 'Changed how a server is reached',
+            self::ManualHostSaved => 'Saved a server entered by hand',
+            self::ManualHostRemoved => 'Removed a server entered by hand',
             self::TargetFolderChanged => 'Changed a target’s folder',
             self::ActionCreated => 'Made an action',
             self::ActionUpdated => 'Changed an action',
@@ -66,7 +70,8 @@ enum AuditAction: string
             self::CredentialSaved, self::CredentialRemoved, self::AccountCreated, self::PasswordSet, self::PasswordRemoved, self::TwoFactorEnabled, self::TwoFactorDisabled => 'key',
             self::ServerRemoved, self::ProjectRemoved, self::TargetRemoved => 'trash',
             self::RemoteCommand => 'terminal',
-            self::RouteChanged => 'globe',
+            self::RouteChanged, self::ManualHostSaved => 'globe',
+            self::ManualHostRemoved => 'trash',
             self::TargetFolderChanged => 'folder',
             self::ActionCreated, self::ActionUpdated => 'pencil',
             self::ActionRemoved => 'trash',

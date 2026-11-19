@@ -3,9 +3,13 @@
 namespace App\Livewire\Servers;
 
 use App\Actions\Servers\RecordProbe;
+use App\Actions\Servers\SaveManualHost;
+use App\Enums\AuditAction;
 use App\Enums\EnvTag;
 use App\Enums\ServerStatus;
 use App\Livewire\Concerns\ConfirmsIdentity;
+use App\Livewire\Concerns\EditsManualHost;
+use App\Models\ManualHost;
 use App\Models\Server;
 use App\Models\SshHostKey;
 use App\Platform\Remote\ProbeResult;
@@ -19,6 +23,7 @@ use App\Platform\Ssh\HostKeyScan;
 use App\Platform\Ssh\KnownHosts;
 use App\Platform\Ssh\SshConfigReader;
 use App\Platform\Ssh\SshTargetResolver;
+use App\Support\Audit;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -28,18 +33,31 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
- * Add server: pick a host from ~/.ssh/config → connection checks (trusting
- * the host key on first use) → default deploy path → review and save.
+ * Add server: pick a host from ~/.ssh/config, or enter one by hand (host,
+ * user, port, the key's path) → connection checks (trusting the host key on
+ * first use) → default deploy path → review and save.
  */
 #[Title('Add server')]
 class Create extends Component
 {
     use ConfirmsIdentity;
+    use EditsManualHost {
+        updatedManualName as aliasFollowsName;
+    }
 
     public const INTERVALS = [60 => 'Every minute', 300 => 'Every 5 minutes', 900 => 'Every 15 minutes', 3600 => 'Every hour'];
 
     #[Locked]
     public int $step = 1;
+
+    // config: pick a host from ~/.ssh/config · manual: type one in.
+    #[Locked]
+    public string $mode = 'config';
+
+    // The server entered by hand on this page: Continue saves it, and saves
+    // it again (not a second one) after a Back.
+    #[Locked]
+    public ?int $manualHostId = null;
 
     public string $search = '';
 
@@ -100,9 +118,36 @@ class Create extends Component
                 'git' => $alias->looksLikeGitHost(),
                 'added' => in_array($alias->name, $added, true),
                 'sandbox' => str_starts_with($alias->sourceFile, $sandbox),
+                'manual' => false,
                 'source' => str_starts_with($alias->sourceFile, $sandbox) ? 'sandbox' : '~/.ssh/'.basename($alias->sourceFile).':'.$alias->line,
             ])
+            ->merge(ManualHost::query()->orderBy('alias')->get()->map(fn (ManualHost $host) => [
+                'name' => $host->alias,
+                'hostName' => $host->host_name,
+                'git' => false,
+                'added' => in_array($host->alias, $added, true),
+                'sandbox' => false,
+                'manual' => true,
+                'source' => 'entered in deploy.me',
+            ]))
             ->all();
+    }
+
+    #[Computed]
+    public function manualCount(): int
+    {
+        return ManualHost::query()->count();
+    }
+
+    /**
+     * Hosts a server entered here can jump through.
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function jumpChoices(): array
+    {
+        return app(SaveManualHost::class)->jumpChoices(trim($this->manualAlias) ?: null);
     }
 
     /**
@@ -139,17 +184,91 @@ class Create extends Component
         $this->problem = null;
 
         try {
-            $this->target = $resolver->resolve($alias)->toArray();
+            $this->target = $this->targetForDisplay($resolver->resolve($alias)->toArray());
         } catch (SshException $e) {
             $this->target = null;
             $this->problem = $e->userMessage();
         }
     }
 
+    // ── Step 1, by hand: host, user, port and the key ──────────────────
+
+    // The name typed here is the one Review starts from, however often it changes.
+    public function updatedManualName(): void
+    {
+        $this->aliasFollowsName();
+        $this->name = '';
+    }
+
+    public function enterManually(): void
+    {
+        $this->mode = 'manual';
+        $this->problem = null;
+    }
+
+    public function pickFromList(): void
+    {
+        $this->mode = 'config';
+        $this->problem = null;
+        $this->resetValidation();
+    }
+
+    /**
+     * Opens a server entered here earlier (and not added yet) in the form.
+     */
+    public function editManual(string $alias): void
+    {
+        $host = ManualHost::query()->where('alias', $alias)->first();
+
+        if ($host === null || $host->server()->exists()) {
+            return;
+        }
+
+        $this->fillManual($host);
+        $this->manualName = '';
+        $this->manualHostId = $host->id;
+        $this->alias = null;
+        $this->target = null;
+        $this->enterManually();
+    }
+
+    /**
+     * Forgets a server entered here that no server uses (one left behind
+     * when an earlier Add server stopped halfway).
+     */
+    public function deleteManual(string $alias): void
+    {
+        if (! $this->confirmIdentity(route('servers.create'))) {
+            return;
+        }
+
+        $host = ManualHost::query()->where('alias', $alias)->first();
+
+        if ($host === null || $host->server()->exists()) {
+            return;
+        }
+
+        $host->delete();
+        Audit::record(AuditAction::ManualHostRemoved, ['subject' => $alias, 'detail' => 'no server used it']);
+
+        if ($this->alias === $alias) {
+            $this->reset('alias', 'target');
+        }
+        if ($this->manualHostId === $host->id) {
+            $this->manualHostId = null;
+        }
+
+        unset($this->hosts, $this->visibleHosts, $this->manualCount);
+    }
+
     // ── Step 2: connection checks ───────────────────────────────────────
 
-    public function toConnection(): void
+    public function toConnection(SshTargetResolver $resolver): void
     {
+        if ($this->mode === 'manual' && ! $this->saveManual($resolver)) {
+            return;
+        }
+
         if ($this->alias === null || $this->target === null) {
             $this->problem = 'Pick a host first.';
 
@@ -158,6 +277,46 @@ class Create extends Component
 
         $this->step = 2;
         $this->runChecks();
+    }
+
+    /**
+     * Saves the server typed in (its Host block goes into deploy.me's ssh
+     * config) and resolves it like any alias.
+     */
+    private function saveManual(SshTargetResolver $resolver): bool
+    {
+        // The route's password.confirm only sees the page load, not its updates.
+        if (! $this->confirmIdentity(route('servers.create'))) {
+            return false;
+        }
+
+        $this->problem = null;
+        $saved = $this->manualHostId !== null ? ManualHost::query()->find($this->manualHostId) : null;
+        $host = $this->saveManualHost($saved);
+
+        if ($host === null) {
+            return false;
+        }
+
+        // Back and Continue again: check what was saved now, not the connection the first check left open.
+        if ($saved !== null) {
+            $this->closeOpenConnection($host->alias);
+        }
+
+        $this->manualHostId = $host->id;
+        $this->alias = $host->alias;
+        unset($this->hosts, $this->visibleHosts, $this->manualCount);
+
+        try {
+            $this->target = $this->targetForDisplay($resolver->resolve($host->alias)->toArray());
+        } catch (SshException $e) {
+            $this->target = null;
+            $this->problem = $e->userMessage();
+
+            return false;
+        }
+
+        return true;
     }
 
     public function runChecks(): void
@@ -313,7 +472,8 @@ class Create extends Component
         }
 
         $this->problem = null;
-        $this->name = $this->name ?: Str::of($this->alias)->replace(['-', '_', '.'], ' ')->ucfirst()->toString();
+        $typed = $this->mode === 'manual' ? trim($this->manualName) : '';
+        $this->name = $this->name ?: ($typed !== '' ? $typed : Str::of($this->alias)->replace(['-', '_', '.'], ' ')->ucfirst()->toString());
         $this->step = 4;
     }
 

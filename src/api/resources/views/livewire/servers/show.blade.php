@@ -342,6 +342,9 @@
     @endif
 
     @if ($tab === 'settings')
+        @if ($this->manualEntry)
+            @include('livewire.servers.partials.ssh-form')
+        @endif
         @include('livewire.servers.partials.route-form')
 
         <form wire:submit="saveSettings" class="card bg-base-100 border border-line max-w-3xl">
@@ -382,7 +385,7 @@
             </div>
             <div class="flex items-center gap-2 px-4 py-3 border-t border-line">
                 <button type="button" class="btn btn-sm btn-ghost text-error" wire:click="archive"
-                        wire:confirm="Remove {{ $server->name }} from deploy.me? Nothing on the server changes.">
+                        wire:confirm="{{ $this->manualEntry ? "Remove {$server->name} from deploy.me, with the connection entered for it? Nothing on the server changes." : "Remove {$server->name} from deploy.me? Nothing on the server changes." }}">
                     <x-icon name="trash" :size="14" /> Remove server
                 </button>
                 <span class="grow"></span>

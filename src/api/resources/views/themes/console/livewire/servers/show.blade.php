@@ -373,6 +373,9 @@
 
     @if ($tab === 'settings')
         <div class="con-grid">
+            @if ($this->manualEntry)
+                @include('livewire.servers.partials.ssh-form')
+            @endif
             @include('livewire.servers.partials.route-form')
             <form wire:submit="saveSettings" class="con-box con-wide con-conf max-w-3xl" aria-label="Server settings">
                 <span class="con-box-t"><b>server.conf</b> · {{ $server->ssh_alias }}@if ($notice)<span class="t-ok">· ✓ {{ $notice }}</span>@endif</span>
@@ -405,7 +408,7 @@
                     </select>
                 </div>
                 <div class="flex items-center gap-2 mt-4 pt-3 border-t border-line">
-                    <button type="button" class="con-act is-danger" wire:click="archive" wire:confirm="Remove {{ $server->name }} from deploy.me? Nothing on the server changes.">remove server</button>
+                    <button type="button" class="con-act is-danger" wire:click="archive" wire:confirm="{{ $this->manualEntry ? "Remove {$server->name} from deploy.me, with the connection entered for it? Nothing on the server changes." : "Remove {$server->name} from deploy.me? Nothing on the server changes." }}">remove server</button>
                     <span class="grow"></span>
                     <button type="submit" class="btn btn-sm btn-primary">Save</button>
                 </div>

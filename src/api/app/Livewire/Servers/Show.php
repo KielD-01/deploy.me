@@ -6,13 +6,16 @@ use App\Actions\Deployments\StartDeployment;
 use App\Actions\Projects\AssignProject;
 use App\Actions\Servers\CheckRoute;
 use App\Actions\Servers\RecordProbe;
+use App\Actions\Servers\SaveManualHost;
 use App\Deploy\DeploymentBusy;
 use App\Enums\AuditAction;
 use App\Enums\DeploymentKind;
 use App\Enums\EnvTag;
 use App\Enums\RouteKind;
 use App\Livewire\Concerns\ConfirmsIdentity;
+use App\Livewire\Concerns\EditsManualHost;
 use App\Models\AuditEntry;
+use App\Models\ManualHost;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\ServerSnapshot;
@@ -20,9 +23,13 @@ use App\Models\SshHostKey;
 use App\Models\Target;
 use App\Models\TargetHealthCheck;
 use App\Platform\Remote\RemoteFs;
+use App\Platform\Remote\ServerProber;
+use App\Platform\Ssh\Exceptions\HostKeyUnknown;
 use App\Platform\Ssh\Exceptions\SshException;
+use App\Platform\Ssh\HostKeyScan;
+use App\Platform\Ssh\KnownHosts;
 use App\Platform\Ssh\Route\Route;
-use App\Platform\Ssh\SshConfigReader;
+use App\Platform\Ssh\SshTargetResolver;
 use App\Support\Audit;
 use App\Support\Settings;
 use Illuminate\Contracts\View\View;
@@ -30,6 +37,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -37,6 +45,7 @@ use Livewire\Component;
 class Show extends Component
 {
     use ConfirmsIdentity;
+    use EditsManualHost;
 
     // How many recent health checks the Checks tab lists.
     public const CHECKS = 50;
@@ -87,6 +96,18 @@ class Show extends Component
 
     public ?string $routeNotice = null;
 
+    // A server entered by hand: the last "Test connection" (ok, what it said,
+    // ssh's own words), and a new host key waiting for your decision.
+    /** @var array{ok: bool, detail: string, ssh: ?string}|null */
+    #[Locked]
+    public ?array $connectionTest = null;
+
+    /** @var array<string, mixed>|null */
+    #[Locked]
+    public ?array $connectionHostKey = null;
+
+    public ?string $connectionNotice = null;
+
     public ?string $notice = null;
 
     public ?string $problem = null;
@@ -98,6 +119,19 @@ class Show extends Component
         $this->server = $server;
         $this->fillSettings();
         $this->fillRoute();
+
+        if (($entry = $this->manualEntry()) !== null) {
+            $this->fillManual($entry);
+        }
+    }
+
+    /**
+     * What was typed in for a server added by hand, or null for one from ~/.ssh/config.
+     */
+    #[Computed]
+    public function manualEntry(): ?ManualHost
+    {
+        return ManualHost::query()->where('alias', $this->server->ssh_alias)->first();
     }
 
     // Probes from the scheduler refresh the page as they land.
@@ -278,6 +312,136 @@ class Show extends Component
         $this->routeNotice = 'Route saved.';
     }
 
+    /**
+     * Saves the host, user, port, key and jump host of a server entered by
+     * hand (a change asks for a passkey, like a route's), then tests it.
+     */
+    public function saveConnection(SshTargetResolver $resolver): void
+    {
+        $this->reset('connectionTest', 'connectionHostKey', 'connectionNotice');
+        $entry = $this->manualEntry();
+
+        if ($entry === null) {
+            return;
+        }
+
+        // The alias stays: the server, its host keys and the audit log go by it.
+        $this->manualAlias = $entry->alias;
+        $values = $this->validateManual($entry);
+
+        if ($values === null) {
+            return;
+        }
+
+        $changed = collect($values)->contains(fn ($value, string $column) => (string) $value !== (string) $entry->getAttribute($column));
+
+        if ($changed && ! $this->confirmIdentity(route('servers.show', ['server' => $this->server, 'tab' => 'settings']))) {
+            return;
+        }
+
+        if ($changed) {
+            $entry = $this->saveManualHost($entry);
+
+            if ($entry === null) {
+                return;
+            }
+
+            // What the server page and the doctor show, as ssh -G now resolves it.
+            $target = rescue(fn () => $this->targetForDisplay($resolver->resolve($entry->alias)->toArray()), null, report: false);
+            $this->server->update([
+                'host_name' => $target['hostName'] ?? $entry->host_name,
+                'ssh_user' => $target['user'] ?? $entry->user,
+                'port' => $target['port'] ?? $entry->port,
+                'identity_files' => $target['identityFiles'] ?? array_filter([$entry->identity_file]),
+                'proxy_jump' => $target !== null ? $target['proxyJump'] : $entry->proxy_jump,
+            ]);
+            unset($this->manualEntry);
+            $this->closeOpenConnection($entry->alias);
+        }
+
+        $this->connectionNotice = $changed ? 'Connection saved.' : 'Nothing changed.';
+        $this->testConnection();
+    }
+
+    /**
+     * Connects the way every probe and deploy will (one `true` over ssh) and
+     * says how it went. An unknown host key, after a new host or port, waits
+     * for you to compare and trust it.
+     */
+    public function testConnection(): void
+    {
+        $this->reset('connectionTest', 'connectionHostKey');
+        $alias = $this->server->ssh_alias;
+        $entry = $this->manualEntry();
+
+        try {
+            $ms = app(ServerProber::class)->ping($alias);
+        } catch (HostKeyUnknown) {
+            try {
+                $this->connectionHostKey = app(KnownHosts::class)->scan($alias)->toArray();
+                $this->connectionTest = ['ok' => false, 'detail' => 'The server answers, but its host key isn’t trusted yet. Compare the fingerprint, then trust it.', 'ssh' => null];
+            } catch (SshException $e) {
+                $this->connectionTest = $this->failedTest($e);
+            }
+
+            return;
+        } catch (SshException $e) {
+            $this->connectionTest = $this->failedTest($e);
+
+            return;
+        }
+
+        $with = $entry?->identity_file ? 'with '.$entry->identity_file : 'with the keys your ssh-agent holds';
+        $this->connectionTest = ['ok' => true, 'detail' => "Connected in {$ms} ms as ".($entry?->connectionLabel() ?? $this->server->connectionLabel())." {$with}.", 'ssh' => null];
+    }
+
+    /**
+     * What a failed test says: the advice, and ssh's own words when the advice doesn't already carry them.
+     *
+     * @return array{ok: bool, detail: string, ssh: ?string}
+     */
+    private function failedTest(SshException $e): array
+    {
+        $detail = $e->userMessage();
+        $said = trim($e->getMessage());
+
+        return ['ok' => false, 'detail' => $detail, 'ssh' => $said !== '' && ! str_contains($detail, $said) ? $said : null];
+    }
+
+    /**
+     * Trusts the host key you compared, after checking the server still offers exactly that key.
+     */
+    public function trustConnectionKey(KnownHosts $knownHosts): void
+    {
+        if (! $this->confirmIdentity(route('servers.show', ['server' => $this->server, 'tab' => 'settings']))) {
+            return;
+        }
+
+        if ($this->connectionHostKey === null) {
+            return;
+        }
+
+        $shown = HostKeyScan::fromArray($this->connectionHostKey);
+
+        try {
+            $now = $knownHosts->scan($this->server->ssh_alias);
+        } catch (SshException $e) {
+            $this->connectionTest = $this->failedTest($e);
+
+            return;
+        }
+
+        if ($now->fingerprints() !== $shown->fingerprints()) {
+            $this->connectionHostKey = $now->toArray();
+            $this->connectionTest = ['ok' => false, 'detail' => 'The server offered a different key than the one shown. Compare the new fingerprint before trusting it.', 'ssh' => null];
+
+            return;
+        }
+
+        $knownHosts->trust($now, auth()->id());
+        $this->testConnection();
+    }
+
     public function saveSettings(): void
     {
         $this->validate([
@@ -347,6 +511,17 @@ class Show extends Component
             'detail' => 'nothing on the server changed',
         ]);
 
+        // A server entered by hand goes with what was typed in for it: its
+        // Host block leaves deploy.me's ssh config, and the alias is free again.
+        if (($entry = $this->manualEntry()) !== null) {
+            $entry->delete();
+            Audit::record(AuditAction::ManualHostRemoved, [
+                'subject' => $entry->alias,
+                'server_id' => $this->server->id,
+                'detail' => 'with the server',
+            ]);
+        }
+
         $this->redirectRoute('servers.index', navigate: true);
     }
 
@@ -404,9 +579,7 @@ class Show extends Component
                 : collect(),
             'route' => $server->connectionRoute(),
             'routeKinds' => RouteKind::cases(),
-            'jumpChoices' => $this->tab === 'settings'
-                ? rescue(fn () => collect(app(SshConfigReader::class)->aliases())->map->name->reject(fn (string $name) => $name === $server->ssh_alias)->values()->all(), [], report: false)
-                : [],
+            'jumpChoices' => $this->tab === 'settings' ? app(SaveManualHost::class)->jumpChoices($server->ssh_alias) : [],
             'trail' => AuditEntry::query()->where('server_id', $server->id)->byHand()->orderByDesc('occurred_at')->orderByDesc('id')->limit(8)->get(),
             'adoptable' => $this->adoptable(),
             'folderCount' => $server->folderMappings()->count(),

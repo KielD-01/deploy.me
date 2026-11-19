@@ -3,6 +3,7 @@
 namespace App\Platform\Ssh;
 
 use App\Enums\RouteKind;
+use App\Models\ManualHost;
 use App\Models\Server;
 use App\Platform\Ssh\Route\Route;
 use Closure;
@@ -14,9 +15,11 @@ use RuntimeException;
  * Enforced options come first because ssh keeps the first value it reads for
  * each option, and ProxyJump hops inherit `-F` but not `-o`. Then the routes
  * set on deploy.me's server pages (a ProxyJump, or a ProxyCommand through a
- * proxy), so they win over the user's config, then the user's own config,
- * included as-is (read-only mount), then extra configs such as the local
- * sandbox, then defaults that only apply where the user set nothing.
+ * proxy), so they win over the user's config, then a Host block for each
+ * server entered by hand (HostName, User, Port, IdentityFile, ProxyJump), then
+ * the user's own config, included as-is (read-only mount), then extra configs
+ * such as the local sandbox, then defaults that only apply where the user set
+ * nothing.
  *
  * A proxy's address and password go to a 0600 file per server in the
  * memory-only runtime folder, which the ProxyCommand helper reads: argv
@@ -39,6 +42,8 @@ final class SshConfigCompiler
         private readonly ?Closure $routes = null,
         private readonly string $phpBinary = 'php',
         private readonly string $proxyScript = '',
+        // fn () => iterable<array{alias: string, host: string, user: string, port: int, key: ?string, jump: ?string}>
+        private readonly ?Closure $manualHosts = null,
     ) {}
 
     public static function fromConfig(): self
@@ -58,6 +63,7 @@ final class SshConfigCompiler
                 ->all(), [], report: false),
             (string) config('deployme.ssh.php_binary', 'php'),
             resource_path('bin/deployme-ssh-proxy.php'),
+            fn () => rescue(fn () => ManualHost::query()->get()->map(fn (ManualHost $host) => $host->toConfig())->all(), [], report: false),
         );
     }
 
@@ -143,6 +149,7 @@ final class SshConfigCompiler
     public function render(?array $routes = null): string
     {
         $routes ??= $this->routes();
+        $manualHosts = $this->manualHosts();
         $knownHosts = $this->knownHostsPath().(is_readable($this->userKnownHosts) ? ' '.$this->userKnownHosts : '');
 
         $lines = [
@@ -186,9 +193,28 @@ final class SshConfigCompiler
             }
         }
 
+        // After the routes, so a route set on the server page wins over the
+        // ProxyJump typed in with the host: ssh keeps the first value it reads.
+        foreach ($manualHosts as $host) {
+            array_push($lines, "# {$host['alias']}: entered by hand in deploy.me.", "Host {$host['alias']}", "  HostName {$host['host']}", "  User {$host['user']}", "  Port {$host['port']}");
+
+            if ($host['key'] !== null) {
+                $lines[] = '  IdentityFile '.(str_contains($host['key'], ' ') ? '"'.$host['key'].'"' : $host['key']);
+                // Only that key, not every key the agent holds (a server stops
+                // listening after a few refused ones).
+                $lines[] = '  IdentitiesOnly yes';
+            }
+
+            if ($host['jump'] !== null) {
+                $lines[] = "  ProxyJump {$host['jump']}";
+            }
+
+            $lines[] = '';
+        }
+
         // An Include inside a Host block only applies to that host: back to
         // every host before the user's config.
-        if ($routed) {
+        if ($routed || $manualHosts !== []) {
             $lines[] = 'Host *';
         }
 
@@ -224,6 +250,31 @@ final class SshConfigCompiler
 
         return collect(($this->routes)())
             ->filter(fn (array $row) => SshAlias::isValid($row['alias']) && $row['route']->problem($row['alias']) === null)
+            ->sortBy('alias')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The servers entered by hand, the ones whose every value is fit for an
+     * ssh config: a row that isn't is left out rather than breaking every ssh
+     * call (or adding an option no one typed).
+     *
+     * @return list<array{alias: string, host: string, user: string, port: int, key: ?string, jump: ?string}>
+     */
+    private function manualHosts(): array
+    {
+        if ($this->manualHosts === null) {
+            return [];
+        }
+
+        return collect(($this->manualHosts)())
+            ->filter(fn (array $row) => preg_match(ManualHost::ALIAS_PATTERN, (string) $row['alias']) === 1
+                && Route::isHost((string) $row['host']) && ! str_contains((string) $row['host'], '[')
+                && preg_match(ManualHost::USER_PATTERN, (string) $row['user']) === 1
+                && Route::isPort((int) $row['port'])
+                && ($row['key'] === null || preg_match('#^/[A-Za-z0-9._@+=, /-]+$#', (string) $row['key']) === 1)
+                && ($row['jump'] === null || preg_match(ManualHost::ALIAS_PATTERN, (string) $row['jump']) === 1))
             ->sortBy('alias')
             ->values()
             ->all();
