@@ -148,6 +148,17 @@ doesn't wait for `make migrate`.
     1929 auth and HTTP CONNECT). ssh sends a ProxyCommand's stderr to /dev/null under
     ControlPersist, so the helper also leaves its reason in `<id>.err`, which
     `ProcessSshClient` puts in front of a 255's stderr. A VPN changes nothing in ssh.
+  - **Servers entered by hand** (`manual_hosts`, `ManualHost`, `Actions\Servers\SaveManualHost`,
+    `Livewire\Concerns\EditsManualHost`): Add server → Enter manually takes an alias, host,
+    user, port, a key path and a ProxyJump alias (from the ssh config or another manual host).
+    The compiler writes a `Host <alias>` block per row after the routes (a route wins) and
+    before the Includes, `IdentitiesOnly yes` with a key, leaving out a row that fails the
+    patterns. `Platform\Ssh\KeyFile` maps `~/.ssh/x`, `$HOME/.ssh/x` and
+    `$DEPLOYME_HOST_HOME/.ssh/x` to `/root/.ssh/x` (beside `deployme.ssh.source_config`),
+    refuses anything outside `~/.ssh` (not mounted), and checks only the file's type, size,
+    first line and mode (`& 077` → the `chmod 600` to run); only `~/.ssh/x` is stored. The
+    server's Settings tab edits it (passkey on a change) and tests it (ping, host-key trust);
+    removing the server deletes the row. Tests: `ManualServerTest`, `KeyFileTest`.
   - `Actions\Servers\CheckRoute` checks the way in (VPN check address, proxy, or `ssh -W`
     through the jump host), then the server's ssh banner through it (`RouteProbe`; tests use
     `Testing\FakeRouteProbe`). Results go to `route_checks` (pruned with the health checks)

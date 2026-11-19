@@ -29,7 +29,8 @@ chapter stands on its own, so skip to the one you need.
 
 ## 1. 🧱 Install
 
-You need **Docker** and your servers in **`~/.ssh/config`**. deploy.me runs the same way on
+You need **Docker** and your servers in **`~/.ssh/config`** (or typed in on **Add server**,
+with their keys in `~/.ssh`). deploy.me runs the same way on
 macOS, Linux and Windows (inside WSL2), and brings its own PostgreSQL, Valkey and HTTPS
 edge, unless you already run a shared stack it can join.
 
@@ -102,7 +103,8 @@ sync, removing a GitHub token, and changing how you sign in.
 
 1. **Pick a host.** The list comes from your `~/.ssh/config`. deploy.me shows what `ssh -G`
    resolves for the host (HostName, User, IdentityFile, ProxyJump), so you can see exactly
-   where it will connect.
+   where it will connect. A server that isn't there can be [entered by
+   hand](#a-server-thats-not-in-sshconfig).
 2. **Connection check.** It connects and shows the server's host key fingerprint. Compare
    it with the one on the server, then click **Trust and continue**. The key is pinned from
    then on, and a changed key stops every connection.
@@ -119,6 +121,44 @@ ten busiest processes by CPU, memory and TCP traffic. Its page has five tabs: **
 > [!TIP]
 > `make sandbox` starts a local SSH server with Docker under the alias `sandbox`. It's a
 > safe place to try everything before you point deploy.me at a real machine.
+
+### A server that's not in ~/.ssh/config
+
+**Enter manually** on the first step takes what `ssh -i ~/.ssh/key -p 2222 user@host` would:
+
+| Field | What goes in |
+|---|---|
+| **Name** | How deploy.me shows the server. You can change it later |
+| **Alias** | What ssh and deploy.me call it, like `kz-prod`. It follows the name until you change it, and can't be an alias your `~/.ssh/config` already has |
+| **User**, **Host**, **Port** | The login, a host name or IP address, and the ssh port (22 unless the server says otherwise). Pasting `user@host:port` into Host fills all three |
+| **Key file** | Optional. The private key, as `ssh -i` takes it: `~/.ssh/kz_deploy`, `$HOME/.ssh/kz_deploy` or `/Users/you/.ssh/kz_deploy` are the same file. Left empty, ssh offers the keys your ssh-agent holds |
+| **Jump host** | Optional. A host from your `~/.ssh/config`, or another server entered here, that ssh goes through first (`ProxyJump`) |
+
+**The key has to be inside `~/.ssh`.** That folder is mounted read-only into deploy.me's
+containers, and nothing else of your home folder is, so a key in `~/Downloads` or
+`~/keys` can't be reached. The form says so and gives you the command to copy it in. It also
+checks that the file is there, that its first line is a private key's (a `.pub`, a PuTTY
+`.ppk` or something else is refused, and it says what to do), and that only you can read
+it: ssh ignores a key others can read, so the form names the `chmod 600 ~/.ssh/…` to run.
+Only the path is saved, never the key, and the file is never read past its first line. A key
+with a passphrase works once it's in your ssh-agent (`ssh-add ~/.ssh/kz_deploy`), since
+deploy.me never asks for one.
+
+**Continue** saves the server into deploy.me's own ssh config, not yours: a `Host` block
+with `HostName`, `User`, `Port`, `IdentityFile` and `IdentitiesOnly yes` (only that key is
+offered, so a server doesn't stop listening after the agent's other keys) and `ProxyJump`.
+From there it's checked, trusted and added like any other server, and probes, deploys,
+folder syncs, health checks and `make doctor` reach it by its alias the same way. The host
+key is still trusted on first use, after you compare the fingerprint.
+
+A server entered by hand has an **SSH connection** card on its **Settings** tab
+(`ssh.conf` in the Console theme): change the host, user, port, key or jump host there
+(saving a change asks for your passkey), and **Test connection** connects the way a probe
+would and says what happened: connected in how many milliseconds, the key refused (and why,
+when ssh ignored it), the server unreachable, or a host key to compare and trust after the
+host changed. **Remove server** removes what was entered for it too. One left behind by an
+**Add server** you didn't finish is listed among the hosts with a **Manual** badge, to pick,
+change or forget.
 
 ### Reach a server through a VPN, a proxy or a jump host
 

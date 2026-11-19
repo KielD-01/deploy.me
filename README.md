@@ -35,7 +35,8 @@
 servers over SSH**. You run it on your own machine — macOS, Linux, or Windows with WSL2 —
 at `https://deployme.localhost`.
 
-- Servers come straight from your `~/.ssh/config`.
+- Servers come straight from your `~/.ssh/config`, or are typed in by hand (host, user,
+  port and a key in `~/.ssh`, like `ssh -i`).
 - Projects come from GitHub or from a local folder.
 - Every run is recorded with a live, redacted log.
 - It deploys with releases and an atomic switch, or in place.
@@ -55,7 +56,8 @@ You don't need a PaaS, a cloud control plane or an agent on the server: just `ss
 <td width="50%" valign="top">
 
 ### 🖥️ Servers
-Added from `~/.ssh/config`. Host keys are trusted on first use and pinned after that.
+Added from `~/.ssh/config`, or **entered by hand**: host, user, port and the path to a key
+in `~/.ssh`, the way `ssh -i` takes it. Host keys are trusted on first use and pinned after that.
 Scheduled probes read CPU, load, memory, disks, Docker, Compose stacks and the edge proxy,
 plus the **ten busiest processes** by CPU, memory and TCP traffic, each shown with its
 container. Status updates live over websockets. A server you can't reach directly goes
@@ -230,11 +232,18 @@ The per-OS notes, the two stack modes and troubleshooting are in
 
 Open **https://deployme.localhost**, then:
 
-1. **Servers → Add server.** Pick a host from `~/.ssh/config`, trust its key, choose a
-   deploy path.
+1. **Servers → Add server.** Pick a host from `~/.ssh/config` (or **Enter manually**:
+   host, user, port and a key inside `~/.ssh`), trust its key, choose a deploy path.
 2. **Projects → Import project.** Pick a GitHub repository or a local folder.
 3. **Targets → Assign to server**, then **Prepare**.
 4. **Deploy** 🎉
+
+> [!TIP]
+> A server that isn't in `~/.ssh/config`? **Add server → Enter manually** takes its host,
+> user, port and the path to its key, the way `ssh -i` does. The key has to live inside
+> `~/.ssh`: that's the only part of your home folder deploy.me's containers see (read-only),
+> and only its path is saved. More in the
+> [user guide](docs/usage.md#a-server-thats-not-in-sshconfig).
 
 > [!WARNING]
 > Back up `APP_KEY` from `src/api/.env`. Stored tokens and env files are encrypted with it.
